@@ -71,7 +71,7 @@ def t_STRING_LITERAL(t):
 #careful here: | is not greedy so hex must come first
 t_INT_LITERAL = r'-?(?:0[xX][0-9a-fA-F]+|[0-9]+)' 
 t_LONG_LITERAL = t_INT_LITERAL + r'[lL]'
-t_DOUBLE_LITERAL = r'(?:NaN|[-+]?(?:Inf|\d+\.\d+(?:[eE]-?\d+)?|0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP]-?[0-9]+))'
+t_DOUBLE_LITERAL = r'(?:NaN|[-+]?(?:Inf|\d+\.\d+(?:[eE]-?\d+)?|0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP]-?\d+))'
 t_FLOAT_LITERAL = t_DOUBLE_LITERAL + r'[fF]'
 
 t_COLON = r':'

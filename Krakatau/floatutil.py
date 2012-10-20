@@ -3,7 +3,7 @@ INF_MAG = 1, None
 ZERO_MAG = 0, None
 
 #numbers represented as (sign, (mantissa, exponent))
-NAN = None,None,None
+NAN = None,(None,None)
 INF = 1,INF_MAG
 NINF = -1,INF_MAG
 ZERO = 1,ZERO_MAG

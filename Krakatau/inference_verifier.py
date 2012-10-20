@@ -62,7 +62,7 @@ def parseMethodDescriptor(desc_str, unsynthesize=True):
         rval = parseFieldDescriptor(rval, unsynthesize)
     return args, rval
 
-#Adds self argument for nonstatic. Cosntructors must be handled seperately
+#Adds self argument for nonstatic. Constructors must be handled seperately
 def parseUnboundMethodDescriptor(desc_str, target, isstatic):
     args, rval = parseMethodDescriptor(desc_str)
     if not isstatic:

@@ -1,0 +1,10 @@
+(S'floattest'
+p1
+(lp2
+((lp3
+(S'1.0\r\ntrue\r\n2.7182817459106445\r\n2.7182818459\r\n'
+S''
+tp4
+tp5
+atp6
+.

@@ -203,7 +203,7 @@ class MethodDecompiler(object):
             assert(child not in phidict) #we assume that parallel edges were removed earlier
             assignments = phidict[child]
             for phi in child.phis:
-                oldvar = phi.odict.get((block,False), phi.odict.get((block,True)))
+                oldvar = phi.odict.get((block,False)) or phi.odict.get((block,True)) #if first is none, get second
                 newvar = phi.rval
 
                 if oldvar.type == ssa_types.SSA_MONAD or (oldvar.origin and oldvar == oldvar.origin.outException):
@@ -394,9 +394,11 @@ class MethodDecompiler(object):
             #if true block is empty, swap it with false so we can remove it
             tblock, fblock = item.scopes
             if not tblock.statements and tblock.jump == None:
+            # if not tblock.statements and tblock.jump == (item, False):
                 item.expr = self._reverseBoolExpr(item.expr)
                 item.scopes = fblock, tblock
             if not item.scopes[-1].statements and item.scopes[-1].jump == None:
+            # if not item.scopes[-1].statements and item.scopes[-1].jump == (item, False):
                 item.scopes = item.scopes[:-1]
         return item
 
@@ -427,7 +429,22 @@ class MethodDecompiler(object):
         scope.statements = newitems        
 
     def _inlineTryBeginning(self, root):
+        '''Inline simple assignments at the beginning of a tryblock into the surrounding scope.
+        This is a workaround for the problem of definite assignment inside try blocks'''
         info = findVarDeclInfo(root, [])
+
+        def inlineLeaf(tryscope):
+            for i, stmt in enumerate(tryscope.statements):
+                if isinstance(stmt, ast.ExpressionStatement):
+                    if isinstance(stmt.expr, ast.Assignment):
+                        left, right = stmt.expr.params
+                        if isinstance(right, (ast.Local, ast.Literal)):
+                            if isinstance(left, ast.Local) and info[left].scope != tryscope:
+                                continue 
+                break 
+            newitems = tryscope.statements[:i]
+            tryscope.statements = tryscope.statements[i:]
+            return newitems
 
         def inlineSub(scope):
             newitems = []
@@ -437,16 +454,7 @@ class MethodDecompiler(object):
 
                 if isinstance(item, ast.TryStatement):
                     tryscope = item.getScopes()[0]
-                    for i, stmt in enumerate(tryscope.statements):
-                        if isinstance(stmt, ast.ExpressionStatement):
-                            if isinstance(stmt.expr, ast.Assignment):
-                                left, right = stmt.expr.params
-                                if isinstance(right, (ast.Local, ast.Literal)):
-                                    if isinstance(left, ast.Local) and info[left].scope != tryscope:
-                                        continue 
-                        break 
-                    newitems.extend(tryscope.statements[:i])
-                    tryscope.statements = tryscope.statements[i:]
+                    newitems.extend(inlineLeaf(tryscope))
                 newitems.append(item)
             scope.statements = newitems    
         inlineSub(root)
@@ -558,21 +566,34 @@ class MethodDecompiler(object):
         for scope, ldefs in localdefs.items():
             scope.statements = ldefs + scope.statements
 
-    def _labelReduction(self, scope, breakTarget, continueTarget):
-        '''Make breaks and continues unlabeled where possible. Must be called after all code motion and scope pruning'''
-        for item in scope.statements:
-            newbreak = item if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)) else breakTarget
-            newcontinue = item if isinstance(item, ast.WhileStatement) else continueTarget
-            
-            for subscope in item.getScopes():
-                self._labelReduction(subscope, newbreak, newcontinue)
-
-        #Quick hack
+    def _jumpReduction(self, scope, breakTarget, continueTarget, fallthroughs):
+        '''Make breaks and continues unlabeled or remove them where possible. Must be called after all code motion and scope pruning'''
+        fallthroughs = fallthroughs + ((scope, False),)
+        orig_jump = scope.jump
         if scope.jump is not None:
             target = scope.jump[0]
             other = continueTarget if scope.jump[1] else breakTarget
-            if target == other:
-                scope.jump = None, scope.jump[1]           
+            #at this point, assign to jump directly rather than use setBreak
+            if scope.jump in fallthroughs:
+                scope.jump = None
+            elif target == other:
+                scope.jump = (None, scope.jump[1])
+
+        for item in scope.statements:
+            newbreak = item if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)) else breakTarget
+            newcontinue = item if isinstance(item, ast.WhileStatement) else continueTarget
+
+            if scope.jump is not None:
+                newft = orig_jump,
+            else:
+                newft = fallthroughs if item is scope.statements[-1] else ()
+                if isinstance(item, (ast.TryStatement, ast.IfStatement)):
+                    newft += (item, False),
+                elif isinstance(item, ast.WhileStatement):
+                    newft += (item, True),
+
+            for subscope in item.getScopes():
+                self._jumpReduction(subscope, newbreak, newcontinue, newft)
 
     def _fixExprStatements(self, scope):
         newitems = []
@@ -751,7 +772,7 @@ class MethodDecompiler(object):
             # self._createTernaries(ast_root)
             # self._simplifyBlocks(ast_root)
 
-            self._labelReduction(ast_root, None, None)
+            self._jumpReduction(ast_root, None, None, ())
             self._pruneVoidReturn(ast_root)
         else: #abstract or native method
             ast_root = None

@@ -150,14 +150,13 @@ class WhileStatement(LazyLabelBase):
         parts = [x.print_() for x in self.parts]
         return '{}while(true)\n{}'.format(self.getLabelPrefix(), *parts)
 
-sbcount = itertools.count()
-
+# sbcount = itertools.count()
 class StatementBlock(LazyLabelBase):
     def __init__(self, labelfunc):
         super(StatementBlock, self).__init__(labelfunc)
         self.jump = None
         self.parent = None #should be assigned later
-        self.id = next(sbcount)
+        # self.id = next(sbcount)
 
     def setBreak(self, val):
         if self.jump is not None:
@@ -165,8 +164,6 @@ class StatementBlock(LazyLabelBase):
         self.jump = val
         if self.jump is not None:
             self.jump[0].sources[self.jump[1]].append(self)
-
-    def allStatements(self): return self.statements + [self.jump] if self.jump is not None else self.statements
 
     def getScopes(self): return self,
 
@@ -189,7 +186,7 @@ class StatementBlock(LazyLabelBase):
         common = [x for x in zip(*blists) if len(set(x)) == 1]
         return common[-1][0]
 
-    def __str__(self): return 'Sb'+str(self.id)
+    # def __str__(self): return 'Sb'+str(self.id)
 
 #Temporary hack
 class StringStatement(JavaStatement):

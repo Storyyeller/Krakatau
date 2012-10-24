@@ -154,7 +154,7 @@ def findVarDeclInfo(root, predeclared):
                 visit(scope, param)
 
     def visitDeclExpr(scope, expr): 
-        info[expr] = info.get(expr, DeclInfo())
+        info.setdefault(expr, DeclInfo())
         assert(scope is not None and info[expr].declScope is None)
         info[expr].declScope = scope 
 

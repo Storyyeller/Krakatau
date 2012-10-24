@@ -136,7 +136,7 @@ class DeclInfo(object):
         self.declScope = self.scope = None 
         self.defs = []
 
-def findVarDeclInfo(root, decls):
+def findVarDeclInfo(root, predeclared):
     info = collections.OrderedDict()
     def visit(scope, expr):
         if isinstance(expr, ast.Assignment):
@@ -146,20 +146,20 @@ def findVarDeclInfo(root, decls):
             if isinstance(left, ast.Local):
                 info[left].defs.append(right)
         elif isinstance(expr, (ast.Local, ast.Literal)):
-            info[expr] = info.get(expr, DeclInfo())
+            #this would be so much nicer if we had Ordered defaultdicts
+            info.setdefault(expr, DeclInfo())
             info[expr].scope = ast.StatementBlock.join(info[expr].scope, scope)
         elif hasattr(expr, 'params'): #temp hack
             for param in expr.params:
                 visit(scope, param)
 
-    def visitDecl(scope, decl):
-        expr = decl.local 
+    def visitDeclExpr(scope, expr): 
         info[expr] = info.get(expr, DeclInfo())
         assert(scope is not None and info[expr].declScope is None)
         info[expr].declScope = scope 
 
-    for decl in decls:
-        visitDecl(root, decl)
+    for expr in predeclared:
+        visitDeclExpr(root, expr)
 
     stack = [(root,root)]
     while stack:
@@ -172,7 +172,7 @@ def findVarDeclInfo(root, decls):
             if getattr(stmt, 'expr', None) is not None:
                 visit(scope, stmt.expr)
             if isinstance(stmt, ast.TryStatement):
-                visitDecl(stmt.parts[2], stmt.parts[1])
+                visitDeclExpr(stmt.parts[2], stmt.parts[1].local)
     return info
 
 class MethodDecompiler(object):
@@ -482,8 +482,8 @@ class MethodDecompiler(object):
                 newcontents.append(item) 
         scope.statements = newcontents
 
-    def _mergeVariables(self, root, argumentDecls):
-        info = findVarDeclInfo(root, argumentDecls)
+    def _mergeVariables(self, root, predeclared):
+        info = findVarDeclInfo(root, predeclared)
 
         lvars = [expr for expr in info if isinstance(expr, ast.Local)]
         forbidden = set()
@@ -521,8 +521,8 @@ class MethodDecompiler(object):
                     forbidden.add(var)
         self._replaceExpressions(root, varmap)
 
-    def _createDeclarations(self, root, argumentDecls):
-        info = findVarDeclInfo(root, argumentDecls)
+    def _createDeclarations(self, root, predeclared):
+        info = findVarDeclInfo(root, predeclared)
         localdefs = collections.defaultdict(list)
         newvars = [var for var in info if isinstance(var, ast.Local) and info[var].declScope is None]
         remaining = set(newvars)
@@ -740,12 +740,12 @@ class MethodDecompiler(object):
             self._fixObjectCreations(ast_root)
 
             self._setScopeParents(ast_root)
-            self._mergeVariables(ast_root, decls)
+            self._mergeVariables(ast_root, argsources)
             self._createTernaries(ast_root)
             self._simplifyBlocks(ast_root)
 
             self._setScopeParents(ast_root)
-            self._createDeclarations(ast_root, decls)
+            self._createDeclarations(ast_root, argsources)
             self._fixExprStatements(ast_root)
             self._addCasts(ast_root)
             # self._createTernaries(ast_root)

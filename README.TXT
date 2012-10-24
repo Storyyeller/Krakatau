@@ -44,7 +44,7 @@ Note: decompilation produces a file called "cache.txt" in the current
 === Assembly ===
 
 Usage: 
-python Krakatau\assemble.py [-d DIR] [-out OUT] [-g] target
+python Krakatau\assemble.py [-d DIR] [-out OUT] [-g] [-jas] target
 
 DIR : A directory to put all generated classes in. Defaults to the current
 	directory.
@@ -58,19 +58,19 @@ OUT : The filename or path to output the generated class to. If not given,
 	exceptions, as it will let the JVM print the origin of the exception
 	in the traceback.
 
-target : Name of file to assemble
+-jas : Enables Jasmin compatibility mode. Specifying 'all' as the exception
+	handler type will implicitly catch all exceptions rather than catching a
+	class named all. Also, the ACC_SUPER flag is added to classes even if not
+	specified. Most other Jasmin syntax will work even without this flag.  
 
+target : Name of file to assemble
 
 The Krakatau assembler is intended as a replacement for Jasmin, and was 
 originally written due to frustration with the limitations of Jasmin. Its 
 syntax is mostly backwards compatible, but it also offers a host of new
-features. 
+features. Currently, the only Jasmin features not supported are the various attribute directives such as .source, but these are just optional metadata anyway.
 
-There only two major changes necessary to convert from Jasmin. First, 'all'
-needs to be replaced with '[0]' in exception handlers. Second, Krakatau
-does not add the 'super' flag to classes automatically, so you must 
-specify it manually if you wish your class to use new style superclass
-calling semantics (you probably do).
+A tutorial on writing Java Bytecode Assembly with Krakatau is available at https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
 
 The assembler uses PLY, which will generate a file called "parsetab.py" in
 the current directory.

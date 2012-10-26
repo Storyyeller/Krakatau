@@ -56,19 +56,24 @@ OUT : The filename or path to output the generated class to. If not given,
 -g : If specified, SourceFile and LineNumberTable attributes giving the 
 	offset of every instruction will be added. This is useful for debugging
 	exceptions, as it will let the JVM print the origin of the exception
-	in the traceback.
+	in the traceback. If these attributes are already specified manually,
+	they will not be overridden.
 
 -jas : Enables Jasmin compatibility mode. Specifying 'all' as the exception
 	handler type will implicitly catch all exceptions rather than catching a
-	class named all. Also, the ACC_SUPER flag is added to classes even if not
-	specified. Most other Jasmin syntax will work even without this flag.  
+	class named all. The ACC_SUPER flag is added to classes even if not
+	specified. A SourceFile attribute based on the filename is added if no
+	SourceFile attribute is specified. The classfile version defaults to 
+	45.3 instead of 49.0. 
 
 target : Name of file to assemble
 
 The Krakatau assembler is intended as a replacement for Jasmin, and was 
-originally written due to frustration with the limitations of Jasmin. Its 
-syntax is mostly backwards compatible, but it also offers a host of new
-features. Currently, the only Jasmin features not supported are the various attribute directives such as .source, but these are just optional metadata anyway.
+originally written due to frustration with the limitations of Jasmin. It is
+backwards compatible with Jasmin, but it also offers a host of new features,
+as well as simplifying the syntax. Note that for full compatibility, some 
+Jasmin quirks require the -jas flag to be enabled, but most Jasmin syntax 
+will work even without it.
 
 A tutorial on writing Java Bytecode Assembly with Krakatau is available at https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
 

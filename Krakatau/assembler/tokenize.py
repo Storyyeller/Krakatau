@@ -8,8 +8,8 @@ from .. import constant_pool
 
 from . import instructions as ins
 
-directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH'
-keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT']
+directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS'
+keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
 
 words = keywords + flags + constant_pool.name2Type.keys()

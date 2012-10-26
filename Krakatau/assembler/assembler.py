@@ -131,43 +131,73 @@ def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
     if not statements:
         return None
     directives = [x[1] for x in statements if x[0] == 'dir']
-    lines = [x[1:] for x in statements if x[0] == 'ins']
+    lines = [x[1] for x in statements if x[0] == 'ins']
 
     offsets = []
-
+    linestarts = []
     labels = {}
     pos = 0
-    for lbl, instr in lines:
-        labels[lbl] = pos
-        if instr is not None:
-            offsets.append(pos)
-            pos += getInstrLen(instr, pos)
+    #first run through to calculate bytecode offsets
+    #this is greatly complicated due to the need to
+    #handle Jasmine line number directives
+    for t, statement in statements:
+        if t=='ins':
+            lbl, instr = statement
+            labels[lbl] = pos
+            if instr is not None:
+                offsets.append(pos)
+                pos += getInstrLen(instr, pos)
+        elif t == 'dir' and statement[0] == 'line':
+            lnum = statement[1]
+            linestarts.append((lnum,pos))
+    code_len = pos
 
     code_bytes = ''
     for lbl, instr in lines:
         if instr is not None:
             code_bytes += assembleInstruction(instr, labels, len(code_bytes), pool)
+    assert(len(code_bytes) == code_len)
 
-    stack = locals_ = 65535
+    directive_dict = collections.defaultdict(list)
+    for t, val in directives:
+        directive_dict[t].append(val)
+
+    stack = min(directive_dict['stack'] + [65535]) 
+    locals_ = min(directive_dict['locals'] + [65535]) 
+
     excepts = []
-    for d in directives:
-        if d[0] == 'catch':
-            name, start, end, target = d[1:]
-            #Hack for compatibility with Jasmin
-            if jasmode and name.args and (name.args[1].args == ('Utf8','all')):
-                name.index = 0
-            vals = labels[start], labels[end], labels[target], name.toIndex(pool)
-            excepts.append(struct.pack('>HHHH',*vals))
-        elif d[0] == 'stack':
-            stack = min(stack, d[1])
-        elif d[0] == 'locals':
-            locals_ = min(locals_, d[1])
-
+    for name, start, end, target in directive_dict['catch']:
+        #Hack for compatibility with Jasmin
+        if jasmode and name.args and (name.args[1].args == ('Utf8','all')):
+            name.index = 0
+        vals = labels[start], labels[end], labels[target], name.toIndex(pool)
+        excepts.append(struct.pack('>HHHH',*vals))
+    
     attributes = []
-    if addLineNumbers:
-        lntable = [struct.pack('>HH',x,x) for x in offsets]
+
+    #line number attribute
+    if addLineNumbers and not linestarts:
+        linestarts = [(x,x) for x in offsets]
+    if linestarts:
+        lntable = [struct.pack('>HH',x,y) for x,y in linestarts]
         ln_attr = struct.pack('>HIH', pool.Utf8("LineNumberTable"), 2+4*len(lntable), len(lntable)) + ''.join(lntable)        
         attributes.append(ln_attr)
+
+    if directive_dict['var']:
+        sfunc = Struct('>HHHHH').pack
+        vartable = []
+        for index, name, desc, start, end in directive_dict['var']:
+            start, end = labels[start], labels[end]
+            name, desc = name.toIndex(pool), desc.toIndex(pool)
+            vartable.append(sfunc(start, end-start, name, desc, index))
+        var_attr = struct.pack('>HIH', pool.Utf8("LocalVariableTable"), 2+10*len(vartable), len(vartable)) + ''.join(vartable)        
+        attributes.append(var_attr)
+
+    method_attributes = []
+    if directive_dict['throws']:
+        t_inds = [x.toIndex(pool) for x in directive_dict['throws']]
+        throw_attr = struct.pack('>HIH', pool.Utf8("Exceptions"), 2+2*len(t_inds), len(t_inds)) + ''.join(t_inds)        
+        method_attributes = [throw_attr]
 
     name_ind = pool.Utf8("Code")
     attr_len = 12 + len(code_bytes) + 8*len(excepts) + sum(map(len, attributes))
@@ -176,11 +206,11 @@ def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
     assembled_bytes += code_bytes
     assembled_bytes += struct.pack('>H', len(excepts)) + ''.join(excepts)
     assembled_bytes += struct.pack('>H', len(attributes)) + ''.join(attributes)
-    return assembled_bytes
+    return assembled_bytes, method_attributes
 
-def assemble(tree, addLineNumbers=False, jasmode=False):
+def assemble(tree, addLineNumbers, jasmode, filename):
     pool = PoolInfo()
-    classdec, superdec, interface_decs, topitems = tree
+    sourcefile, classdec, superdec, interface_decs, topitems = tree
     #scan topitems, plus statements in each method to get cpool directives
 
     interfaces = []
@@ -222,14 +252,20 @@ def assemble(tree, addLineNumbers=False, jasmode=False):
         flagbits = map(Method.flagVals.get, mflags)
         flagbits = reduce(operator.__or__, flagbits, 0)
 
-        code = assembleCodeAttr(statements, pool, addLineNumbers, jasmode)
-        mattrs = [code] if code is not None else []        
+        #method attributes processed inside assemble Code since it's easier there
+        code_attr, mattrs = assembleCodeAttr(statements, pool, addLineNumbers, jasmode)
+        if code_attr is not None:
+            mattrs.append(code_attr)
 
         method_code = struct.pack('>HHHH', flagbits, name, desc, len(mattrs)) + ''.join(mattrs)
         methods.append(method_code)
 
-    if addLineNumbers:
-        sourceattr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, pool.Utf8("SourceFile"))
+    if jasmode and not sourcefile:
+        sourcefile = filename
+    elif addLineNumbers and not sourcefile:
+        sourcefile = "SourceFile"
+    if sourcefile:
+        sourceattr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, pool.Utf8(sourcefile))
         attributes.append(sourceattr)
 
     interfaces = [x.toIndex(pool) for x in interface_decs]
@@ -246,7 +282,8 @@ def assemble(tree, addLineNumbers=False, jasmode=False):
     this = this.toIndex(pool)
     super_ = superdec.toIndex(pool)
 
-    class_code = '\xCA\xFE\xBA\xBE' + struct.pack('>HH', 0, 49)
+    major, minor = (45,3) if jasmode else (49,0)
+    class_code = '\xCA\xFE\xBA\xBE' + struct.pack('>HH', minor, major)
     class_code += pool.pool.bytes()
     class_code += struct.pack('>HHH', flagbits, this, super_)
     for stuff in (interfaces, fields, methods, attributes):

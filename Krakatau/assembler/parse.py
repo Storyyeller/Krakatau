@@ -12,7 +12,7 @@ from .assembler import PoolRef
 
 ###############################################################################
 def p_top(p):
-    '''top : sep classdec superdec interfacedecs topitems'''
+    '''top : sep sourcedir_opt classdec superdec interfacedecs topitems'''
     p[0] = tuple(p[2:])
 
 name_counter = itertools.count()
@@ -116,6 +116,11 @@ for c, type_ in zip('cmf', (ClassFile, Method, Field)):
     addRule(upper1, name, *list(type_.flagVals))
     list_rule(name)
 
+
+#optional Jasmin source directive
+addRule(assign2, 'sourcedir_opt', 'DSOURCE GENERIC sep')
+addRule(assign1, 'sourcedir_opt', 'empty')
+
 def p_classdec(p):
     '''classdec : DCLASS cflags classref sep 
                 | DINTERFACE cflags classref sep'''
@@ -205,7 +210,7 @@ def p_statement_1(p):
     '''statement : empty instruction sep 
                 | lbldec instruction sep
                 | lbldec sep'''
-    p[0] = 'ins', (p[1] or None), p[2]
+    p[0] = 'ins', ((p[1] or None), p[2])
 list_rule('statement')
 
 def p_lbldec(p):
@@ -214,7 +219,10 @@ def p_lbldec(p):
 
 def p_method_directive(p):
     '''method_directive : limit_dir 
-                        | except_dir'''
+                        | except_dir
+                        | localvar_dir
+                        | linenumber_dir
+                        | throws_dir'''
     p[0] = p[1]
 
 def p_limit_dir(p):
@@ -224,7 +232,19 @@ def p_limit_dir(p):
 
 def p_except_dir(p):
     '''except_dir : DCATCH classref FROM lbl TO lbl USING lbl'''
-    p[0] = 'catch', p[2], p[4], p[6], p[8]
+    p[0] = 'catch', (p[2], p[4], p[6], p[8])
+
+def p_throws_dir(p):
+    '''throws_dir : DTHROWS classref'''
+    p[0] = 'throws', p[2]
+
+def p_linenumber_dir(p):
+    '''linenumber_dir : DLINE intl'''
+    p[0] = 'line', p[2]
+
+def p_localvar_dir(p):
+    '''localvar_dir : DVAR intl IS utf8ref utf8ref FROM lbl TO lbl'''
+    p[0] = 'var', p[2], p[4], p[5], p[7], p[9]
 
 def p_instruction(p):
     '''instruction : OP_NONE

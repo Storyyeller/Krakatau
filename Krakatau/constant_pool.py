@@ -1,7 +1,15 @@
 from __future__ import division
 import struct, collections
-import types
-##import clipboard
+
+identity = lambda x:x
+
+def decodeStr((s,)):
+    return s.replace('\xc0\x80','\0').decode('utf8'),
+def encodeStr((u,)):
+    return u.encode('utf8').replace('\0','\xc0\x80'),
+def strToBytes(args):
+    s = encodeStr(args)[0]
+    return struct.pack('>H',len(s)) + s
 
 def trim(x, bits):
     m = 1<<bits
@@ -11,56 +19,67 @@ def trim(x, bits):
     return x
 
 cpoolInfo_t = collections.namedtuple('cpoolInfo_t',
-                                     ['name','tag','fromArgs','recoverArgs','toBytes'])
+                                     ['name','tag','fromArgs','recoverArgs','fromRaw','toBytes'])
 
 Utf8 = cpoolInfo_t('Utf8',1,
                   (lambda self,s:(s,)),
                   (lambda self,(s,):(s,)),
-                  (lambda (s,): struct.pack('>H',len(s)) + s))
+                  decodeStr,
+                  strToBytes)
 
 Class = cpoolInfo_t('Class',7,
                     (lambda self,name:(self.Utf8(name),)),
                     (lambda self,(n_id,):self.getArgs(n_id)),
+                    identity,
                     (lambda (n_id,): struct.pack('>H',n_id)))
 
 NameAndType = cpoolInfo_t('NameAndType',12,
                 (lambda self,name,desc:(self.Utf8(name),self.Utf8(desc))),
                 (lambda self,(n,d):self.getArgs(n) + self.getArgs(d)),
+                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 Field = cpoolInfo_t('Field',9,
                 (lambda self,cls,name,desc:(self.Class(cls),self.NameAndType(name,desc))),
                 (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
+                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 Method = cpoolInfo_t('Method',10,
                 (lambda self,cls,name,desc:(self.Class(cls),self.NameAndType(name,desc))),
                 (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
+                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 InterfaceMethod = cpoolInfo_t('InterfaceMethod',11,
                 (lambda self,cls,name,desc:(self.Class(cls),self.NameAndType(name,desc))),
                 (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
+                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 String = cpoolInfo_t('String',8,(lambda self,name:(self.Utf8(name),)),
                 (lambda self,(n_id,):self.getArgs(n_id)),
+                identity,
                 (lambda (n_id,): struct.pack('>H',n_id)))
 
 Int = cpoolInfo_t('Int',3,(lambda self,val:(trim(val,32),)),
                   (lambda self,(s,):(s,)),
+                  identity,
                   (lambda (val,): struct.pack('>i',val)))
 
 Long = cpoolInfo_t('Long',5,(lambda self,val:(trim(val,64),)),
                   (lambda self,(s,):(s,)),
+                  identity,
                   (lambda (val,): struct.pack('>q',val)))
 
 Float = cpoolInfo_t('Float',4,(lambda self,val:(val,)),
                   (lambda self,(s,):(s,)),
+                  identity,
                   (lambda (val,): struct.pack('>f',val)))
 
 Double = cpoolInfo_t('Double',6,(lambda self,val:(val,)),
                   (lambda self,(s,):(s,)),
+                  identity,
                   (lambda (val,): struct.pack('>d',val)))
 
 cpoolTypes = [Utf8, Class, NameAndType, Field, Method, InterfaceMethod,
@@ -68,47 +87,25 @@ cpoolTypes = [Utf8, Class, NameAndType, Field, Method, InterfaceMethod,
 name2Type = {t.name:t for t in cpoolTypes}
 tag2Type = {t.tag:t for t in cpoolTypes}
 
-
 class ConstPool(object):
     def __init__(self, initialData = [(None,None)]):
         self.pool = []
-        self.reverseLookup = None
 
         for tag, val in initialData:
             if tag is None:
                 self.addItem(None, None)
             else:
                 t = tag2Type[tag]
-                self.addItem(t.name, val)
+                self.addItem(t.name, t.fromRaw(val))
 
     def getPoolIter(self):
         return (x for x in self.pool if x[0] is not None)
     def getEnumeratePoolIter(self):
         return ((i,x) for i,x in enumerate(self.pool) if x[0] is not None)
 
-    def getReverseLookup(self,typen):
-        if self.reverseLookup is None:
-            self.reverseLookup = collections.defaultdict(dict)
-            for i,(name,val) in self.getEnumeratePoolIter():
-                t = name2Type[name]
-                d = self.reverseLookup[name]
-                args = t.recoverArgs(self, val)
-                d[args] = i
-        return self.reverseLookup[typen]
-
     def addItem(self, name, val):
         self.pool.append((name, val))
         return len(self.pool)-1
-
-    def getItem(self, typen, args):
-        d = self.getReverseLookup(typen)
-        func = name2Type[typen].fromArgs
-        try:
-            return d[args]
-        except KeyError:
-            i = self.addItem(typen, func(self, *args))
-            d[args] = i
-            return i
 
     def getArgs(self, i):
         if not (i >= 0 and i<len(self.pool)):
@@ -119,20 +116,6 @@ class ConstPool(object):
         name, val = self.pool[i]
         t = name2Type[name]
         return t.recoverArgs(self, val)
-
-    def Utf8(self, *args): return self.getItem('Utf8', args)
-    def Class(self, *args): return self.getItem('Class', args)
-    def NameAndType(self, *args): return self.getItem('NameAndType', args)
-    def Field(self, *args): return self.getItem('Field', args)
-    def Method(self, *args): return self.getItem('Method', args)
-    def InterfaceMethod(self, *args): return self.getItem('InterfaceMethod', args)
-    def String(self, *args): return self.getItem('String', args)
-    def Int(self, *args): return self.getItem('Int', args)
-
-    def Long(self, *args):
-        i = self.getItem('Long', args)
-        self.addItem(None, None)
-        return i
 
     # Special function for assembler
     def getItemRaw(self, item):
@@ -155,20 +138,6 @@ class ConstPool(object):
 
     def getType(self, index): return self.pool[index][0]
 
-    def __str__(self, maxlen=79):
-        def printLn(args):
-            i,(name,val) = args
-            if name == 'Utf8':
-                s = val[0].encode('unicode_escape')
-                return '{}: "{}"'.format(i, s)
-            elif len(val) == 1:
-                return '{}: {}({})'.format(i, name, val[0])
-            else:
-                return '{}: {}{}'.format(i, name, val)
-
-        lines = [printLn(pair)[:maxlen] for pair in self.getEnumeratePoolIter()]
-        return '\n'.join(lines)
-
     def bytes(self):
         parts = []
         pool = self.pool
@@ -182,6 +151,16 @@ class ConstPool(object):
             parts.append(t.toBytes(vals))
         return ''.join(parts)
 
-    def hex(self):
-        b = self.bytes()
-        return ''.join(["{0:02X}".format(ord(c)) for c in b])
+    def __str__(self, maxlen=79):
+        def printLn(args):
+            i,(name,val) = args
+            if name == 'Utf8':
+                s = val[0].encode('unicode_escape')
+                return '{}: "{}"'.format(i, s)
+            elif len(val) == 1:
+                return '{}: {}({})'.format(i, name, val[0])
+            else:
+                return '{}: {}{}'.format(i, name, val)
+
+        lines = [printLn(pair)[:maxlen] for pair in self.getEnumeratePoolIter()]
+        return '\n'.join(lines)

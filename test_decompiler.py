@@ -71,5 +71,4 @@ if __name__ == "__main__":
             print 'Failed!!!'
 
     print '\n'.join(map(str, results.items()))
-    if all(results.values()):
-        print 'All tests passed'
+    print '{}/{} tests passed'.format(sum(results.values()), len(results))

@@ -1,0 +1,10 @@
+(S'UnicodeTest'
+p1
+(lp2
+(S''
+(S'\x00\x0fu\\"\x0cf\'\rr\'\nn ??O?F\r\n'
+S''
+tp3
+tp4
+atp5
+.

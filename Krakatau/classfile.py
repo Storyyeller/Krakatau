@@ -1,12 +1,7 @@
 from __future__ import division
-import struct, collections
+import collections
 
 import binUnpacker, constant_pool, method, field
-
-#float stuff ###################
-def makeFloat(x): return x
-def makeDouble(x): return x
-################################
 
 cp_structFmts = {3: '>i',
                 4: '>f',

@@ -1,6 +1,5 @@
 from __future__ import division
-import struct, collections
-import types
+import collections
 
 import binUnpacker
 import bytecode

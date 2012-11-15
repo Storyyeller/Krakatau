@@ -86,6 +86,7 @@ class SSAPrinter(object):
                 return
             else:
                 rhs_expr = 'phi({})'.format(right)
+                # rhs_expr += '\t' + ', '.join(self.printLabel(k[0])[6:] for k in op.odict)
         elif isinstance(op, ssa_ops.ArrLength):
             rhs_expr = '{}.length'.format(params[0])
         elif isinstance(op, ssa_ops.ArrLoad):

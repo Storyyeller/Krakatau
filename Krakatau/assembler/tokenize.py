@@ -89,9 +89,8 @@ def t_STRING_LITERAL(t):
     return t
 
 #careful here: | is not greedy so hex must come first
-t_INT_LITERAL = r'-?(?:0[xX][0-9a-fA-F]+|[0-9]+)' 
-t_LONG_LITERAL = t_INT_LITERAL + r'[lL]'
-t_DOUBLE_LITERAL = r'''(?:
+int_base = r'-?(?:0[xX][0-9a-fA-F]+|[0-9]+)'
+float_base = r'''(?:
     [Nn][Aa][Nn]|                                       #Nan
     [-+]?(?:                                            #Inf and normal both use sign
         [Ii][Nn][Ff]|                                   #Inf
@@ -100,12 +99,16 @@ t_DOUBLE_LITERAL = r'''(?:
         )
     )
 '''
-t_FLOAT_LITERAL = t_DOUBLE_LITERAL + r'[fF]'
+
+t_INT_LITERAL = int_base
+t_LONG_LITERAL = int_base + r'[lL]'
+t_DOUBLE_LITERAL = float_base
+t_FLOAT_LITERAL = float_base + r'[fF]'
 
 t_COLON = r':'
 t_EQUALS = r'='
 t_CPINDEX = r'\[[0-9a-z_]+\]'
-t_WORD = r'[^\s:="]+'
+t_WORD = r'''[^\s:="']+'''
 t_ignore = ' \t\r'
 
 def t_error(t):

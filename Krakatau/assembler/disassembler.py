@@ -9,13 +9,29 @@ from ..method import Method
 from ..field import Field
 from ..binUnpacker import binUnpacker
 
+not_word_regex = '(?:{}|{}|{}|;)'.format(tokenize.int_base, tokenize.float_base, tokenize.t_CPINDEX)
+not_word_regex = re.compile(not_word_regex, re.VERBOSE)
+is_word_regex = re.compile(tokenize.t_WORD+'$')
+
 def isWord(s):
-    return s not in tokenize.wordget and re.match(tokenize.T_WORD+'$', s) is not None
+    if s in tokenize.wordget or (not_word_regex.match(s) is not None):
+        return False
+    return (is_word_regex.match(s) is not None) and min(s) > ' ' #eliminate unprintable characters below 32
 
 class PoolManager(object):
     def __init__(self, pool):
-        self.pool = pool
+        self.pool = pool.pool
         self.used = set()
+
+    def rstring(self, s, allowWord=True):
+        if allowWord and isWord(s):
+            return s
+        try:
+            if s.encode('ascii') == s:
+                return repr(str(s))
+        except UnicodeDecodeError as e:
+            pass 
+        return repr(s)
 
     def ref(self, ind):
         self.used.add(ind)
@@ -23,7 +39,7 @@ class PoolManager(object):
 
     def utfref(self, ind, allowRef=True):    
         arg = self.pool[ind][1][0]
-        rstr = arg if isWord(arg) else repr(arg)
+        rstr = self.rstring(arg)
         if len(rstr) <= 50:
             return rstr
         if allowRef:
@@ -37,26 +53,58 @@ class PoolManager(object):
         inline = self.utfref(uind, False) 
         return inline if inline is not None else self.ref(ind)
 
-    # def fmimref(self, ind):
+    def multiref(self, ind):
+        typen, args = self.pool[ind]
+        if typen == "Utf8":
+            return self.utfref(ind)
+        elif typen == "Class":
+            return self.classref(ind)
+        return ' '.join(map(self.multiref, args))
+
     def ldc(self, ind):
         typen, args = self.pool[ind]
         arg = args[0]
-        rstr = repr(arg)
 
         if typen == 'String':
+            arg = self.pool[arg][1][0]
+            rstr = self.rstring(arg, allowWord=False)
             return rstr if len(rstr) <= 50 else self.ref(ind)
         elif typen == 'Class':
             return self.ref(ind)
         else:
-            rstr = rstr.rstrip("Ll")
+            rstr = repr(arg).rstrip("Ll")
             if typen == "Float" or typen == "Long":
                 rstr += typen[0]
             return rstr
 
+    def printConstDefs(self, add):
+        defs = {}
+
+        while self.used:
+            temp, self.used = self.used, set()
+            for ind in temp:
+                if ind in defs:
+                    continue
+
+                typen, args = self.pool[ind]
+                if typen in ('Int','Float','Long','Double'):
+                    defs[ind] = self.ldc(ind)
+                elif typen in ('Class','String'):
+                    uind = self.pool[ind][1][0]
+                    defs[ind] = self.utfref(uind)
+                elif typen == 'Utf8':
+                    #can't have a ref here
+                    arg = self.pool[ind][1][0]
+                    defs[ind] = self.rstring(arg)
+                else:
+                    defs[ind] = self.multiref(ind)
+
+        for ind in sorted(defs):
+            add('.const [_{}] = {} {}'.format(ind, self.pool[ind][0].lower(), defs[ind]))
+
+
 fmt_lookup = {k:v.format for k,v in assembler._op_structs.items()}
-
-
-def getInstruction(b, getlbl):
+def getInstruction(b, getlbl, poolm):
     pos = b.off
     op = b.get('B')
 
@@ -94,14 +142,15 @@ def getInstruction(b, getlbl):
             assert(len(args) == 1)
             args[0] = getlbl(args[0]+pos)
         elif token_t[3:] in ('FIELD','METHOD','CLASS','CLASS_INT','METHOD_INT','LDC1','LDC2'):
-            args[0] = '[_{}]'.format(args[0])
+            func = poolm.ldc if token_t[3:6] == "LDC" else poolm.multiref
+            args[0] = func(args[0])
         elif token_t == 'OP_NEWARR':
             args[0] = 'boolean char float double byte short int long'.split()[args[0]-4]
 
         parts = [name] + map(str, args)
         return '\t' + ' '.join(parts)
 
-def disMethodCode(code, add, printCPInd):
+def disMethodCode(code, add, poolm):
     if code is None:
         return
     add('\t.limit stack {}'.format(code.stack))
@@ -113,13 +162,13 @@ def disMethodCode(code, add, printCPInd):
         return 'L'+str(x)
 
     for e in code.except_raw:
-        parts = printCPInd(e.type_ind), getlbl(e.start), getlbl(e.end), getlbl(e.handler)
+        parts = poolm.classref(e.type_ind), getlbl(e.start), getlbl(e.end), getlbl(e.handler)
         add('\t.catch {} from {} to {} using {}'.format(*parts))
 
     instrs = []
     b = binUnpacker(code.bytecode_raw)
     while b.size():
-        instrs.append((b.off, getInstruction(b, getlbl)))
+        instrs.append((b.off, getInstruction(b, getlbl, poolm)))
     instrs.append((b.off, None))
 
     for off, instr in instrs:
@@ -142,41 +191,39 @@ def getConstValue(field):
 def disassemble(cls):
     lines = []
     add = lines.append
-
-    def printCPInd(i):
-        return '[_{}]'.format(i) if i else '[0]'
     poolm = PoolManager(cls.cpool)
 
     cflags = ' '.join(map(str.lower, cls.flags))
-    add('.class {} {}'.format(cflags, printCPInd(cls.this)))
-    add('.super {}'.format(printCPInd(cls.super)))
+    add('.class {} {}'.format(cflags, poolm.classref(cls.this)))
+    add('.super {}'.format(poolm.classref(cls.super)))
     for ii in cls.interfaces_raw:
-        add('.interface {}'.format(printCPInd(ii)))
+        add('.interface {}'.format(poolm.classref(ii)))
     add('')
 
-    for i,(t, args) in cls.cpool.getEnumeratePoolIter():
-        if t in ('Class','String','NameAndType','Field','Method','InterfaceMethod'):
-            args = map(printCPInd, args)
-        else:
-            args = map(repr, args)
-        add('.const [_{}] = {} {}'.format(i, t.lower(), ' '.join(args)))
-    add('')
+    # for i,(t, args) in cls.cpool.getEnumeratePoolIter():
+    #     if t in ('Class','String','NameAndType','Field','Method','InterfaceMethod'):
+    #         args = map(printCPInd, args)
+    #     else:
+    #         args = map(repr, args)
+    #     add('.const [_{}] = {} {}'.format(i, t.lower(), ' '.join(args)))
+    # add('')
 
     for field in cls.fields:
         fflags = ' '.join(map(str.lower, field.flags))
         const = getConstValue(field)
 
         if const is not None:
-            add('.field {} {} {} = {}'.format(fflags, printCPInd(field.name_id), printCPInd(field.desc_id), printCPInd(const)))
+            add('.field {} {} {} = {}'.format(fflags, poolm.utfref(field.name_id), poolm.utfref(field.desc_id), poolm.ldc(const)))
         else:
-            add('.field {} {} {}'.format(fflags, printCPInd(field.name_id), printCPInd(field.desc_id)))
+            add('.field {} {} {}'.format(fflags, poolm.utfref(field.name_id), poolm.utfref(field.desc_id)))
     add('')
 
     for method in cls.methods:
         mflags = ' '.join(map(str.lower, method.flags))
-        add('.method {} {} : {}'.format(mflags, printCPInd(method.name_id), printCPInd(method.desc_id)))
-        disMethodCode(method.code, add, printCPInd)
+        add('.method {} {} : {}'.format(mflags, poolm.utfref(method.name_id), poolm.utfref(method.desc_id)))
+        disMethodCode(method.code, add, poolm)
         add('.end method')
         add('')
 
+    poolm.printConstDefs(add)
     return '\n'.join(lines)

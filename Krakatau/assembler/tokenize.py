@@ -46,7 +46,7 @@ for op in ins.allinstructions:
     wordget.setdefault(op,op.upper())
 
 #special PLY value
-tokens = ('NEWLINE', 'COLON', 'EQUALS', 'GENERIC', 'CPINDEX', 
+tokens = ('NEWLINE', 'COLON', 'EQUALS', 'WORD', 'CPINDEX', 
     'STRING_LITERAL', 'INT_LITERAL', 'LONG_LITERAL', 'FLOAT_LITERAL', 'DOUBLE_LITERAL') + tuple(set(wordget.values()))
 
 def t_WORDS(t):
@@ -91,13 +91,21 @@ def t_STRING_LITERAL(t):
 #careful here: | is not greedy so hex must come first
 t_INT_LITERAL = r'-?(?:0[xX][0-9a-fA-F]+|[0-9]+)' 
 t_LONG_LITERAL = t_INT_LITERAL + r'[lL]'
-t_DOUBLE_LITERAL = r'(?:NaN|[-+]?(?:Inf|\d+\.\d+(?:[eE]-?\d+)?|0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP]-?\d+))'
+t_DOUBLE_LITERAL = r'''(?:
+    [Nn][Aa][Nn]|                                       #Nan
+    [-+]?(?:                                            #Inf and normal both use sign
+        [Ii][Nn][Ff]|                                   #Inf
+        \d+\.\d+(?:[eE]-?\d+)?|                         #decimal float
+        0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP]-?\d+        #hexidecimal float
+        )
+    )
+'''
 t_FLOAT_LITERAL = t_DOUBLE_LITERAL + r'[fF]'
 
 t_COLON = r':'
 t_EQUALS = r'='
 t_CPINDEX = r'\[[0-9a-z_]+\]'
-t_GENERIC = r'[^\s:="]+'
+t_WORD = r'[^\s:="]+'
 t_ignore = ' \t\r'
 
 def t_error(t):

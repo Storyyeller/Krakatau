@@ -50,11 +50,9 @@ def p_longl(p):
     p[0] = ast.literal_eval(p[1][:-1])
 
 def parseFloat(s):
-    if s in ('NaN','Inf','+Inf','-Inf'):
-        return float(s)
     if s.strip('-')[:2].lower() == '0x':
         return float.fromhex(s)
-    return ast.literal_eval(s)
+    return float(s)
 
 def p_floatl(p):
     '''floatl : FLOAT_LITERAL'''
@@ -79,7 +77,7 @@ def p_ref(p):
 def assignCP(p, typen): p[0] = PoolRef(typen, *p[1:])
 
 def p_utf8_notref(p):
-    '''utf8_notref : GENERIC
+    '''utf8_notref : WORD
                     | STRING_LITERAL'''
     p[0] = PoolRef('Utf8', p[1])
 
@@ -119,7 +117,7 @@ for c, type_ in zip('cmf', (ClassFile, Method, Field)):
 
 
 #optional Jasmin source directive
-addRule(assign2, 'sourcedir_opt', 'DSOURCE GENERIC sep')
+addRule(assign2, 'sourcedir_opt', 'DSOURCE WORD sep')
 addRule(assign1, 'sourcedir_opt', 'empty')
 
 def p_classdec(p):
@@ -179,17 +177,9 @@ def p_field_spec(p):
 
 def p_field_constval_0(p):
     '''field_constval : empty'''
-
-addRule(assign2, 'field_constval', 'EQUALS ref', 'EQUALS ldc1_notref', 'EQUALS ldc2_notref')
-
-# def p_field_constval_1(p):
-#     '''field_constval : EQUALS ldc1_notref'''
-#     p[0] = p[2]
-# def p_field_constval_2(p):
-#     '''field_constval : EQUALS ldc2_notref'''
-#     p[0] = p[2]
-
-
+addRule(assign2, 'field_constval', 'EQUALS ref', 
+                                    'EQUALS ldc1_notref', 
+                                    'EQUALS ldc2_notref')
 
 def p_method_spec(p):
     '''method_spec : defmethod statements endmethod'''
@@ -203,7 +193,7 @@ def p_defmethod_1(p):
     p[0] = p[2],(p[3], p[5]) 
 
 def p_jas_meth_namedesc(p):
-    '''jas_meth_namedesc : GENERIC'''
+    '''jas_meth_namedesc : WORD'''
     name, paren, desc = p[1].rpartition('(')
     name = PoolRef('Utf8', name)
     desc = PoolRef('Utf8', paren+desc)
@@ -277,13 +267,13 @@ def p_instruction(p):
     p[0] = tuple(p[1:])
 
 def p_lbl(p):
-    '''lbl : GENERIC'''
+    '''lbl : WORD'''
     p[0] = p[1]
 
 addRule(assign1, 'fieldref_or_jas', 'jas_fieldref', 'ref', 'inline_fieldref')
 # addRule(assign1, 'fieldref_or_jas', 'fieldref')
 def p_jas_fieldref(p):
-    '''jas_fieldref : GENERIC GENERIC'''
+    '''jas_fieldref : WORD WORD'''
     class_, sep, name = p[1].replace('.','/').rpartition('/')
 
     desc = PoolRef('Utf8', p[2])
@@ -295,7 +285,8 @@ def p_jas_fieldref(p):
 #This is an ugly hack to work around the fact that Jasmin syntax would otherwise be impossible to 
 #handle with a LALR(1) parser
 def p_inline_fieldref_1(p):
-    '''inline_fieldref : GENERIC nameandtyperef'''
+    '''inline_fieldref : WORD nameandtyperef
+                        | STRING_LITERAL nameandtyperef'''
     class_ = PoolRef('Class', PoolRef('Utf8', p[1]))
     p[0] = PoolRef('Field', class_, p[2])
 def p_inline_fieldref_2(p):
@@ -304,7 +295,7 @@ def p_inline_fieldref_2(p):
 
 
 def p_jas_meth_classnamedesc(p):
-    '''jas_methodref : GENERIC'''
+    '''jas_methodref : WORD'''
     name, paren, desc = p[1].rpartition('(')
     class_, sep, name = name.replace('.','/').rpartition('/')
     desc = paren + desc
@@ -326,7 +317,7 @@ def p_imethodref_or_jas(p):
 
 
 _newarr_codes = dict(zip('boolean char float double byte short int long'.split(), range(4,12)))
-_newarr_token_types = set(wordget.get(x, 'GENERIC') for x in _newarr_codes)
+_newarr_token_types = set(wordget.get(x, 'WORD') for x in _newarr_codes)
 def p_nacode(p):
     p[0] = _newarr_codes[p[1]]
 p_nacode.__doc__ = "nacode : " + '\n| '.join(_newarr_token_types)

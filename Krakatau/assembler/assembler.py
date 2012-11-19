@@ -128,8 +128,6 @@ def assembleInstruction(instr, labels, pos, pool):
             return part1 + part2
         
 def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
-    if not statements:
-        return None
     directives = [x[1] for x in statements if x[0] == 'dir']
     lines = [x[1] for x in statements if x[0] == 'ins']
 
@@ -195,9 +193,12 @@ def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
 
     method_attributes = []
     if directive_dict['throws']:
-        t_inds = [x.toIndex(pool) for x in directive_dict['throws']]
+        t_inds = [struct.pack('>H', x.toIndex(pool)) for x in directive_dict['throws']]
         throw_attr = struct.pack('>HIH', pool.Utf8("Exceptions"), 2+2*len(t_inds), len(t_inds)) + ''.join(t_inds)        
         method_attributes = [throw_attr]
+
+    if not code_len:
+        return None, method_attributes
 
     name_ind = pool.Utf8("Code")
     attr_len = 12 + len(code_bytes) + 8*len(excepts) + sum(map(len, attributes))

@@ -179,12 +179,15 @@ def p_field_spec(p):
 
 def p_field_constval_0(p):
     '''field_constval : empty'''
-def p_field_constval_1(p):
-    '''field_constval : EQUALS ldc1_notref'''
-    p[0] = p[2]
-def p_field_constval_2(p):
-    '''field_constval : EQUALS ldc2_notref'''
-    p[0] = p[2]
+
+addRule(assign2, 'field_constval', 'EQUALS ref', 'EQUALS ldc1_notref', 'EQUALS ldc2_notref')
+
+# def p_field_constval_1(p):
+#     '''field_constval : EQUALS ldc1_notref'''
+#     p[0] = p[2]
+# def p_field_constval_2(p):
+#     '''field_constval : EQUALS ldc2_notref'''
+#     p[0] = p[2]
 
 
 

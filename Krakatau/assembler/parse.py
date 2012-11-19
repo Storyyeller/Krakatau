@@ -107,7 +107,8 @@ def p_imethod_notref(p):
     '''interfacemethod_notref : classref nameandtyperef'''
     p[0] = PoolRef('InterfaceMethod', p[1], p[2])
 
-for name in ('utf8','class', 'nameandtype', 'field', 'method', 'interfacemethod', 'string'):
+# for name in ('utf8','class', 'nameandtype', 'field', 'method', 'interfacemethod', 'string'):
+for name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod'):
     addRule(assign1, '{}ref'.format(name), '{}_notref'.format(name), 'ref')
 
 ###############################################################################
@@ -153,17 +154,22 @@ def p_const_spec(p):
     '''const_spec : DCONST ref EQUALS const_rhs sep'''
     p[0] = p[2], p[4]
 
-def p_const_rhs_0(p):
-    '''const_rhs : ref'''
-    p[0] = p[1]
+def assignPoolSingle(typen):
+    def inner(p):
+        p[0] = PoolRef(typen, p[2])
+    return inner
 
-def p_const_rhs_1(p):
-    '''const_rhs : UTF8 utf8_notref'''
-    p[0] = p[2]
+addRule(assign1, 'const_rhs', 'ref')
+for tt in ['UTF8', 'CLASS','STRING','NAMEANDTYPE','FIELD','METHOD','INTERFACEMETHOD']:
+    addRule(assign2, 'const_rhs', '{} {}_notref'.format(tt, tt.lower()))
 
-for tt in ['CLASS','STRING','NAMEANDTYPE','FIELD','METHOD','INTERFACEMETHOD']:
-    addRule(assign2, 'const_rhs', '{} {}ref'.format(tt, tt.lower()))
+#these are special cases, since they take a single argument
+#and the notref version can't have a ref as its argument due to ambiguity
+addRule(assignPoolSingle('Class'), 'const_rhs', 'CLASS ref')
+addRule(assignPoolSingle('String'), 'const_rhs', 'STRING ref')
 
+for ptype in ('Int','Float','Long','Double'):
+    addRule(assignPoolSingle(ptype), 'const_rhs', '{} {}l'.format(ptype.upper(), ptype.lower()))
 ###############################################################################
 
 
@@ -174,10 +180,10 @@ def p_field_spec(p):
 def p_field_constval_0(p):
     '''field_constval : empty'''
 def p_field_constval_1(p):
-    '''field_constval : EQUALS ldc1_ref'''
+    '''field_constval : EQUALS ldc1_notref'''
     p[0] = p[2]
 def p_field_constval_2(p):
-    '''field_constval : EQUALS ldc2_ref'''
+    '''field_constval : EQUALS ldc2_notref'''
     p[0] = p[2]
 
 
@@ -322,24 +328,23 @@ def p_nacode(p):
     p[0] = _newarr_codes[p[1]]
 p_nacode.__doc__ = "nacode : " + '\n| '.join(_newarr_token_types)
 
-def p_ldc1_ref_ref(p):
-    '''ldc1_ref : ref'''
-    p[0] = p[1]
-def p_ldc1_ref_string(p):
-    '''ldc1_ref : STRING_LITERAL'''
+addRule(assign1, 'ldc1_ref', 'ldc1_notref', 'ref')
+def p_ldc1_notref_string(p):
+    '''ldc1_notref : STRING_LITERAL'''
     p[0] = PoolRef('String', PoolRef('Utf8', p[1]))
-def p_ldc1_ref_int(p):
-    '''ldc1_ref : intl'''
+def p_ldc1_notref_int(p):
+    '''ldc1_notref : intl'''
     p[0] = PoolRef('Int', p[1])
-def p_ldc1_ref_float(p):
-    '''ldc1_ref : floatl'''
+def p_ldc1_notref_float(p):
+    '''ldc1_notref : floatl'''
     p[0] = PoolRef('Float', p[1])
 
-def p_ldc2_ref_long(p):
-    '''ldc2_ref : longl'''
+addRule(assign1, 'ldc2_ref', 'ldc2_notref', 'ref')
+def p_ldc2_notref_long(p):
+    '''ldc2_notref : longl'''
     p[0] = PoolRef('Long', p[1])
-def p_ldc2_ref_double(p):
-    '''ldc2_ref : doublel'''
+def p_ldc2_notref_double(p):
+    '''ldc2_notref : doublel'''
     p[0] = PoolRef('Double', p[1])
 
 def p_defaultentry(p):
@@ -373,8 +378,8 @@ def p_wide_instr(p):
 def p_error(p):
     if p is None:
         print "Syntax error: unexpected EOF"
-    else:
-        print "Syntax error at line {}: unexpected token {}".format(p.lineno, p.value)
+    else: #remember to subtract 1 from line number since we had a newline at the start of the file
+        print "Syntax error at line {}: unexpected token {}".format(p.lineno-1, p.value)
     
     #Ugly hack since Ply doesn't provide any useful error information
     import inspect

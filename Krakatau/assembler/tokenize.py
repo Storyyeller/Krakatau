@@ -8,6 +8,7 @@ from .. import constant_pool
 
 from . import instructions as ins
 
+#Note: these values are used by the disassembler too - remember to update it if necessary
 directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS'
 keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
@@ -63,8 +64,27 @@ def t_NEWLINE(t):
     return t
 
 def t_STRING_LITERAL(t):
-    r'''[rR]?"([^"\\]*(?:\\.[^"\\]*)*)"'''
-    #regex from http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705#5455705
+    # See http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705#5455705
+    r'''[rR]?[uU]?(?:
+        """[^"\\]*              # any number of unescaped characters
+            (?:\\.[^"\\]*       # escaped followed by 0 or more unescaped
+                |"[^"\\]+       # single quote followed by at least one unescaped
+                |""[^"\\]+      # two quotes followed by at least one unescaped
+            )*"""
+        |"[^"\n\\]*              # any number of unescaped characters
+            (?:\\.[^"\n\\]*      # escaped followed by 0 or more unescaped
+            )*"
+    '''r"""                     # concatenated string literals
+        |'''[^'\\]*              # any number of unescaped characters
+            (?:\\.[^'\\]*       # escaped followed by 0 or more unescaped
+                |'[^'\\]+       # single quote followed by at least one unescaped
+                |''[^'\\]+      # two quotes followed by at least one unescaped
+            )*'''
+        |'[^'\n\\]*              # any number of unescaped characters
+            (?:\\.[^'\n\\]*      # escaped followed by 0 or more unescaped
+            )*'
+        )"""
+
     t.value = ast.literal_eval(t.value)
     return t
 

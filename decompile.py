@@ -6,6 +6,7 @@ import Krakatau.ssa
 from Krakatau.environment import Environment
 from Krakatau.java import javaclass
 from Krakatau.inference_verifier import verifyBytecode
+import Krakatau.assembler.disassembler
 
 def findJRE():
     try:
@@ -41,7 +42,7 @@ def makeGraph(m):
     s.removeUnusedVariables() #todo - make this a loop
     return s
 
-def decompileClass(path=[], targets=None, outpath=None):
+def decompileClass(path=[], targets=None, outpath=None, disassemble=False):
     if outpath is None:
         outpath = os.getcwd()
 
@@ -55,8 +56,12 @@ def decompileClass(path=[], targets=None, outpath=None):
     for i,target in enumerate(targets):
         print 'processing target {}, {} remaining'.format(target, len(targets)-i)
         c = e.getClass(target)
-        deco = javaclass.ClassDecompiler(c, makeGraph)
-        source = deco.generateSource()
+
+        if disassemble:
+            source = Krakatau.assembler.disassembler.disassemble(c)
+        else:
+            deco = javaclass.ClassDecompiler(c, makeGraph)
+            source = deco.generateSource()
 
         if '/' in target:
             package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
@@ -65,7 +70,7 @@ def decompileClass(path=[], targets=None, outpath=None):
         outpath2 = outpath        
         if os.path.isdir(outpath2):
             outpath2 = os.path.join(outpath2, *c.name.split('/'))
-            outpath2 += '.java'
+            outpath2 += '.java' if not disassemble else '.j'
 
         dirpath = os.path.dirname(outpath2)
         if dirpath and not os.path.exists(dirpath):
@@ -84,6 +89,7 @@ if __name__== "__main__":
     parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
     parser.add_argument('-out',help='Path to generate source files in')
     parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
+    parser.add_argument('-dis', action='store_true', help="Disassemble only, instead of decompiling.")
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -113,4 +119,4 @@ if __name__== "__main__":
         if target.endswith('.class'):
             target = target[:-6]
         targets = [target.replace('.','/')]
-    decompileClass(path, targets, args.out)
+    decompileClass(path, targets, args.out, args.dis)

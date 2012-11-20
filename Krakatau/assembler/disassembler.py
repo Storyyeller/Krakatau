@@ -109,7 +109,6 @@ def getInstruction(b, getlbl, poolm):
     op = b.get('B')
 
     name = instructions.allinstructions[op]
-
     if name == 'wide':
         name2 = instructions.allinstructions[b.get('B')]
         if name == 'iinc':
@@ -124,13 +123,14 @@ def getInstruction(b, getlbl, poolm):
         b.getRaw(padding)
 
         default = getlbl(b.get('>i')+pos)
+
         if name == 'lookupswitch':
             num = b.get('>I')
             entries = ['\t'+name]
             entries += ['\t\t{} : {}'.format(b.get('>i'), getlbl(b.get('>i')+pos)) for i in range(num)]
         else:
             low, high = b.get('>ii')
-            num = high-low+2
+            num = high-low+1
             entries = ['\t{} : {}'.format(name, low)]
             entries += ['\t\t{}'.format(getlbl(b.get('>i')+pos)) for i in range(num)]
         entries += ['\t\tdefault : {}'.format(default)]
@@ -200,14 +200,6 @@ def disassemble(cls):
         add('.interface {}'.format(poolm.classref(ii)))
     add('')
 
-    # for i,(t, args) in cls.cpool.getEnumeratePoolIter():
-    #     if t in ('Class','String','NameAndType','Field','Method','InterfaceMethod'):
-    #         args = map(printCPInd, args)
-    #     else:
-    #         args = map(repr, args)
-    #     add('.const [_{}] = {} {}'.format(i, t.lower(), ' '.join(args)))
-    # add('')
-
     for field in cls.fields:
         fflags = ' '.join(map(str.lower, field.flags))
         const = getConstValue(field)
@@ -221,6 +213,14 @@ def disassemble(cls):
     for method in cls.methods:
         mflags = ' '.join(map(str.lower, method.flags))
         add('.method {} {} : {}'.format(mflags, poolm.utfref(method.name_id), poolm.utfref(method.desc_id)))
+        
+        throw_attrs = [a for a in method.attributes if cls.cpool.getArgsCheck('Utf8', a[0]) == 'Exceptions']
+        for a in throw_attrs:
+            bytes = binUnpacker(a[1])
+            for i in range(bytes.get('>H')):
+                add('.throws ' + poolm.classref(bytes.get('>H')))
+
+
         disMethodCode(method.code, add, poolm)
         add('.end method')
         add('')

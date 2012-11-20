@@ -65,7 +65,7 @@ def t_NEWLINE(t):
 
 def t_STRING_LITERAL(t):
     # See http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705#5455705
-    r'''[rR]?[uU]?(?:
+    r'''[uU]?[rR]?(?:
         """[^"\\]*              # any number of unescaped characters
             (?:\\.[^"\\]*       # escaped followed by 0 or more unescaped
                 |"[^"\\]+       # single quote followed by at least one unescaped

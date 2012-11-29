@@ -14,7 +14,7 @@ Python library called PLY.
 === Decompilation ===
 
 Usage: 
-python Krakatau\decompile.py [-path PATH] [-out OUT] target
+python Krakatau\decompile.py [-path PATH] [-out OUT] [-dis] target
 
 PATH : An optional list of directories, jars, or zipfiles to search for 
 	classes in. Krakatau will attempt to automatically detect and add the 
@@ -24,9 +24,10 @@ PATH : An optional list of directories, jars, or zipfiles to search for
 OUT : File or directory name where source files are written. Defaults to
 	current directory
 
+-dis : Disassemble instead of decompiling (see below)
+
 target : Class name or jar name to decompile. If a jar is specified, all
 	classes in the jar will be decompiled.
-
 
 The Krakatau decompiler takes a different approach to most Java decompilers.
 It can be thought of more as a compiler whose input language is Java bytecode
@@ -79,3 +80,22 @@ A tutorial on writing Java Bytecode Assembly with Krakatau is available at https
 
 The assembler uses PLY, which will generate a file called "parsetab.py" in
 the current directory.
+
+=== Disassembly ===
+
+Usage: same as decompiler except you pass the -dis flag (see above)
+
+This takes a classfile and converts it into a human readable assembly format.
+Unlike Javap, this can handle even pathological classes, and the output can 
+be reassembled. Together with the Krakatau assembler, this tool should be 
+able to roundtrip any class through assembly and back into an equivalent 
+class with the following caveats:
+
+* Features introduced after classfile version 49.0 are not fully supported
+* Attributes other than Code, ConstantValue, Exceptions, and SourceFile are 
+	currently ignored. The disassembler does not attempt to disassemble 
+	LineNumberTable or LocalVariableTable even though they are supported by the 
+	assembler.
+* Constant pool entries may not be reassembled in the same order. If an ldc 		
+	instruction refers to an entry which ends up at index 256 or higher, 
+	reassembly will fail.

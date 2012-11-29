@@ -62,10 +62,10 @@ def decompileClass(path=[], targets=None, outpath=None, disassemble=False):
         else:
             deco = javaclass.ClassDecompiler(c, makeGraph)
             source = deco.generateSource()
-
-        if '/' in target:
-            package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
-            source = package + source
+            #The single class decompiler doesn't add package declaration currently so we add it here
+            if '/' in target:
+                package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
+                source = package + source
 
         outpath2 = outpath        
         if os.path.isdir(outpath2):

@@ -29,7 +29,7 @@ class PoolManager(object):
         try:
             if s.encode('ascii') == s:
                 return repr(str(s))
-        except UnicodeDecodeError as e:
+        except (UnicodeEncodeError, UnicodeDecodeError) as e:
             pass 
         return repr(s)
 

@@ -193,6 +193,8 @@ def disassemble(cls):
     add = lines.append
     poolm = PoolManager(cls.cpool)
 
+    add('.version {0[0]} {0[1]}'.format(cls.version))
+
     for name_ind, data in cls.attributes_raw:
         if cls.cpool.getArgsCheck('Utf8', name_ind) == 'SourceFile':
             bytes = binUnpacker(data)

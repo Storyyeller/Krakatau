@@ -5,11 +5,10 @@ from ..classfile import ClassFile
 from ..method import Method
 from ..field import Field
 from .. import constant_pool
-
 from . import instructions as ins
 
 #Note: these values are used by the disassembler too - remember to update it if necessary
-directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS'
+directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS','VERSION'
 keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
 

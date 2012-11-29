@@ -211,7 +211,7 @@ def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
 
 def assemble(tree, addLineNumbers, jasmode, filename):
     pool = PoolInfo()
-    sourcefile, classdec, superdec, interface_decs, topitems = tree
+    version, sourcefile, classdec, superdec, interface_decs, topitems = tree
     #scan topitems, plus statements in each method to get cpool directives
 
     interfaces = []
@@ -283,7 +283,10 @@ def assemble(tree, addLineNumbers, jasmode, filename):
     this = this.toIndex(pool)
     super_ = superdec.toIndex(pool)
 
-    major, minor = (45,3) if jasmode else (49,0)
+    if version is None: #default to version 49.0 except in Jasmin compatibility mode
+        version = (45,3) if jasmode else (49,0)
+    major, minor = version
+
     class_code = '\xCA\xFE\xBA\xBE' + struct.pack('>HH', minor, major)
     class_code += pool.pool.bytes()
     class_code += struct.pack('>HHH', flagbits, this, super_)

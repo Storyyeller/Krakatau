@@ -10,11 +10,10 @@ from . import instructions as ins
 from .tokenize import tokens, wordget
 from .assembler import PoolRef
 
-###############################################################################
-def p_top(p):
-    '''top : sep sourcedir_opt classdec superdec interfacedecs topitems'''
-    p[0] = tuple(p[2:])
+#Specify the starting symbol
+start = 'top'
 
+###############################################################################
 name_counter = itertools.count()
 def addRule(func, name, *rhs_rules):
     def _inner(p):
@@ -110,15 +109,24 @@ for name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod'):
     addRule(assign1, '{}ref'.format(name), '{}_notref'.format(name), 'ref')
 
 ###############################################################################
-for c, type_ in zip('cmf', (ClassFile, Method, Field)):
-    name = "{}flag".format(c)
-    addRule(upper1, name, *list(type_.flagVals))
-    list_rule(name)
+def p_top(p):
+    '''top : sep version_opt sourcedir_opt classdec superdec interfacedecs topitems'''
+    p[0] = tuple(p[2:])
 
+def p_version(p):
+    '''version_opt : DVERSION intl intl sep'''
+    p[0] = p[2], p[3]
+addRule(assign1, 'version_opt', 'empty')
 
 #optional Jasmin source directive
 addRule(assign2, 'sourcedir_opt', 'DSOURCE utf8ref sep')
 addRule(assign1, 'sourcedir_opt', 'empty')
+
+###############################################################################
+for c, type_ in zip('cmf', (ClassFile, Method, Field)):
+    name = "{}flag".format(c)
+    addRule(upper1, name, *list(type_.flagVals))
+    list_rule(name)
 
 def p_classdec(p):
     '''classdec : DCLASS cflags classref sep 

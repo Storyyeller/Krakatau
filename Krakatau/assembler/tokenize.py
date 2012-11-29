@@ -89,13 +89,13 @@ def t_STRING_LITERAL(t):
     return t
 
 #careful here: | is not greedy so hex must come first
-int_base = r'-?(?:0[xX][0-9a-fA-F]+|[0-9]+)'
+int_base = r'[+-]?(?:0[xX][0-9a-fA-F]+|[0-9]+)'
 float_base = r'''(?:
     [Nn][Aa][Nn]|                                       #Nan
     [-+]?(?:                                            #Inf and normal both use sign
         [Ii][Nn][Ff]|                                   #Inf
-        \d+\.\d+(?:[eE]-?\d+)?|                         #decimal float
-        0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP]-?\d+        #hexidecimal float
+        \d+\.\d+(?:[eE][+-]?\d+)?|                         #decimal float
+        0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP][+-]?\d+        #hexidecimal float
         )
     )
 '''

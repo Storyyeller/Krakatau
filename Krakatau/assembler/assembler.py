@@ -262,11 +262,11 @@ def assemble(tree, addLineNumbers, jasmode, filename):
         methods.append(method_code)
 
     if jasmode and not sourcefile:
-        sourcefile = filename
+        sourcefile = pool.Utf8(filename)
     elif addLineNumbers and not sourcefile:
-        sourcefile = "SourceFile"
+        sourcefile = pool.Utf8("SourceFile")
     if sourcefile:
-        sourceattr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, pool.Utf8(sourcefile))
+        sourceattr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, sourcefile.toIndex(pool))
         attributes.append(sourceattr)
 
     interfaces = [x.toIndex(pool) for x in interface_decs]

@@ -117,7 +117,7 @@ for c, type_ in zip('cmf', (ClassFile, Method, Field)):
 
 
 #optional Jasmin source directive
-addRule(assign2, 'sourcedir_opt', 'DSOURCE WORD sep')
+addRule(assign2, 'sourcedir_opt', 'DSOURCE utf8ref sep')
 addRule(assign1, 'sourcedir_opt', 'empty')
 
 def p_classdec(p):

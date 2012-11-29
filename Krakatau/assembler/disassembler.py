@@ -193,6 +193,12 @@ def disassemble(cls):
     add = lines.append
     poolm = PoolManager(cls.cpool)
 
+    for name_ind, data in cls.attributes_raw:
+        if cls.cpool.getArgsCheck('Utf8', name_ind) == 'SourceFile':
+            bytes = binUnpacker(data)
+            val_ind = bytes.get('>H')
+            add('.source {}'.format(poolm.utfref(val_ind)))
+
     cflags = ' '.join(map(str.lower, cls.flags))
     add('.class {} {}'.format(cflags, poolm.classref(cls.this)))
     add('.super {}'.format(poolm.classref(cls.super)))

@@ -13,6 +13,7 @@ class Code(object):
         self.method = method
         self.class_ = method.class_
         
+        #Old versions use shorter fields for stack, locals, and code length
         field_fmt = ">HHL" if self.class_.version > (45,2) else ">BBH"
         self.stack, self.locals, codelen = bytestream.get(field_fmt)
         assert(codelen > 0 and codelen < 65536)

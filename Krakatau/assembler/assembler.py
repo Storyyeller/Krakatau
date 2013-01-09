@@ -127,7 +127,7 @@ def assembleInstruction(instr, labels, pos, pool):
             part2 = ''.join(map(temp.pack, *zip(*jumps))) if jumps else ''
             return part1 + part2
         
-def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
+def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     directives = [x[1] for x in statements if x[0] == 'dir']
     lines = [x[1] for x in statements if x[0] == 'ins']
 
@@ -200,10 +200,14 @@ def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
     if not code_len:
         return None, method_attributes
 
+    #Old versions use shorter fields for stack, locals, and code length
+    header_fmt = '>HHI' if version > (45,2) else '>BBH'
+
     name_ind = pool.Utf8("Code")
-    attr_len = 12 + len(code_bytes) + 8*len(excepts) + sum(map(len, attributes))
+    attr_len = struct.calcsize(header_fmt) + 4 + len(code_bytes) + 8*len(excepts) + sum(map(len, attributes))
     
-    assembled_bytes = struct.pack('>HIHHI', name_ind, attr_len, stack, locals_, len(code_bytes))
+    assembled_bytes = struct.pack('>HI', name_ind, attr_len)
+    assembled_bytes += struct.pack(header_fmt, stack, locals_, len(code_bytes))
     assembled_bytes += code_bytes
     assembled_bytes += struct.pack('>H', len(excepts)) + ''.join(excepts)
     assembled_bytes += struct.pack('>H', len(attributes)) + ''.join(attributes)
@@ -212,8 +216,10 @@ def assembleCodeAttr(statements, pool, addLineNumbers, jasmode):
 def assemble(tree, addLineNumbers, jasmode, filename):
     pool = PoolInfo()
     version, sourcefile, classdec, superdec, interface_decs, topitems = tree
-    #scan topitems, plus statements in each method to get cpool directives
+    if not version: #default to version 49.0 except in Jasmin compatibility mode
+        version = (45,3) if jasmode else (49,0)
 
+    #scan topitems, plus statements in each method to get cpool directives
     interfaces = []
     fields = []
     methods = []
@@ -254,7 +260,7 @@ def assemble(tree, addLineNumbers, jasmode, filename):
         flagbits = reduce(operator.__or__, flagbits, 0)
 
         #method attributes processed inside assemble Code since it's easier there
-        code_attr, mattrs = assembleCodeAttr(statements, pool, addLineNumbers, jasmode)
+        code_attr, mattrs = assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode)
         if code_attr is not None:
             mattrs.append(code_attr)
 
@@ -283,10 +289,7 @@ def assemble(tree, addLineNumbers, jasmode, filename):
     this = this.toIndex(pool)
     super_ = superdec.toIndex(pool)
 
-    if version is None: #default to version 49.0 except in Jasmin compatibility mode
-        version = (45,3) if jasmode else (49,0)
     major, minor = version
-
     class_code = '\xCA\xFE\xBA\xBE' + struct.pack('>HH', minor, major)
     class_code += pool.pool.bytes()
     class_code += struct.pack('>HHH', flagbits, this, super_)

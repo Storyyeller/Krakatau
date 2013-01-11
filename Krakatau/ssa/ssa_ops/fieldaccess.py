@@ -1,5 +1,5 @@
 from base import BaseOp
-from ...inference_verifier import parseFieldDescriptor
+from ...verifier.descriptors import parseFieldDescriptor
 from ..ssa_types import verifierToSSAType, SSA_MONAD
 
 from .. import objtypes, constraints

@@ -5,7 +5,7 @@ import Krakatau
 import Krakatau.ssa
 from Krakatau.environment import Environment
 from Krakatau.java import javaclass
-from Krakatau.inference_verifier import verifyBytecode
+from Krakatau.verifier.inference_verifier import verifyBytecode
 import Krakatau.assembler.disassembler
 
 def findJRE():

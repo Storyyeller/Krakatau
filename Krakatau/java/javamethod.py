@@ -6,7 +6,7 @@ from ..ssa import objtypes, constraints
 from ..ssa.exceptionset import ExceptionSet
 from .. import graph_util
 from ..namegen import NameGen, LabelGen
-from ..inference_verifier import parseFieldDescriptor, parseMethodDescriptor
+from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 
 from . import ast, ast2, preprocess, boolize
 from .reserved import reserved_identifiers

@@ -1,9 +1,10 @@
 import itertools, collections 
 
-from .. import verifier_types as vtypes
+from ..verifier import verifier_types as vtypes
 from .. import opnames as vops
 from .. import floatutil
-from ..inference_verifier import genericStackCodes, parseMethodDescriptor, parseFieldDescriptor
+from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
+from ..verifier.inference_verifier import genericStackCodes
 from ssa_types import *
 import ssa_ops, ssa_jumps
 import objtypes #for LDC

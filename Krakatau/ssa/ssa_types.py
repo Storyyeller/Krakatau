@@ -1,7 +1,7 @@
 import collections, itertools
 
 from .. import floatutil as fu
-from .. import verifier_types as vtypes
+from ..verifier import verifier_types as vtypes
 
 nt = collections.namedtuple
 slots_t = nt('slots_t', ('monad', 'locals', 'stack'))

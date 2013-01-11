@@ -2,7 +2,7 @@ import itertools, collections
 import struct
 
 from ..ssa import objtypes
-from ..inference_verifier import parseFieldDescriptor
+from ..verifier.descriptors import parseFieldDescriptor
 
 from . import ast, ast2
 from .javamethod import MethodDecompiler

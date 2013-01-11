@@ -4,7 +4,7 @@ ODict = collections.OrderedDict
 from .ssa_types import *
 from . import blockmaker,constraints, variablegraph, objtypes, subproc
 from . import ssa_jumps, ssa_ops
-from ..inference_verifier import parseUnboundMethodDescriptor
+from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
 # nt = collections.namedtuple
 

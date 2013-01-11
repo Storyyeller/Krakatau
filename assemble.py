@@ -12,7 +12,7 @@ def assembleClass(filename, makeLineNumbers, jasmode, debug=0):
     return assembler.assemble(parse_tree, makeLineNumbers, jasmode, os.path.basename(filename))
 
 if __name__== "__main__":
-    print 'Krakatau  Copyright (C) 2012  Robert Grosse'
+    print 'Krakatau  Copyright (C) 2012-13  Robert Grosse'
 
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau bytecode assembler')

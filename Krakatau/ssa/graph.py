@@ -8,8 +8,8 @@ from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
 # nt = collections.namedtuple
 
-from .. import namegen
-makename = namegen.NameGen()
+# from .. import namegen
+# makename = namegen.NameGen()
 
 class SSA_Graph(object):
 	entryKey, returnKey, rethrowKey = -1,-2,-3
@@ -49,8 +49,7 @@ class SSA_Graph(object):
 
 		self.entryBlock, self.returnBlock, self.rethrowBlock = entryb, returnb, rethrowb
 		self.blocks = None
-		# self.procs = ''
-		# self.uninitMap = collections.defaultdict(list)
+		# self.procs = '' #used to store information on subprocedues (from the JSR instructions)
 
 	def condenseBlocks(self):
 		old = self.blocks
@@ -183,7 +182,6 @@ class SSA_Graph(object):
 					for phi in successor.phis:
 						phi.replaceBlocks({child:block})
 
-				child.zombie = True
 				removed.add(child)
 		self.blocks = [b for b in self.blocks if b not in removed]	
 		#Fix up replace dict so it can handle multiple chained replacements

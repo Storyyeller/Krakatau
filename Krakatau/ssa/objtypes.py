@@ -101,8 +101,3 @@ def declTypeToActual(env, decltype):
             return [], [decltype]
         else:
             return [decltype], []
-
-
-
-
-

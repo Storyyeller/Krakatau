@@ -47,12 +47,15 @@ class Variable(object):
 class BasicBlock(object):
     def __init__(self, key, lines, jump):
         self.key = key
+        # The list of phi statements merging incoming variables
         self.phis = None #to be filled in later
+        # List of operations in the block
         self.lines = lines
+        # The exit point (if, goto, etc)
         self.jump = jump
+        # Holds constraints (range and type information) for each variable in the block.
+        # If the value is None, this variable cannot be reached
         self.unaryConstraints = collections.OrderedDict()
-        self.zombie = False
-
         #temp vars used during graph creation
         self.sourceStates = collections.OrderedDict()
 
@@ -63,11 +66,9 @@ class BasicBlock(object):
         return self.jump.getSuccessors()
 
     def filterVarConstraints(self, keepvars):
-        # print 'unused vars', [t[0] for t in self.unaryConstraints.items() if t[0] not in keepvars]
         pairs = [t for t in self.unaryConstraints.items() if t[0] in keepvars]
         self.unaryConstraints = collections.OrderedDict(pairs)
 
     def __str__(self):
         return 'Block ' + str(self.key)
     __repr__ = __str__
-

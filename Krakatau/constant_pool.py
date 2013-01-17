@@ -76,37 +76,77 @@ tag2Type = {t.tag:t for t in cpoolTypes}
 class ConstPool(object):
     def __init__(self, initialData = [(None,None)]):
         self.pool = []
+        self.reserved = set()
+        self.available = set()
 
         for tag, val in initialData:
             if tag is None:
-                self.addItem(None, None)
+                self.addEmptySlot()
             else:
                 t = tag2Type[tag]
-                self.addItem(t.name, t.fromRaw(val))
+                self.pool.append((t.name, t.fromRaw(val)))
 
     def getPoolIter(self):
         return (x for x in self.pool if x[0] is not None)
     def getEnumeratePoolIter(self):
         return ((i,x) for i,x in enumerate(self.pool) if x[0] is not None)
 
-    def addItem(self, name, val):
-        self.pool.append((name, val))
-        return len(self.pool)-1
+    def addEmptySlot(self):
+        self.pool.append((None, None))
+
+    def getAvailableIndex(self):
+        if self.available:
+            return self.available.pop()
+        while len(self.pool) in self.reserved:
+            self.addEmptySlot()
+        self.addEmptySlot()
+        return len(self.pool)-1    
+
+    def getAvailableIndex2(self):
+        for i in self.available:
+            if i+1 in self.available:
+                self.available.remove(i)
+                self.available.remove(i+1)
+                return i
+
+        while len(self.pool) in self.reserved or len(self.pool)+1 in self.reserved:
+            self.addEmptySlot()
+        self.addEmptySlot()
+        self.addEmptySlot()
+        return len(self.pool)-2
 
     # Special function for assembler
-    def getItemRaw(self, item):
+    def addItem(self, item, index=None):
+        if index is None and item in self.pool:
+            return self.pool.index(item)
+
         if item[0] == 'Utf8':
             assert(isinstance(item[1][0], basestring))
-        try:
-            return self.pool.index(item)
-        except ValueError:
-            self.pool.append(item)
-            i = len(self.pool)-1
-            if item[0] in ('Long','Double'):
-                self.addItem(None,None)
-            return i
+        cat2 = item[0] in ('Long','Double')
 
-    # Accessors ####################################################################33
+        if index is None:
+            index = self.getAvailableIndex2() if cat2 else self.getAvailableIndex()
+        else:
+            temp = len(self.pool)
+            if index >= temp:
+                #If desired slot is past the end of current range, add a bunch of placeholder slots
+                self.pool += [(None,None)] * (index+1-temp)
+                self.available.update(range(temp,index))
+                self.available -= self.reserved
+
+            self.reserved.remove(index)
+            if cat2:
+                self.reserved.remove(index+1)
+                self.addEmptySlot()
+
+        assert(index not in self.reserved)
+        self.pool[index] = item
+        return index
+
+    def copyItem(self, src, index):
+        return self.addItem(self.pool[src], index=index)
+
+    # Accessors ######################################################################
     def getArgs(self, i):
         if not (i >= 0 and i<len(self.pool)):
             raise IndexError('Constant pool index {} out of range'.format(i))        
@@ -124,9 +164,21 @@ class ConstPool(object):
 
     def getType(self, index): return self.pool[index][0]
 
+    ##################################################################################
+    def fillPlaceholders(self):
+        #fill in all the placeholder slots with a dummy reference. Class and String items
+        #have the smallest size (3 bytes). There should always be an existing class item
+        #we can copy
+        dummy = next(item for item in self.pool if item[0] == 'Class')
+        for i in self.available:
+            self.pool[i] = dummy
+
     def bytes(self):
         parts = []
         pool = self.pool
+
+        assert(not self.reserved)
+        self.fillPlaceholders()
 
         assert(len(pool) <= 65535)
         parts.append(struct.pack('>H',len(pool)))

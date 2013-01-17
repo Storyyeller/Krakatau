@@ -21,34 +21,45 @@ class PoolRef(object):
         self.lbl = kwargs.get('lbl')
         self.args = args
 
-    def toIndex(self, pool, forbidden=()):
+    def toIndex(self, pool, forbidden=(), **kwargs):
         if self.index is not None:
             return self.index
         if self.lbl:
-            self.index = pool.getLabel(self.lbl, forbidden)
+            self.index = pool.getLabel(self.lbl, forbidden, **kwargs)
         else:
             self.args = [(x.toIndex(pool) if isinstance(x, PoolRef) else x) for x in self.args]
-            self.index = pool.getItem(*self.args)
+            self.index = pool.getItem(*self.args, **kwargs)
         return self.index
 
 class PoolInfo(object):
     def __init__(self):
         self.pool = constant_pool.ConstPool()
         self.lbls = {}
+        self.fixed = {} # constant pool entries in a specific slot
 
-    def getLabel(self, lbl, forbidden=()):
+    def getLabel(self, lbl, forbidden=(), **kwargs):
         if lbl in forbidden:
             error('Recursive constant pool reference: ' + ', '.join(forbidden))
         forbidden = forbidden + (lbl,)
-        return self.lbls[lbl].toIndex(self, forbidden)
+        return self.lbls[lbl].toIndex(self, forbidden, **kwargs)
 
-    def getItem(self, type_, *args):
-        return self.pool.getItemRaw((type_, tuple(args)))
+    def getItem(self, type_, *args, **kwargs):
+        return self.pool.addItem((type_, tuple(args)), **kwargs)
 
     def Utf8(self, s):
         return self.getItem('Utf8', s)
 
-
+    def assignFixedSlots(self):
+        self.pool.reserved.update(self.fixed)
+        for i,v in self.fixed.items():
+            if v.args and v.args[0] in ('Double','Long'):
+                self.pool.reserved.add(i+1)
+                
+        #TODO - order these in terms of dependencies?
+        for index, value in self.fixed.items():
+            used = value.toIndex(self, index=index)
+            if used != index: #we need to copy an existing item
+                self.pool.copyItem(used, index)
 
 _format_ops = collections.defaultdict(tuple)
 _format_ops[''] = instructions.instrs_noarg
@@ -231,9 +242,10 @@ def assemble(tree, addLineNumbers, jasmode, filename):
 
     for slot, value in top_d['const']:
         if slot.index is not None:
-            error('Assigning to directly constant pool indices is not currently supported.') 
-        lbl = slot.lbl
-        pool.lbls[lbl] = value
+            pool.fixed[slot.index] = value
+        else:
+            pool.lbls[slot.lbl] = value
+    pool.assignFixedSlots()
 
     for flags, name, desc, const in top_d['field']:
         flagbits = map(Field.flagVals.get, flags)

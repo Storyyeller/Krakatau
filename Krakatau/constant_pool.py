@@ -1,7 +1,5 @@
 import struct, collections
 
-identity = lambda x:x
-
 def decodeStr((s,)):
     return s.replace('\xc0\x80','\0').decode('utf8'),
 def encodeStr((u,)):
@@ -11,76 +9,62 @@ def strToBytes(args):
     return struct.pack('>H',len(s)) + s
 
 cpoolInfo_t = collections.namedtuple('cpoolInfo_t',
-                                     ['name','tag','recoverArgs','fromRaw','toBytes'])
+                                     ['name','tag','recoverArgs','toBytes'])
 
 Utf8 = cpoolInfo_t('Utf8',1,
                   (lambda self,(s,):(s,)),
-                  decodeStr,
                   strToBytes)
 
 Class = cpoolInfo_t('Class',7,
                     (lambda self,(n_id,):self.getArgs(n_id)),
-                    identity,
                     (lambda (n_id,): struct.pack('>H',n_id)))
 
 NameAndType = cpoolInfo_t('NameAndType',12,
                 (lambda self,(n,d):self.getArgs(n) + self.getArgs(d)),
-                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 Field = cpoolInfo_t('Field',9,
                 (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
-                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 Method = cpoolInfo_t('Method',10,
                 (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
-                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 InterfaceMethod = cpoolInfo_t('InterfaceMethod',11,
                 (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
-                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 String = cpoolInfo_t('String',8,
                 (lambda self,(n_id,):self.getArgs(n_id)),
-                identity,
                 (lambda (n_id,): struct.pack('>H',n_id)))
 
 Int = cpoolInfo_t('Int',3,
                   (lambda self,(s,):(s,)),
-                  identity,
                   (lambda (val,): struct.pack('>i',val)))
 
 Long = cpoolInfo_t('Long',5,
                   (lambda self,(s,):(s,)),
-                  identity,
                   (lambda (val,): struct.pack('>q',val)))
 
 Float = cpoolInfo_t('Float',4,
                   (lambda self,(s,):(s,)),
-                  identity,
                   (lambda (val,): struct.pack('>f',val)))
 
 Double = cpoolInfo_t('Double',6,
                   (lambda self,(s,):(s,)),
-                  identity,
                   (lambda (val,): struct.pack('>d',val)))
 
 MethodHandle = cpoolInfo_t('MethodHandle',15,
                 (lambda self,(t, n_id):(t,)+self.getArgs(n_id)),
-                identity,
                 (lambda (t, n_id): struct.pack('>BH',t, n_id)))
 
 MethodType = cpoolInfo_t('MethodType',16,
                 (lambda self,(n_id,):self.getArgs(n_id)),
-                identity,
                 (lambda (n_id,): struct.pack('>H',n_id)))
 
 InvokeDynamic = cpoolInfo_t('InvokeDynamic',18,
                 (lambda self,(bs_id, nat_id):(bs_id,) + self.getArgs(nat_id)),
-                identity,
                 (lambda (n,d): struct.pack('>HH',n,d)))
 
 cpoolTypes = [Utf8, Class, NameAndType, Field, Method, InterfaceMethod,
@@ -100,7 +84,9 @@ class ConstPool(object):
                 self.addEmptySlot()
             else:
                 t = tag2Type[tag]
-                self.pool.append((t.name, t.fromRaw(val)))
+                if t.name == 'Utf8':
+                    val = decodeStr(val)
+                self.pool.append((t.name, val))
 
     def getPoolIter(self):
         return (x for x in self.pool if x[0] is not None)

@@ -2,18 +2,22 @@ import collections, itertools
 import struct, operator
 import re, math
 
-from . import instructions, tokenize, assembler
+from . import instructions, tokenize, assembler, codes
 from .. import constant_pool
 from ..classfile import ClassFile
 from ..method import Method
 from ..field import Field
 from ..binUnpacker import binUnpacker
 
+rhandle_codes = {v:k for k,v in codes.handle_codes.items()}
+rnewarr_codes = {v:k for k,v in codes.newarr_codes.items()}
+
 not_word_regex = '(?:{}|{}|{}|;)'.format(tokenize.int_base, tokenize.float_base, tokenize.t_CPINDEX)
 not_word_regex = re.compile(not_word_regex, re.VERBOSE)
 is_word_regex = re.compile(tokenize.t_WORD+'$')
 
 def isWord(s):
+    #if s is in wordget, that means it's a directive or keyword
     if s in tokenize.wordget or (not_word_regex.match(s) is not None):
         return False
     return (is_word_regex.match(s) is not None) and min(s) > ' ' #eliminate unprintable characters below 32
@@ -21,9 +25,39 @@ def isWord(s):
 class PoolManager(object):
     def __init__(self, pool):
         self.pool = pool.pool
-        self.used = set()
+        self.bootstrap_methods = [] #filled in externally
+        self.used = set() #which cp entries are used non inline and so must be printed
+
+        #For each type, store the function needed to generate the rhs of a constant pool specifier
+        temp1 = lambda ind: self.rstring(self.cparg1(ind))
+        temp2 = lambda ind: self.utfref(self.cparg1(ind))
+
+        self.cpref_table = {
+            "Utf8": temp1, 
+            
+            "Class": temp2, 
+            "String": temp2, 
+            "MethodType": temp2, 
+
+            "NameAndType": self.multiref, 
+            "Field": self.multiref, 
+            "Method": self.multiref, 
+            "InterfaceMethod": self.multiref,
+
+            "Int": self.ldc,
+            "Long": self.ldc,
+            "Float": self.ldc,
+            "Double": self.ldc,
+
+            "MethodHandle": self.methodhandle_notref, 
+            "InvokeDynamic": self.invokedynamic_notref, 
+            }
+
+    def cparg1(self, ind):
+        return self.pool[ind][1][0]
 
     def rstring(self, s, allowWord=True):
+        '''Returns a representation of the string. If allowWord is true, it will be unquoted if possible'''
         if allowWord and isWord(s):
             return s
         try:
@@ -33,26 +67,30 @@ class PoolManager(object):
             pass 
         return repr(s)
 
+    def inlineutf(self, ind, allowWord=True):
+        '''Returns the word if it's short enough to inline, else None'''
+        arg = self.cparg1(ind)
+        rstr = self.rstring(arg, allowWord=allowWord)
+        if len(rstr) <= 50:
+            return rstr
+        return None
+
     def ref(self, ind):
         self.used.add(ind)
         return '[_{}]'.format(ind)
+    
+    def utfref(self, ind):
+        inline = self.inlineutf(ind) 
+        return inline if inline is not None else self.ref(ind) 
 
-    def utfref(self, ind, allowRef=True):    
-        arg = self.pool[ind][1][0]
-        rstr = self.rstring(arg)
-        if len(rstr) <= 50:
-            return rstr
-        if allowRef:
-            return self.ref(ind)
-        return None
-
+    #Also works for Strings and MethodTypes
     def classref(self, ind):
         if ind == 0:
             return '[0]'    
-        uind = self.pool[ind][1][0]
-        inline = self.utfref(uind, False) 
+        inline = self.inlineutf(self.cparg1(ind)) 
         return inline if inline is not None else self.ref(ind)
 
+    #For Field, Method, IMethod, and NameAndType. Effectively notref
     def multiref(self, ind):
         typen, args = self.pool[ind]
         if typen == "Utf8":
@@ -61,21 +99,43 @@ class PoolManager(object):
             return self.classref(ind)
         return ' '.join(map(self.multiref, args))
 
+    #Special case for instruction fieldrefs as a workaround for Jasmin's awful syntax
+    def notjasref(self, ind):
+        typen, args = self.pool[ind]
+        cind = self.cparg1(ind)
+        inline = self.inlineutf(self.cparg1(cind)) 
+        if inline is None:
+            return self.ref(ind)
+        return inline + ' ' + self.multiref(args[1])
+
     def ldc(self, ind):
         typen, args = self.pool[ind]
         arg = args[0]
 
         if typen == 'String':
-            arg = self.pool[arg][1][0]
-            rstr = self.rstring(arg, allowWord=False)
-            return rstr if len(rstr) <= 50 else self.ref(ind)
-        elif typen == 'Class':
-            return self.ref(ind)
-        else:
+            inline = self.inlineutf(arg, allowWord=False)
+            return inline if inline is not None else self.ref(ind) 
+        elif typen in ('Int','Long','Float','Double'):
             rstr = repr(arg).rstrip("Ll")
             if typen == "Float" or typen == "Long":
                 rstr += typen[0]
             return rstr
+        else:
+            return self.ref(ind)
+
+    def methodhandle_notref(self, ind):
+        typen, args = self.pool[ind]
+        code = rhandle_codes[args[0]]
+        return code + ' ' + self.ref(args[1])    
+
+    def invokedynamic_notref(self, ind):
+        typen, args = self.pool[ind]
+        bs_args = self.bootstrap_methods[args[0]]
+
+        parts = [self.methodhandle_notref(bs_args[0])]
+        parts += map(self.ref, bs_args[1:])
+        parts += [':', self.multiref(args[1])]
+        return ' '.join(parts)
 
     def printConstDefs(self, add):
         defs = {}
@@ -85,22 +145,11 @@ class PoolManager(object):
             for ind in temp:
                 if ind in defs:
                     continue
-
-                typen, args = self.pool[ind]
-                if typen in ('Int','Float','Long','Double'):
-                    defs[ind] = self.ldc(ind)
-                elif typen in ('Class','String'):
-                    uind = self.pool[ind][1][0]
-                    defs[ind] = self.utfref(uind)
-                elif typen == 'Utf8':
-                    #can't have a ref here
-                    arg = self.pool[ind][1][0]
-                    defs[ind] = self.rstring(arg)
-                else:
-                    defs[ind] = self.multiref(ind)
+                typen = self.pool[ind][0]
+                defs[ind] = self.cpref_table[typen](ind)
 
         for ind in sorted(defs):
-            add('.const [_{}] = {} {}'.format(ind, self.pool[ind][0].lower(), defs[ind]))
+            add('.const [_{}] = {} {}'.format(ind, self.pool[ind][0], defs[ind]))
 
 
 fmt_lookup = {k:v.format for k,v in assembler._op_structs.items()}
@@ -137,15 +186,27 @@ def getInstruction(b, getlbl, poolm):
         return '\n'.join(entries)
     else:
         args = list(b.get(fmt_lookup[name], forceTuple=True))
+        #remove extra padding 0
+        if name in ('invokeinterface','invokedynamic'):
+            args = args[:-1] 
+
+        funcs = {
+                'OP_CLASS': poolm.classref, 
+                'OP_FIELD': poolm.notjasref, #this is a special case due to the jasmin thing
+                'OP_METHOD': poolm.multiref, 
+                'OP_METHOD_INT': poolm.multiref, 
+                'OP_DYNAMIC': poolm.ref, 
+                'OP_LDC1': poolm.ldc, 
+                'OP_LDC2': poolm.ldc, 
+                'OP_NEWARR': rnewarr_codes.get, 
+            }
+
         token_t = tokenize.wordget[name]
         if token_t == 'OP_LBL':
             assert(len(args) == 1)
             args[0] = getlbl(args[0]+pos)
-        elif token_t[3:] in ('FIELD','METHOD','CLASS','CLASS_INT','METHOD_INT','LDC1','LDC2'):
-            func = poolm.ldc if token_t[3:6] == "LDC" else poolm.multiref
-            args[0] = func(args[0])
-        elif token_t == 'OP_NEWARR':
-            args[0] = 'boolean char float double byte short int long'.split()[args[0]-4]
+        elif token_t in funcs:
+            args[0] = funcs[token_t](args[0])
 
         parts = [name] + map(str, args)
         return '\t' + ' '.join(parts)
@@ -195,11 +256,19 @@ def disassemble(cls):
 
     add('.version {0[0]} {0[1]}'.format(cls.version))
 
-    for name_ind, data in cls.attributes_raw:
-        if cls.cpool.getArgsCheck('Utf8', name_ind) == 'SourceFile':
-            bytes = binUnpacker(data)
-            val_ind = bytes.get('>H')
-            add('.source {}'.format(poolm.utfref(val_ind)))
+    class_attributes = {cls.cpool.getArgsCheck('Utf8', name_ind):data for name_ind, data in cls.attributes_raw}
+    if 'SourceFile' in class_attributes:
+        bytes = binUnpacker(class_attributes['SourceFile'])
+        val_ind = bytes.get('>H')
+        add('.source {}'.format(poolm.utfref(val_ind)))
+
+    if 'BootstrapMethods' in class_attributes:
+        bytes = binUnpacker(class_attributes['BootstrapMethods'])
+        count = bytes.get('>H')
+        for i in range(count):
+            arg1, argc = bytes.get('>HH')
+            args = (arg1,) + bytes.get('>'+'H'*argc, forceTuple=True)
+            poolm.bootstrap_methods.append(args)
 
     cflags = ' '.join(map(str.lower, cls.flags))
     add('.class {} {}'.format(cflags, poolm.classref(cls.this)))
@@ -227,7 +296,6 @@ def disassemble(cls):
             bytes = binUnpacker(a[1])
             for i in range(bytes.get('>H')):
                 add('.throws ' + poolm.classref(bytes.get('>H')))
-
 
         disMethodCode(method.code, add, poolm)
         add('.end method')

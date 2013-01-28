@@ -157,11 +157,10 @@ list_rule('topitem')
 
 ###############################################################################
 #invoke dynamic stuff
-_handle_types = 'getField getStatic putField putStatic invokeVirtual invokeStatic invokeSpecial newInvokeSpecial invokeInterface'.split()
-_handle_codes = dict(zip(_handle_types, range(1,10)))
-_handle_token_types = set(wordget.get(x, 'WORD') for x in _handle_types)
+from .codes import handle_codes
+_handle_token_types = set(wordget.get(x, 'WORD') for x in handle_codes)
 def p_handle(p):
-    p[0] = _handle_codes[p[1]]
+    p[0] = handle_codes[p[1]]
 p_handle.__doc__ = "handlecode : " + '\n| '.join(_handle_token_types)
 
 #The second argument's type depends on the code, so we require an explicit reference for simplicity
@@ -288,6 +287,7 @@ def p_instruction(p):
                     | OP_FIELD fieldref_or_jas
                     | OP_METHOD methodref_or_jas
                     | OP_METHOD_INT imethodref_or_jas intl
+                    | OP_DYNAMIC ref
                     | OP_CLASS classref
                     | OP_CLASS_INT classref intl
                     | OP_LDC1 ldc1_ref
@@ -354,11 +354,10 @@ def p_imethodref_or_jas(p):
     p[0] = PoolRef('InterfaceMethod', *p[1])
 
 
-
-_newarr_codes = dict(zip('boolean char float double byte short int long'.split(), range(4,12)))
-_newarr_token_types = set(wordget.get(x, 'WORD') for x in _newarr_codes)
+from .codes import newarr_codes
+_newarr_token_types = set(wordget.get(x, 'WORD') for x in newarr_codes)
 def p_nacode(p):
-    p[0] = _newarr_codes[p[1]]
+    p[0] = newarr_codes[p[1]]
 p_nacode.__doc__ = "nacode : " + '\n| '.join(_newarr_token_types)
 
 addRule(assign1, 'ldc1_ref', 'ldc1_notref', 'ref')

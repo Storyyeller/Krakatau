@@ -30,7 +30,7 @@ for op in ins.instrs_lbl:
 for op in ('getstatic', 'putstatic', 'getfield', 'putfield'):
     wordget[op] = 'OP_FIELD'
 #support invokenonvirtual for backwards compatibility with Jasmin
-for op in ('invokevirtual', 'invokespecial', 'invokestatic', 'invokedynamic', 'invokenonvirtual'): 
+for op in ('invokevirtual', 'invokespecial', 'invokestatic', 'invokenonvirtual'): 
     wordget[op] = 'OP_METHOD'
 for op in ('new', 'anewarray', 'checkcast', 'instanceof'):
     wordget[op] = 'OP_CLASS'
@@ -44,6 +44,7 @@ wordget['iinc'] = 'OP_INT_INT'
 wordget['newarray'] = 'OP_NEWARR'
 wordget['multianewarray'] = 'OP_CLASS_INT'
 wordget['invokeinterface'] = 'OP_METHOD_INT'
+wordget['invokedynamic'] = 'OP_DYNAMIC'
 
 for op in ins.allinstructions:
     wordget.setdefault(op,op.upper())

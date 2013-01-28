@@ -68,8 +68,24 @@ Double = cpoolInfo_t('Double',6,
                   identity,
                   (lambda (val,): struct.pack('>d',val)))
 
+MethodHandle = cpoolInfo_t('MethodHandle',15,
+                (lambda self,(t, n_id):(t,)+self.getArgs(n_id)),
+                identity,
+                (lambda (t, n_id): struct.pack('>BH',t, n_id)))
+
+MethodType = cpoolInfo_t('MethodType',16,
+                (lambda self,(n_id,):self.getArgs(n_id)),
+                identity,
+                (lambda (n_id,): struct.pack('>H',n_id)))
+
+InvokeDynamic = cpoolInfo_t('InvokeDynamic',18,
+                (lambda self,(bs_id, nat_id):(bs_id,) + self.getArgs(nat_id)),
+                identity,
+                (lambda (n,d): struct.pack('>HH',n,d)))
+
 cpoolTypes = [Utf8, Class, NameAndType, Field, Method, InterfaceMethod,
-              String, Int, Long, Float, Double]
+              String, Int, Long, Float, Double, 
+              MethodHandle, MethodType, InvokeDynamic]
 name2Type = {t.name:t for t in cpoolTypes}
 tag2Type = {t.tag:t for t in cpoolTypes}
 

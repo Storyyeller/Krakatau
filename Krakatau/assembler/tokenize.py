@@ -12,8 +12,12 @@ directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','
 keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
 
-words = keywords + flags + constant_pool.name2Type.keys()
-wordget = {w.lower():w.upper() for w in words}
+lowwords = (keywords + flags)
+casewords = constant_pool.name2Type.keys()
+
+wordget = {}
+wordget.update({w.lower():w.upper() for w in lowwords})
+wordget.update({w:w.upper() for w in casewords})
 wordget.update({'.'+w.lower():'D'+w for w in directives})
 
 assert(set(wordget).isdisjoint(ins.allinstructions))

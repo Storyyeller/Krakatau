@@ -36,6 +36,7 @@ class PoolInfo(object):
         self.pool = constant_pool.ConstPool()
         self.lbls = {}
         self.fixed = {} # constant pool entries in a specific slot
+        self.bootstrap = [] #entries for the BootstrapMethods attribute if any
 
     def getLabel(self, lbl, forbidden=(), **kwargs):
         if lbl in forbidden:
@@ -44,6 +45,9 @@ class PoolInfo(object):
         return self.lbls[lbl].toIndex(self, forbidden, **kwargs)
 
     def getItem(self, type_, *args, **kwargs):
+        if type_ == 'InvokeDynamic':
+            self.bootstrap.append(args[:-1])
+            args = len(self.bootstrap)-1, args[-1]    
         return self.pool.addItem((type_, tuple(args)), **kwargs)
 
     def Utf8(self, s):
@@ -65,12 +69,14 @@ _format_ops = collections.defaultdict(tuple)
 _format_ops[''] = instructions.instrs_noarg
 _format_ops['>B'] = 'iload', 'lload', 'fload', 'dload', 'aload', 'istore', 'lstore', 'fstore', 'dstore', 'astore', 'ret'
 _format_ops['>h'] = 'ifeq', 'ifne', 'iflt', 'ifge', 'ifgt', 'ifle', 'if_icmpeq', 'if_icmpne', 'if_icmplt', 'if_icmpge', 'if_icmpgt', 'if_icmple', 'if_acmpeq', 'if_acmpne', 'goto', 'jsr', 'ifnull', 'ifnonnull'
-_format_ops['>H'] = 'ldc_w', 'ldc2_w', 'getstatic', 'putstatic', 'getfield', 'putfield', 'invokevirtual', 'invokespecial', 'invokestatic', 'invokedynamic', 'new', 'anewarray', 'checkcast', 'instanceof'
+_format_ops['>H'] = 'ldc_w', 'ldc2_w', 'getstatic', 'putstatic', 'getfield', 'putfield', 'invokevirtual', 'invokespecial', 'invokestatic', 'new', 'anewarray', 'checkcast', 'instanceof'
 
 _format_ops['>b'] += 'bipush', 
 _format_ops['>Bb'] += 'iinc', 
 _format_ops['>h'] += 'sipush', 
-_format_ops['>HB'] += 'invokeinterface', 'multianewarray'
+_format_ops['>HB'] += 'multianewarray',
+_format_ops['>HBB'] += 'invokeinterface',
+_format_ops['>HH'] += 'invokedynamic',
 _format_ops['>B'] += 'ldc', 'newarray'
 _format_ops['>i'] += 'goto_w', 'jsr_w'
 
@@ -278,6 +284,12 @@ def assemble(tree, addLineNumbers, jasmode, filename):
 
         method_code = struct.pack('>HHHH', flagbits, name, desc, len(mattrs)) + ''.join(mattrs)
         methods.append(method_code)
+
+    if pool.bootstrap:
+        entries = [struct.pack('>H' + 'H'*len(bsargs), bsargs[0], len(bsargs)-1, *bsargs[1:]) for bsargs in pool.bootstrap]   
+        attrbody = ''.join(entries)
+        attrhead = struct.pack('>HIH', pool.Utf8("BootstrapMethods"), 2+len(attrbody), len(entries))
+        attributes.append(attrhead + attrbody)
 
     if jasmode and not sourcefile:
         sourcefile = pool.Utf8(filename)

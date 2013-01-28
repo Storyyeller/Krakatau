@@ -23,9 +23,9 @@ def addRule(func, name, *rhs_rules):
     globals()[fname] = _inner
 
 def list_sub(p):p[0] = p[1] + p[2:]
-def list_rule(name):
+def list_rule(name): #returns a list
     name2 = name + 's'
-    addRule(list_sub, name2, '{} {}'.format(name2, name), 'empty')
+    addRule(list_sub, name2, '{} {}'.format(name2, name), 'empty')    
 
 def assign1(p):p[0] = p[1]
 def assign2(p):p[0] = p[2]
@@ -104,8 +104,9 @@ def p_imethod_notref(p):
     '''interfacemethod_notref : classref nameandtyperef'''
     p[0] = PoolRef('InterfaceMethod', p[1], p[2])
 
-# for name in ('utf8','class', 'nameandtype', 'field', 'method', 'interfacemethod', 'string'):
-for name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod'):
+#constant pool types related to InvokeDynamic handled later
+
+for name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod', 'methodhandle'):
     addRule(assign1, '{}ref'.format(name), '{}_notref'.format(name), 'ref')
 
 ###############################################################################
@@ -154,6 +155,31 @@ def p_topitem_m(p):
     p[0] = 'method', p[1]
 list_rule('topitem')
 
+###############################################################################
+#invoke dynamic stuff
+_handle_types = 'getField getStatic putField putStatic invokeVirtual invokeStatic invokeSpecial newInvokeSpecial invokeInterface'.split()
+_handle_codes = dict(zip(_handle_types, range(1,10)))
+_handle_token_types = set(wordget.get(x, 'WORD') for x in _handle_types)
+def p_handle(p):
+    p[0] = _handle_codes[p[1]]
+p_handle.__doc__ = "handlecode : " + '\n| '.join(_handle_token_types)
+
+#The second argument's type depends on the code, so we require an explicit reference for simplicity
+def p_methodhandle_notref(p):
+    '''methodhandle_notref : handlecode ref'''
+    p[0] = PoolRef('MethodHandle', p[1], p[2])
+
+def p_methodtype_notref(p):
+    '''methodtype_notref : utf8_notref'''
+    p[0] = PoolRef('Methodtype', p[1])
+
+addRule(assign1, 'bootstrap_arg', 'ref') #TODO - allow inline constants and strings?
+list_rule('bootstrap_arg')
+
+def p_invokedynamic_notref(p):
+    '''invokedynamic_notref : methodhandleref bootstrap_args COLON nameandtyperef'''
+    args = [p[1]] + p[2] + [p[4]]
+    p[0] = PoolRef('InvokeDynamic', *args)
 
 ###############################################################################
 def p_const_spec(p):
@@ -166,13 +192,14 @@ def assignPoolSingle(typen):
     return inner
 
 addRule(assign1, 'const_rhs', 'ref')
-for tt in ['UTF8', 'CLASS','STRING','NAMEANDTYPE','FIELD','METHOD','INTERFACEMETHOD']:
+for tt in ['UTF8', 'CLASS','STRING','NAMEANDTYPE','FIELD','METHOD','INTERFACEMETHOD',
+            'METHODHANDLE','METHODTYPE','INVOKEDYNAMIC']:
     addRule(assign2, 'const_rhs', '{} {}_notref'.format(tt, tt.lower()))
 
 #these are special cases, since they take a single argument
 #and the notref version can't have a ref as its argument due to ambiguity
-addRule(assignPoolSingle('Class'), 'const_rhs', 'CLASS ref')
-addRule(assignPoolSingle('String'), 'const_rhs', 'STRING ref')
+for ptype in ('Class','String','MethodType'):
+    addRule(assignPoolSingle(ptype), 'const_rhs', ptype.upper() + ' ref')
 
 for ptype in ('Int','Float','Long','Double'):
     addRule(assignPoolSingle(ptype), 'const_rhs', '{} {}l'.format(ptype.upper(), ptype.lower()))
@@ -273,6 +300,10 @@ def p_instruction(p):
     if p[1] == 'invokenonvirtual':
         p[1] = 'invokespecial'
     p[0] = tuple(p[1:])
+    #these instructions have 0 padding at the end
+    #this is kind of an ungly hack, but the best way I could think of
+    if p[1] in ('invokeinterface','invokedynamic'):
+        p[0] += (0,)
 
 def p_lbl(p):
     '''lbl : WORD'''

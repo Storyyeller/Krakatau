@@ -41,7 +41,7 @@ def performTest(temppath, testdata, cpath=class_location):
     decompile.decompileClass(cpath, targets=[target], outpath=temppath)
 
     print 'Attempting to compile'
-    out, err = execute(['javac', target+'.java'] + '-g:none -target 1.5'.split(), cwd=temppath)
+    out, err = execute(['javac', target+'.java'] + '-g:none'.split(), cwd=temppath)
     if err:
         print out, err
         return False

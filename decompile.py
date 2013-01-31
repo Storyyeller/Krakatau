@@ -90,6 +90,7 @@ if __name__== "__main__":
     parser.add_argument('-out',help='Path to generate source files in')
     parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
     parser.add_argument('-dis', action='store_true', help="Disassemble only, instead of decompiling.")
+    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -116,7 +117,14 @@ if __name__== "__main__":
             targets = sorted(targets)
         print len(targets), 'classfiles found in the jar'
     else:
-        if target.endswith('.class'):
-            target = target[:-6]
-        targets = [target.replace('.','/')]
+        if args.r:
+            assert(os.path.isdir(target))
+            targets = []
+            for root, dirs, files in os.walk(target):
+                targets += [os.path.join(root, fname[:-6]).replace('\\','/') for fname in files if fname.endswith('.class')]
+            print len(targets), 'classfiles found in directory'
+        else:
+            if target.endswith('.class'):
+                target = target[:-6]
+            targets = [target.replace('.','/')]
     decompileClass(path, targets, args.out, args.dis)

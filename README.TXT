@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012 Robert Grosse
+Copyright (C) 2012-13 Robert Grosse
 
 === Introduction ===
 
@@ -25,6 +25,8 @@ OUT : File or directory name where source files are written. Defaults to
 	current directory
 
 -dis : Disassemble instead of decompiling (see below)
+
+-r : Decompiles all .class files found in the directory target (recursively)
 
 target : Class name or jar name to decompile. If a jar is specified, all
 	classes in the jar will be decompiled.
@@ -54,6 +56,8 @@ OUT : The filename or path to output the generated class to. If not given,
 	this will default to the name of the class, creating subdirectories if
 	necessary. If both DIR and OUT are specified, they are concatenated. 
 
+-r : Assembles all .j files found in the directory target (recursively)
+
 -g : If specified, SourceFile and LineNumberTable attributes giving the 
 	offset of every instruction will be added. This is useful for debugging
 	exceptions, as it will let the JVM print the origin of the exception
@@ -76,7 +80,8 @@ as well as simplifying the syntax. Note that for full compatibility, some
 Jasmin quirks require the -jas flag to be enabled, but most Jasmin syntax 
 will work even without it.
 
-A tutorial on writing Java Bytecode Assembly with Krakatau is available at https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
+A tutorial on writing Java Bytecode Assembly with Krakatau is available at 
+https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
 
 The assembler uses PLY, which will generate a file called "parsetab.py" in
 the current directory.
@@ -91,11 +96,10 @@ be reassembled. Together with the Krakatau assembler, this tool should be
 able to roundtrip any class through assembly and back into an equivalent 
 class with the following caveats:
 
-* Features introduced after classfile version 49.0 are not fully supported
-* Attributes other than Code, ConstantValue, Exceptions, and SourceFile are 
-	currently ignored. The disassembler does not attempt to disassemble 
-	LineNumberTable or LocalVariableTable even though they are supported by the 
-	assembler.
+* Attributes other than Code, ConstantValue, StackMapTable, BootstrapMethods, 
+	Exceptions, and SourceFile are currently ignored. The disassembler does not 
+	attempt to disassemble LineNumberTable or LocalVariableTable even though 
+	they are supported by the assembler.
 * Constant pool entries may not be reassembled in the same order. If an ldc 		
 	instruction refers to an entry which ends up at index 256 or higher, 
 	reassembly will fail.

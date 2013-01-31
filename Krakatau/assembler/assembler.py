@@ -1,7 +1,7 @@
 import collections, itertools
 import struct, operator
 
-from . import instructions
+from . import instructions, codes
 from .. import constant_pool
 from ..classfile import ClassFile
 from ..method import Method
@@ -148,8 +148,9 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     directives = [x[1] for x in statements if x[0] == 'dir']
     lines = [x[1] for x in statements if x[0] == 'ins']
 
+    dir_offsets = collections.defaultdict(list)
+
     offsets = []
-    linestarts = []
     labels = {}
     pos = 0
     #first run through to calculate bytecode offsets
@@ -162,9 +163,9 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
             if instr is not None:
                 offsets.append(pos)
                 pos += getInstrLen(instr, pos)
-        elif t == 'dir' and statement[0] == 'line':
-            lnum = statement[1]
-            linestarts.append((lnum,pos))
+        #some directives require us to keep track of the corresponding bytecode offset
+        elif t == 'dir' and statement[0] in ('line','stackmap'):
+            dir_offsets[statement[0]].append(pos)
     code_len = pos
 
     code_bytes = ''
@@ -190,11 +191,63 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     
     attributes = []
 
+    #StackMapTable
+    def pack_vt(vt):
+        s = chr(codes.vt_codes[vt[0]])
+        if vt[0] == 'Object':
+            s += struct.pack('>H', vt[1].toIndex(pool))        
+        elif vt[0] == 'Uninitialized':
+            s += struct.pack('>H', labels[vt[1]])
+        return s
+
+    if directive_dict['stackmap']:
+        frames = []
+        last_pos = -1
+
+        for pos, info in zip(dir_offsets['stackmap'], directive_dict['stackmap']):
+            offset = pos - last_pos - 1
+            last_pos = pos
+            assert(offset >= 0)
+
+            tag = info[0]
+            if tag == 'same':
+                if offset >= 64:
+                    error('Max offset on a same frame is 63.')
+                frames.append(chr(offset))            
+            elif tag == 'same_locals_1_stack_item':
+                if offset >= 64:
+                    error('Max offset on a same_locals_1_stack_item frame is 63.')
+                frames.append(chr(64 + offset) + pack_vt(info[2][0]))            
+            elif tag == 'same_locals_1_stack_item_extended':
+                frames.append(struct.pack('>BH', 247, offset) + pack_vt(info[2][0]))            
+            elif tag == 'chop':
+                if not (1 <= info[2] <= 3):
+                    error('Chop frame can only remove 1-3 locals')
+                frames.append(struct.pack('>BH', 251-info[1], offset))
+            elif tag == 'same_extended':
+                frames.append(struct.pack('>BH', 251, offset))
+            elif tag == 'append':
+                local_vts = map(pack_vt, info[2])
+                if not (1 <= len(local_vts) <= 3):
+                    error('Append frame can only add 1-3 locals')
+                frames.append(struct.pack('>BH', 251+len(local_vts), offset) + ''.join(local_vts))
+            elif tag == 'full':
+                local_vts = map(pack_vt, info[2])
+                stack_vts = map(pack_vt, info[3])
+                frame = struct.pack('>BH', 255, offset)
+                frame += struct.pack('>H', len(local_vts)) + ''.join(local_vts)
+                frame += struct.pack('>H', len(stack_vts)) + ''.join(stack_vts)
+                frames.append(frame)
+
+        sm_body = ''.join(frames)
+        sm_attr = struct.pack('>HIH', pool.Utf8("StackMapTable"), len(sm_body)+2, len(frames)) + sm_body
+        attributes.append(sm_attr)
+
     #line number attribute
-    if addLineNumbers and not linestarts:
-        linestarts = [(x,x) for x in offsets]
-    if linestarts:
-        lntable = [struct.pack('>HH',x,y) for x,y in linestarts]
+    if addLineNumbers and not directive_dict['line']:
+        dir_offsets['line'] = directive_dict['line'] = offsets
+    if directive_dict['line']:
+        lntable = [struct.pack('>HH',x,y) for x,y in zip(dir_offsets['line'], directive_dict['line'])]
         ln_attr = struct.pack('>HIH', pool.Utf8("LineNumberTable"), 2+4*len(lntable), len(lntable)) + ''.join(lntable)        
         attributes.append(ln_attr)
 

@@ -226,6 +226,8 @@ def disMethodCode(code, add, poolm):
         parts = poolm.classref(e.type_ind), getlbl(e.start), getlbl(e.end), getlbl(e.handler)
         add('\t.catch {} from {} to {} using {}'.format(*parts))
 
+    frames = getStackMapTable(code, poolm, getlbl)
+
     instrs = []
     b = binUnpacker(code.bytecode_raw)
     while b.size():
@@ -235,8 +237,73 @@ def disMethodCode(code, add, poolm):
     for off, instr in instrs:
         if off in lbls:
             add('L{}:'.format(off))
+        if off in frames:
+            add(frames[off])
         if instr:
             add(instr)
+
+def getVerificationType(bytes, poolm, getLbl):
+    s = codes.vt_keywords[bytes.get('>B')]
+    if s == 'Object':
+        s += ' ' + poolm.classref(bytes.get('>H'))
+    elif s == 'Uninitialized':
+        s += ' ' + getLbl(bytes.get('>H'))
+    return s
+
+def getStackMapTable(code, poolm, getLbl):
+    #TODO - make this less ugly
+    cpool = code.class_.cpool
+    smt_attrs = [attr for attr in code.attributes_raw if cpool.getArgsCheck('Utf8', attr[0]) == 'StackMapTable']
+    
+    frames = {}
+    offset = 0
+
+    if smt_attrs:
+        assert(len(smt_attrs) == 1)
+        bytes = binUnpacker(smt_attrs[0][1])
+        count = bytes.get('>H')
+        getVT = lambda: getVerificationType(bytes, poolm, getLbl)
+
+        for frame_num in range(count):
+            tag = bytes.get('>B')
+            header, contents = None, []
+
+            if 0 <= tag <= 63:
+                offset += tag
+                header = 'same'
+            elif 64 <= tag <= 127:
+                offset += tag - 64
+                header = 'same_locals_1_stack_item'
+                contents.append('\tstack ' + getVT())            
+            elif tag == 247:
+                offset += bytes.get('>H')
+                header = 'same_locals_1_stack_item_extended'
+                contents.append('\tstack ' + getVT())
+            elif 248 <= tag == 250:
+                offset += bytes.get('>H')
+                header = 'chop ' + str(251-tag)            
+            elif tag == 251:
+                offset += bytes.get('>H')
+                header = 'same_extended'
+            elif 252 <= tag <= 254:
+                offset += bytes.get('>H')
+                header = 'append'     
+                contents.append('\tlocals ' + ' '.join(getVT() for i in range(tag-251)))  
+            elif tag == 255:
+                offset += bytes.get('>H')
+                header = 'full'
+                local_count = bytes.get('>H')    
+                contents.append('\tlocals ' + ' '.join(getVT() for i in range(local_count))) 
+                stack_count = bytes.get('>H')    
+                contents.append('\tstack ' + ' '.join(getVT() for i in range(stack_count))) 
+
+            if contents:
+                contents.append('.end stack')
+            contents = ['.stack ' + header] + contents
+            frame = '\n'.join(contents)
+            frames[offset] = frame
+            offset += 1 #frames after the first have an offset one larger than the listed offset
+    return frames
 
 #Todo - make fields automatically unpack this themselves
 def getConstValue(field):
@@ -246,8 +313,8 @@ def getConstValue(field):
     const_attrs = [attr for attr in field.attributes if cpool.getArgsCheck('Utf8', attr[0]) == 'ConstantValue']
     if const_attrs:
         assert(len(const_attrs) == 1)
-        data = const_attrs[0][1]
-        return struct.unpack('>h', data)[0]
+        bytes = binUnpacker(const_attrs[0][1])
+        return bytes.get('>H')
 
 def disassemble(cls):
     lines = []

@@ -6,19 +6,22 @@ from ..method import Method
 from ..field import Field
 from .. import constant_pool
 from . import instructions as ins
+from . import codes
 
 #Note: these values are used by the disassembler too - remember to update it if necessary
-directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS','VERSION'
+directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS','VERSION', 'STACK'
 keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
+keywords += ['SAME','SAME_LOCALS_1_STACK','SAME_LOCALS_1_STACK_EXTENDED','CHOP','SAME_EXTENDED','APPEND','FULL']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
 
-lowwords = (keywords + flags)
-casewords = constant_pool.name2Type.keys()
+lowwords = set().union(keywords, flags)
+casewords = set().union(codes.vt_keywords, constant_pool.name2Type.keys())
 
 wordget = {}
 wordget.update({w.lower():w.upper() for w in lowwords})
 wordget.update({w:w.upper() for w in casewords})
 wordget.update({'.'+w.lower():'D'+w for w in directives})
+assert(len(wordget) == len(lowwords) + len(casewords) + len(directives)) #make sure we didn't have a collision with duplicate keywords
 
 assert(set(wordget).isdisjoint(ins.allinstructions))
 for op in ins.instrs_noarg:

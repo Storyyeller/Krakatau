@@ -27,14 +27,13 @@ def list_rule(name): #returns a list
     name2 = name + 's'
     addRule(list_sub, name2, '{} {}'.format(name2, name), 'empty')    
 
+def nothing(p):pass
 def assign1(p):p[0] = p[1]
 def assign2(p):p[0] = p[2]
 def upper1(p): p[0] = p[1].upper()
 
 # Common Rules ################################################################
-def p_sep(p):
-    '''sep : sep NEWLINE
-            | NEWLINE '''
+addRule(nothing, 'sep', 'sep NEWLINE', 'NEWLINE')
 
 def p_empty(p):
     'empty :'
@@ -135,13 +134,8 @@ def p_classdec(p):
     #if interface, add interface to flags
     p[0] = (p[1] == '.interface'), p[2], p[3]
 
-def p_superdec(p):
-    '''superdec : DSUPER classref sep'''
-    p[0] = p[2]
-
-def p_interfacedec(p):
-    '''interfacedec : DIMPLEMENTS classref sep'''
-    p[0] = p[2]
+addRule(assign2, 'superdec', 'DSUPER classref sep')
+addRule(assign2, 'interfacedec', 'DIMPLEMENTS classref sep')
 list_rule('interfacedec')
 
 def p_topitem_c(p):
@@ -209,8 +203,7 @@ def p_field_spec(p):
     '''field_spec : DFIELD fflags utf8ref utf8ref field_constval sep'''
     p[0] = p[2:6]
 
-def p_field_constval_0(p):
-    '''field_constval : empty'''
+addRule(nothing, 'field_constval', 'empty')
 addRule(assign2, 'field_constval', 'EQUALS ref', 
                                     'EQUALS ldc1_notref', 
                                     'EQUALS ldc2_notref')
@@ -232,9 +225,7 @@ def p_jas_meth_namedesc(p):
     name = PoolRef('Utf8', name)
     desc = PoolRef('Utf8', paren+desc)
     p[0] = name, desc
-
-def p_endmethod(p):
-    '''endmethod : DEND METHOD sep'''
+addRule(nothing, 'endmethod', 'DEND METHOD sep')
 
 def p_statement_0(p):
     '''statement : method_directive sep'''
@@ -246,17 +237,8 @@ def p_statement_1(p):
     p[0] = 'ins', ((p[1] or None), p[2])
 list_rule('statement')
 
-def p_lbldec(p):
-    '''lbldec : lbl COLON'''
-    p[0] = p[1]
-
-def p_method_directive(p):
-    '''method_directive : limit_dir 
-                        | except_dir
-                        | localvar_dir
-                        | linenumber_dir
-                        | throws_dir'''
-    p[0] = p[1]
+addRule(assign1, 'lbldec', 'lbl COLON')
+addRule(assign1, 'method_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','throws_dir','stack_dir')
 
 def p_limit_dir(p):
     '''limit_dir : DLIMIT LOCALS intl 
@@ -305,12 +287,8 @@ def p_instruction(p):
     if p[1] in ('invokeinterface','invokedynamic'):
         p[0] += (0,)
 
-def p_lbl(p):
-    '''lbl : WORD'''
-    p[0] = p[1]
-
+addRule(assign1, 'lbl', 'WORD')
 addRule(assign1, 'fieldref_or_jas', 'jas_fieldref', 'ref', 'inline_fieldref')
-# addRule(assign1, 'fieldref_or_jas', 'fieldref')
 def p_jas_fieldref(p):
     '''jas_fieldref : WORD WORD'''
     class_, sep, name = p[1].replace('.','/').rpartition('/')
@@ -388,9 +366,7 @@ def p_luentry(p):
     p[0] = p[1], p[3]
 list_rule('luentry')
 
-def p_tblentry(p):
-    '''tblentry : lbl sep'''
-    p[0] = p[2]
+addRule(assign2, 'tblentry', 'lbl sep')
 list_rule('tblentry')
 
 def p_lookupswitch(p):
@@ -405,6 +381,27 @@ def p_wide_instr(p):
     '''wide_instr : OP_INT intl
                 | OP_INT_INT intl intl'''
     p[0] = tuple(p[1:])
+#######################################################################
+#Stack map stuff
+addRule(nothing, 'endstack', 'DEND STACK') #directives are not expected to end with a sep
+
+def assign1All(p):p[0] = tuple(p[1:])
+addRule(assign1All, 'verification_type', 'TOP', 'INTEGER', 'FLOAT', 'DOUBLE', 'LONG', 'NULL', 'UNINITIALIZEDTHIS',
+                                        'OBJECT classref', 'UNINITIALIZED lbl')
+list_rule('verification_type')
+addRule(assign2, 'locals_vtlist', 'LOCALS verification_types sep')
+addRule(assign2, 'stack_vtlist', 'STACK verification_types sep')
+
+def p_stack_dir(p):
+    '''stack_dir_rest : SAME 
+                    | SAME_EXTENDED
+                    | CHOP intl 
+                    | SAME_LOCALS_1_STACK sep stack_vtlist endstack
+                    | SAME_LOCALS_1_STACK_EXTENDED sep stack_vtlist endstack
+                    | APPEND sep locals_vtlist endstack
+                    | FULL sep locals_vtlist stack_vtlist endstack'''
+    p[0] = 'stackmap', tuple(p[1:])
+addRule(assign2, 'stack_dir', 'DSTACK stack_dir_rest')
 #######################################################################
 
 def p_error(p):

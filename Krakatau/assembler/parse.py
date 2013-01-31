@@ -396,8 +396,8 @@ def p_stack_dir(p):
     '''stack_dir_rest : SAME 
                     | SAME_EXTENDED
                     | CHOP intl 
-                    | SAME_LOCALS_1_STACK sep stack_vtlist endstack
-                    | SAME_LOCALS_1_STACK_EXTENDED sep stack_vtlist endstack
+                    | SAME_LOCALS_1_STACK_ITEM sep stack_vtlist endstack
+                    | SAME_LOCALS_1_STACK_ITEM_EXTENDED sep stack_vtlist endstack
                     | APPEND sep locals_vtlist endstack
                     | FULL sep locals_vtlist stack_vtlist endstack'''
     p[0] = 'stackmap', tuple(p[1:])

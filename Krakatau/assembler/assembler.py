@@ -221,7 +221,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
             elif tag == 'same_locals_1_stack_item_extended':
                 frames.append(struct.pack('>BH', 247, offset) + pack_vt(info[2][0]))            
             elif tag == 'chop':
-                if not (1 <= info[2] <= 3):
+                if not (1 <= info[1] <= 3):
                     error('Chop frame can only remove 1-3 locals')
                 frames.append(struct.pack('>BH', 251-info[1], offset))
             elif tag == 'same_extended':
@@ -352,7 +352,7 @@ def assemble(tree, addLineNumbers, jasmode, filename):
         sourceattr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, sourcefile.toIndex(pool))
         attributes.append(sourceattr)
 
-    interfaces = [x.toIndex(pool) for x in interface_decs]
+    interfaces = [struct.pack('>H', x.toIndex(pool)) for x in interface_decs]
 
     intf, cflags, this = classdec
     cflags = set(cflags)

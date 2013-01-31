@@ -279,7 +279,7 @@ def getStackMapTable(code, poolm, getLbl):
                 offset += bytes.get('>H')
                 header = 'same_locals_1_stack_item_extended'
                 contents.append('\tstack ' + getVT())
-            elif 248 <= tag == 250:
+            elif 248 <= tag <= 250:
                 offset += bytes.get('>H')
                 header = 'chop ' + str(251-tag)            
             elif tag == 251:
@@ -341,7 +341,7 @@ def disassemble(cls):
     add('.class {} {}'.format(cflags, poolm.classref(cls.this)))
     add('.super {}'.format(poolm.classref(cls.super)))
     for ii in cls.interfaces_raw:
-        add('.interface {}'.format(poolm.classref(ii)))
+        add('.implements {}'.format(poolm.classref(ii)))
     add('')
 
     for field in cls.fields:

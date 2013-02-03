@@ -39,6 +39,11 @@ makes it robust to minor obfuscation, though it has the drawback of not
 reconstructing the "original" source, leading to less readable output than a 
 pattern matching decompiler would produce for unobfuscated Java classes. 
 
+However, it will not always produce valid Java since there are some things 
+that are difficult or impossible to decompile at all thanks to the limitations
+of the Java language. In most cases, Krakatau will try to at least produce
+readable pseudocode, but sometimes it may just throw an exception.
+
 Note: decompilation produces a file called "cache.txt" in the current
 	directory. This stores information about the standard library so it 
 	doesn't have to be loaded every time. However, if you change the library,
@@ -94,7 +99,7 @@ This takes a classfile and converts it into a human readable assembly format.
 Unlike Javap, this can handle even pathological classes, and the output can 
 be reassembled. Together with the Krakatau assembler, this tool should be 
 able to roundtrip any class through assembly and back into an equivalent 
-class with the following caveats:
+class with the following caveat:
 
 * Attributes other than Code, ConstantValue, StackMapTable, BootstrapMethods, 
 	Exceptions, and SourceFile are currently ignored. The disassembler does not 

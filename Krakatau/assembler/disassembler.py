@@ -24,6 +24,7 @@ def isWord(s):
 
 class PoolManager(object):
     def __init__(self, pool):
+        self.const_pool = pool #keep this around for the float conversion function
         self.pool = pool.pool
         self.bootstrap_methods = [] #filled in externally
         self.used = set() #which cp entries are used non inline and so must be printed
@@ -116,6 +117,9 @@ class PoolManager(object):
             inline = self.inlineutf(arg, allowWord=False)
             return inline if inline is not None else self.ref(ind) 
         elif typen in ('Int','Long','Float','Double'):
+            if typen == "Float" or typen == "Double":
+                arg = self.const_pool.getArgs(ind)[0]
+
             rstr = repr(arg).rstrip("Ll")
             if typen == "Float" or typen == "Long":
                 rstr += typen[0]

@@ -1,5 +1,12 @@
 import struct, collections
 
+#ConstantPool stores strings as strings or unicodes. They are automatically
+#converted to and from modified Utf16 when reading and writing to binary
+
+#Floats and Doubles are internally stored as integers with the same bit pattern
+#Since using raw floats breaks equality testing for signed zeroes and NaNs
+#cpool.getArgs/getArgsCheck will automatically convert them into Python floats
+
 def decodeStr((s,)):
     return s.replace('\xc0\x80','\0').decode('utf8'),
 def encodeStr((u,)):
@@ -7,6 +14,11 @@ def encodeStr((u,)):
 def strToBytes(args):
     s = encodeStr(args)[0]
     return struct.pack('>H',len(s)) + s
+
+def decodeFloat(i):
+    return struct.unpack('>f', struct.pack('>i', i)) #Note: returns tuple
+def decodeDouble(i):
+    return struct.unpack('>d', struct.pack('>q', i))
 
 cpoolInfo_t = collections.namedtuple('cpoolInfo_t',
                                      ['name','tag','recoverArgs','toBytes'])
@@ -48,12 +60,12 @@ Long = cpoolInfo_t('Long',5,
                   (lambda (val,): struct.pack('>q',val)))
 
 Float = cpoolInfo_t('Float',4,
-                  (lambda self,(s,):(s,)),
-                  (lambda (val,): struct.pack('>f',val)))
+                  (lambda self,(s,):decodeFloat(s)),
+                  (lambda (val,): struct.pack('>i',val)))
 
 Double = cpoolInfo_t('Double',6,
-                  (lambda self,(s,):(s,)),
-                  (lambda (val,): struct.pack('>d',val)))
+                  (lambda self,(s,):decodeDouble(s)),
+                  (lambda (val,): struct.pack('>q',val)))
 
 MethodHandle = cpoolInfo_t('MethodHandle',15,
                 (lambda self,(t, n_id):(t,)+self.getArgs(n_id)),

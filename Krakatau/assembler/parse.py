@@ -1,5 +1,5 @@
 from ply import yacc
-import math, ast
+import math, ast, struct
 import itertools, collections
 
 from ..classfile import ClassFile
@@ -47,17 +47,26 @@ def p_longl(p):
     '''longl : LONG_LITERAL'''
     p[0] = ast.literal_eval(p[1][:-1])
 
+#Todo - find a better way of handling floats
 def parseFloat(s):
+    s = s[:-1]
     if s.strip('-')[:2].lower() == '0x':
-        return float.fromhex(s)
-    return float(s)
+        f = float.fromhex(s)
+    f = float(s)
+    return struct.unpack('>i', struct.pack('>f', f))[0]
+
+def parseDouble(s):
+    if s.strip('-')[:2].lower() == '0x':
+        f = float.fromhex(s)
+    f = float(s)
+    return struct.unpack('>q', struct.pack('>d', f))[0]
 
 def p_floatl(p):
     '''floatl : FLOAT_LITERAL'''
-    p[0] = parseFloat(p[1][:-1])
+    p[0] = parseFloat(p[1])
 def p_doublel(p):
     '''doublel : DOUBLE_LITERAL'''
-    p[0] = parseFloat(p[1])
+    p[0] = parseDouble(p[1])
 
 
 def p_ref(p):

@@ -228,7 +228,7 @@ def _lcmp(parent, input, iNode):
 
 def _ldc(parent, input, iNode):
     index, cat = iNode.instruction[1:]
-    entry_type = parent.getConstPoolEntry(index)[0]
+    entry_type = parent.getConstPoolType(index)
     args = parent.getConstPoolArgs(index)
 
     var = None
@@ -247,6 +247,7 @@ def _ldc(parent, input, iNode):
         tt = args[0], 0 #todo - make this handle arrays and primatives
         var = makeConstVar(parent, SSA_OBJECT, tt)
         var.decltype = objtypes.ClassTT
+    #Todo - handle MethodTypes and MethodHandles?
 
     assert(var)
     newstack = input.stack + [var] + [None]*(cat-1)

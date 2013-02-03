@@ -501,8 +501,8 @@ class SSA_Graph(object):
 	def getConstPoolArgs(self, index):
 		return self.class_.cpool.getArgs(index)
 
-	def getConstPoolEntry(self, index):
-		return self.class_.cpool.pool[index]
+	def getConstPoolType(self, index):
+		return self.class_.cpool.getType(index)
 
 	def rawExceptionHandlers(self):
 		rethrow_handler = (0, self.code.codelen, self.rethrowKey, 0)

@@ -4,9 +4,9 @@ import collections
 import binUnpacker, constant_pool, method, field
 
 cp_structFmts = {3: '>i',
-                4: '>f',
+                4: '>i',    #floats and doubles internally represented as integers with same bit pattern
                 5: '>q',
-                6: '>d',
+                6: '>q',
                 7: '>H',
                 8: '>H',
                 9: '>HH',

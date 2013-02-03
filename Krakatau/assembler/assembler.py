@@ -314,7 +314,7 @@ def addLdcRefs(methods, pool):
                 continue
 
             type_ = ref.args[0]
-            if type_ in ('Int','Float'): #TODO - ensure proper handling of NaNs
+            if type_ in ('Int','Float'):
                 key = ref.args[1]
             elif type_ in ('String','Class','MethodType'): 
                 uref = getRealRef(ref.args[1])
@@ -323,7 +323,7 @@ def addLdcRefs(methods, pool):
                 key = ref.args[1:] 
             ldc_refs[type_].add(key)    
 
-    #todo, make this a little cleaner so we don't have to mess with the ConstantPool internals
+    #TODO - make this a little cleaner so we don't have to mess with the ConstantPool internals
     num = sum(map(len, ldc_refs.values()))
     slots = [pool.pool.getAvailableIndex() for i in range(num)]
     pool.pool.reserved.update(slots)

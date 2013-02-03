@@ -100,6 +100,3 @@ class with the following caveats:
 	Exceptions, and SourceFile are currently ignored. The disassembler does not 
 	attempt to disassemble LineNumberTable or LocalVariableTable even though 
 	they are supported by the assembler.
-* Constant pool entries may not be reassembled in the same order. If an ldc 		
-	instruction refers to an entry which ends up at index 256 or higher, 
-	reassembly will fail.

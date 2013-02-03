@@ -40,7 +40,7 @@ class PoolInfo(object):
 
     def getLabel(self, lbl, forbidden=(), **kwargs):
         if lbl in forbidden:
-            error('Recursive constant pool reference: ' + ', '.join(forbidden))
+            error('Circular constant pool reference: ' + ', '.join(forbidden))
         forbidden = forbidden + (lbl,)
         return self.lbls[lbl].toIndex(self, forbidden, **kwargs)
 
@@ -110,7 +110,6 @@ def assembleInstruction(instr, labels, pos, pool):
             error('Undefined label: {}\nDefined labels for current method are: {}'.format(lbl, ', '.join(sorted(labels))))
         return labels[lbl] - pos
 
-
     op = instr[0]
     first = chr(instructions.allinstructions.index(op))
 
@@ -143,7 +142,7 @@ def assembleInstruction(instr, labels, pos, pool):
             part1 = first + '\0'*padding + struct.pack('>ii', default, len(jumps))
             part2 = ''.join(map(temp.pack, *zip(*jumps))) if jumps else ''
             return part1 + part2
-        
+       
 def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     directives = [x[1] for x in statements if x[0] == 'dir']
     lines = [x[1] for x in statements if x[0] == 'ins']
@@ -283,6 +282,65 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     assembled_bytes += struct.pack('>H', len(attributes)) + ''.join(attributes)
     return assembled_bytes, method_attributes
 
+def getLdcRefs(statements):
+    lines = [x[1] for x in statements if x[0] == 'ins']
+    instructions = [x[1] for x in lines if x[1] is not None]
+
+    for instr in instructions:
+        op = instr[0]
+        if op == 'ldc':
+            yield instr[1]
+ 
+def addLdcRefs(methods, pool):
+    def getRealRef(ref, forbidden=()):
+        '''Get the root PoolRef associated with a given PoolRef, following labels'''
+        if ref.index is None and ref.lbl:
+            if ref.lbl in forbidden:
+                error('Circular constant pool reference: ' + ', '.join(forbidden))
+            forbidden = forbidden + (ref.lbl,)
+            return getRealRef(pool.lbls[ref.lbl], forbidden) #recursive call
+        return ref
+
+    #We attempt to estimate how many slots are needed after merging identical entries
+    #So we can reserve the correct number of slots without leaving unused gaps
+    #However, in complex cases, such as string/class/mt referring to an explicit
+    #reference, we may overestimate
+    ldc_refs = collections.defaultdict(set)
+
+    for header, statements in methods:
+        for ref in getLdcRefs(statements):
+            ref = getRealRef(ref)
+            if ref.index is not None:
+                continue
+
+            type_ = ref.args[0]
+            if type_ in ('Int','Float'): #TODO - ensure proper handling of NaNs
+                key = ref.args[1]
+            elif type_ in ('String','Class','MethodType'): 
+                uref = getRealRef(ref.args[1])
+                key = uref.index, uref.args[1:]
+            else: #for MethodHandles, don't even bother trying to estimate merging
+                key = ref.args[1:] 
+            ldc_refs[type_].add(key)    
+
+    #todo, make this a little cleaner so we don't have to mess with the ConstantPool internals
+    num = sum(map(len, ldc_refs.values()))
+    slots = [pool.pool.getAvailableIndex() for i in range(num)]
+    pool.pool.reserved.update(slots)
+
+    for type_ in ('Int','Float'):
+        for arg in ldc_refs[type_]:
+            pool.getItem(type_, arg, index=slots.pop())
+    for type_ in ('String','Class','MethodType'):
+        for ind,args in ldc_refs[type_]:
+            arg = ind if ind is not None else pool.Utf8(*args)
+            pool.getItem(type_, arg, index=slots.pop())
+    for type_ in ('MethodHandle',):
+        for code, ref in ldc_refs[type_]:
+            pool.getItem(type_, code, ref.toIndex(pool), index=slots.pop())
+    assert(not slots)
+    assert(not pool.pool.reserved)
+
 def assemble(tree, addLineNumbers, jasmode, filename):
     pool = PoolInfo()
     version, sourcefile, classdec, superdec, interface_decs, topitems = tree
@@ -306,6 +364,11 @@ def assemble(tree, addLineNumbers, jasmode, filename):
             pool.lbls[slot.lbl] = value
     pool.assignFixedSlots()
 
+    #Now find all cp references used in an ldc instruction
+    #Since they must be <=255, we give them priority in assigning slots
+    #to maximize the chance of a successful assembly
+    addLdcRefs(top_d['method'], pool)
+
     for flags, name, desc, const in top_d['field']:
         flagbits = map(Field.flagVals.get, flags)
         flagbits = reduce(operator.__or__, flagbits, 0)
@@ -320,7 +383,6 @@ def assemble(tree, addLineNumbers, jasmode, filename):
 
         field_code = struct.pack('>HHHH', flagbits, name, desc, len(fattrs)) + ''.join(fattrs)
         fields.append(field_code)
-
 
     for header, statements in top_d['method']:
         mflags, (name, desc) = header

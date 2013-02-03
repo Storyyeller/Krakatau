@@ -14,7 +14,7 @@ Python library called PLY.
 === Decompilation ===
 
 Usage: 
-python Krakatau\decompile.py [-path PATH] [-out OUT] [-dis] target
+python Krakatau\decompile.py [-path PATH] [-out OUT] [-r] [-dis] target
 
 PATH : An optional list of directories, jars, or zipfiles to search for 
 	classes in. Krakatau will attempt to automatically detect and add the 
@@ -47,7 +47,7 @@ Note: decompilation produces a file called "cache.txt" in the current
 === Assembly ===
 
 Usage: 
-python Krakatau\assemble.py [-d DIR] [-out OUT] [-g] [-jas] target
+python Krakatau\assemble.py [-d DIR] [-out OUT] [-r] [-g] [-jas] target
 
 DIR : A directory to put all generated classes in. Defaults to the current
 	directory.

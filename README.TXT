@@ -3,13 +3,16 @@ Copyright (C) 2012-13 Robert Grosse
 
 === Introduction ===
 
-Krakatau currently contains two tools - a decompiler for Java classfiles and 
-an assembler to create classfiles.
+Krakatau currently contains three tools - a decompiler and disassembler for 
+Java classfiles and an assembler to create classfiles.
 
 === Requirements ===
 
 Krakatau requires Python 2.7. The assembler additionally requires a free
-Python library called PLY.
+Python library called PLY. Note that if you want to do decompilation, you'll
+probably want an installation of the JDK as well. For assembly and disassembly,
+a Java installation is not strictly necessary, but it is still useful for
+testing the resulting classes.
 
 === Decompilation ===
 
@@ -21,8 +24,8 @@ PATH : An optional list of directories, jars, or zipfiles to search for
 	jar containing core language classes, but you can disable this with
 	the -nauto option.
 
-OUT : File or directory name where source files are written. Defaults to
-	current directory
+OUT : File or directory name where source files are to be written. Defaults 
+	to the current directory
 
 -dis : Disassemble instead of decompiling (see below)
 
@@ -79,11 +82,10 @@ OUT : The filename or path to output the generated class to. If not given,
 target : Name of file to assemble
 
 The Krakatau assembler is intended as a replacement for Jasmin, and was 
-originally written due to frustration with the limitations of Jasmin. It is
-backwards compatible with Jasmin, but it also offers a host of new features,
-as well as simplifying the syntax. Note that for full compatibility, some 
-Jasmin quirks require the -jas flag to be enabled, but most Jasmin syntax 
-will work even without it.
+originally written due to the limitations of Jasmin. It is backwards compatible 
+with Jasmin, but it also offers many new features, as well as simplifying the 
+syntax. Note that for full compatibility, some Jasmin quirks require the 
+-jas flag to be enabled, but most Jasmin syntax will work even without it.
 
 A tutorial on writing Java Bytecode Assembly with Krakatau is available at 
 https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.

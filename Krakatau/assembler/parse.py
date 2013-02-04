@@ -7,7 +7,7 @@ from ..method import Method
 from ..field import Field
 
 from . import instructions as ins
-from .tokenize import tokens, wordget
+from .tokenize import tokens, wordget, flags
 from .assembler import PoolRef
 
 #Specify the starting symbol
@@ -69,23 +69,23 @@ def p_doublel(p):
     p[0] = parseDouble(p[1])
 
 
+okwords = set([w for w in wordget.values() if w not in flags])
+addRule(assign1, 'notflag', 'WORD', 'STRING_LITERAL', *okwords)
+
 def p_ref(p):
     '''ref : CPINDEX'''
     s = p[1][1:-1]
     try:
         i = int(s)
         if 0 <= i <= 0xFFFF:
-            p[0] = PoolRef(index=int(s))
+            p[0] = PoolRef(index=i)
         else:
             p[0] = PoolRef(lbl=s)    
     except ValueError:
         p[0] = PoolRef(lbl=s)
 
-def assignCP(p, typen): p[0] = PoolRef(typen, *p[1:])
-
 def p_utf8_notref(p):
-    '''utf8_notref : WORD
-                    | STRING_LITERAL'''
+    '''utf8_notref : notflag'''
     p[0] = PoolRef('Utf8', p[1])
 
 def p_class_notref(p):

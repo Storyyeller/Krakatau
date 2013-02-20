@@ -85,29 +85,27 @@ class ClassFile(object):
 
         self.flags = set(name for name,mask in ClassFile.flagVals.items() if (mask & flags))
 
-    def load(self, name, subclasses):
         #convert raw data
         self.cpool = constant_pool.ConstPool(self.const_pool_raw)
-
         self.name = self.cpool.getArgsCheck('Class', self.this)
-        assert(self.name == name)
+        
+        self.fields = [field.Field(m, self) for m in self.fields_raw]    
+        self.methods = [method.Method(m, self) for m in self.methods_raw]
 
+    def load(self, name, subclasses):
+        assert(self.name == name)
+        
         if self.super:
             self.supername = self.cpool.getArgsCheck('Class', self.super)
             # if superclass is cached, we can assume it is free from circular inheritance
             # since it must have been loaded successfully on a previous run 
             if not self.env.isCached(self.supername):
                 self.env.getClass(self.supername, subclasses + (name,))
-            self.hierachy = self.env.getSupers(self.supername) + (self.name,)            
-            # self.superclass = self.env.getClass(supername, subclasses + (name,))
+            self.hierachy = self.env.getSupers(self.supername) + (self.name,)         
         else:
             assert(name == 'java/lang/Object')
             self.supername = None
             self.hierachy = (self.name,)
-            # self.superclass = None
-        
-        self.fields = [field.Field(m, self) for m in self.fields_raw]    
-        self.methods = [method.Method(m, self) for m in self.methods_raw]
 
     def getSuperclassHierachy(self):
         return self.hierachy

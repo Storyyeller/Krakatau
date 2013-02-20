@@ -55,7 +55,7 @@ def decompileClass(path=[], targets=None, outpath=None, disassemble=False):
     # random.shuffle(targets)
     for i,target in enumerate(targets):
         print 'processing target {}, {} remaining'.format(target, len(targets)-i)
-        c = e.getClass(target)
+        c = e.getClass(target, loadSuper=(not disassemble))
 
         if disassemble:
             source = Krakatau.assembler.disassembler.disassemble(c)

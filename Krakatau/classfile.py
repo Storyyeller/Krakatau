@@ -65,9 +65,7 @@ class ClassFile(object):
                 'ENUM':0x4000, 
                 }
 
-    def __init__(self, env, bytestream):
-        self.env = env
-
+    def __init__(self, bytestream):
         magic, minor, major = bytestream.get('>LHH')
         assert(magic == 0xCAFEBABE)
         self.version = major,minor
@@ -92,9 +90,10 @@ class ClassFile(object):
         self.fields = [field.Field(m, self) for m in self.fields_raw]    
         self.methods = [method.Method(m, self) for m in self.methods_raw]
 
-    def load(self, name, subclasses):
+    def load(self, env, name, subclasses):
+        self.env = env
         assert(self.name == name)
-        
+
         if self.super:
             self.supername = self.cpool.getArgsCheck('Class', self.super)
             # if superclass is cached, we can assume it is free from circular inheritance

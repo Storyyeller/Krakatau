@@ -35,12 +35,9 @@ def makeGraph(m):
     s.mergeSingleSucessorBlocks()
     s.removeUnusedVariables()
     s.pessimisticPropagation() #WARNING - currently does not work if any output variables have been pruned already
-    s.pruneInferredUnreachable()
     s.disconnectConstantVariables()
-
     s.simplifyJumps()
     s.mergeSingleSucessorBlocks()
-    s.condenseBlocks()
     s.removeUnusedVariables() #todo - make this a loop
     return s
 

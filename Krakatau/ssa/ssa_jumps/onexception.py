@@ -36,7 +36,8 @@ class OnException(BaseJump):
 				
 		self.cs.pruneKeys()
 		if not self.cs.sets:
-			assert(self.default)
+			if not self.default:
+				return None
 			return Goto(self.parent, self.default)
 		return self
 
@@ -63,6 +64,8 @@ class OnException(BaseJump):
 	def getSucessorConstraints(self, (block, t)):
 		if t:
 			def propagateConstraints(x):
+				if x is None:
+					return None
 				t = x.types 
 				top_tts = t.supers | t.exact
 				tops = [tt[0] for tt in top_tts]

@@ -1,4 +1,5 @@
 public class ArgumentTypes{
+
 	public static int main(boolean b){
 		return b ? 1 : 0;
 	}

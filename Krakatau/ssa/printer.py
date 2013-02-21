@@ -5,6 +5,8 @@ from ..namegen import NameGen
 from ssa_types import *
 import ssa_ops, ssa_jumps, constraints, subproc
 
+'''Prints out SSA graphs, mostly for debugging purposes'''
+
 class VarNameGen(NameGen):
     varletters = {SSA_INT:'i', SSA_LONG:'j', SSA_FLOAT:'f', SSA_DOUBLE:'d', SSA_OBJECT:'a', SSA_MONAD:'m'}
 
@@ -34,8 +36,9 @@ class SSAPrinter(object):
 
         self.namegen = VarNameGen()
         self.aliases = {}
-        self.doAlias = 1
+        self.doAlias = 0
         self.doConstraints = 1
+        self.hideSinglePhis = 0
 
     def printVariable(self, var):
         if var in self.aliases:
@@ -79,10 +82,8 @@ class SSAPrinter(object):
         if isinstance(op, ssa_ops.Phi):
             if not rval:
                 return None
-            # pairs = ['{}:{}'.format(self.printLabel(k)[6:], self.printVariable(v)) for k,v in op.odict.items()]
-            # return '{} = phi({})'.format(rval[0], ', '.join(pairs))
             left, right = rval[0], ', '.join(params)
-            if left == right: #don't display aliased assignments
+            if left == right and self.hideSinglePhis: #don't display aliased assignments
                 return
             else:
                 rhs_expr = 'phi({})'.format(right)

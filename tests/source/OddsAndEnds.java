@@ -16,6 +16,18 @@ public final strictfp class OddsAndEnds {
 
     public static void main(String args[]){
         test(42.24f, args);	
-		test(4.224f, Long.valueOf(args[0]));		        
+		test(4.224f, Long.valueOf(args[0]));	
+		
+		test(-0.0f, main(999999999L));	        
     }
+
+ 	public static int main(Object x){
+		boolean a = false;
+		boolean b = true;
+		boolean c = x == null == a;
+		boolean d = b?a?b:a?b:a:b?a:b;	
+		boolean e = (a?b:c)?d:c?b:a;	
+			
+		return ((Number) x).shortValue();
+	}
 }

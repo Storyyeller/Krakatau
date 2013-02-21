@@ -20,6 +20,9 @@ class Switch(BaseJump):
 			if v != default:
 				self.reverse[v].add(k)
 
+	def getNormalSuccessors(self):
+		return self.successors
+
 	def replaceBlocks(self, blockDict):
 		self.successors = [blockDict.get(key,key) for key in self.successors]
 		self.reverse = {blockDict.get(k,k):v for k,v in self.reverse.items()}
@@ -29,12 +32,13 @@ class Switch(BaseJump):
 		for (child, t) in pairsToRemove:
 			temp.remove(child)
 
-		if len(temp) == 1:
+		if len(temp) == 0:
+			return None
+		elif len(temp) == 1:
 			return Goto(self.parent, temp.pop())
 		elif len(temp) < len(self.successors):
 			self.successors = temp
 			self.reverse = {v:self.reverse[v] for v in temp[1:]}
 		return self
 
-	def getNormalSuccessors(self):
-		return self.successors
+	#TODO - implement constrainJumps and getSucessorConstraints

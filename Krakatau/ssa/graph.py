@@ -6,10 +6,8 @@ from . import blockmaker,constraints, variablegraph, objtypes, subproc
 from . import ssa_jumps, ssa_ops
 from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
-# nt = collections.namedtuple
 
-# from .. import namegen
-# makename = namegen.NameGen()
+# varnum = itertools.count()
 
 class SSA_Graph(object):
 	entryKey, returnKey, rethrowKey = -1,-2,-3
@@ -58,6 +56,7 @@ class SSA_Graph(object):
 		sccs = list(reversed(sccs))
 		self.blocks = list(itertools.chain.from_iterable(map(reversed, sccs)))
 		
+		assert(set(self.blocks) <= set(old))
 		if len(self.blocks) < len(old):
 			kept = set(self.blocks)
 
@@ -220,6 +219,7 @@ class SSA_Graph(object):
 		self._conscheck()
 
 	def _conscheck(self):
+		'''Sanity check'''
 		sources = self._getSources()
 		for block in self.blocks:
 			for phi in block.phis:
@@ -228,7 +228,7 @@ class SSA_Graph(object):
 				else:
 					parents = zip(*phi.odict)[0]
 					assert(set(parents) == sources[block])
-				assert(phi.rval in block.unaryConstraints)
+				assert(phi.rval is None or phi.rval in block.unaryConstraints)
 		for proc in self.procs:
 			for callop in proc.callops:
 				assert(set(proc.retop.input) == set(callop.out))
@@ -236,6 +236,7 @@ class SSA_Graph(object):
 	def pessimisticPropagation(self):
 		assert(not self.procs)
 		counter = 0
+
 		graph = variablegraph.makeGraph(self.env, self.blocks)
 		variablegraph.processGraph(graph)
 		for block in self.blocks:
@@ -243,12 +244,12 @@ class SSA_Graph(object):
 				newUC = graph[var].output[0]
 				# var.name = makename(var)
 				if newUC is None:
+					# This variable is overconstrainted, meaning it must be unreachable
 					del block.unaryConstraints[var]
+
 					if var.origin is not None:
 						var.origin.removeOutput(var)
-					#hopefully raise an error if we accidently use it later
-					# del var.origin, var.const, var.type
-					var.name = "UNREACHABLE"
+					var.name = "UNREACHABLE" #for debug printing
 					# var.name += '-'
 					counter += 1
 				else:
@@ -258,34 +259,6 @@ class SSA_Graph(object):
 					block.unaryConstraints[var] = newUC
 		if counter: 
 			print counter, 'variables constrained'
-		self._conscheck()
-
-	def pruneInferredUnreachable(self):
-		self._conscheck()
-		badblocks = set()
-		for block in self.blocks:
-			param_ucs = map(block.unaryConstraints.get, block.jump.params)
-			if None in param_ucs and not isinstance(block.jump, ssa_jumps.OnException):
-				badblocks.add(block)
-				continue
-
-			impossible = []
-			impossible2 = set(block.jump.getSuccessorPairs())
-			if isinstance(block.jump, ssa_jumps.OnException):
-				if None in param_ucs:
-					for child in block.jump.getExceptSuccessors():
-						impossible.append((child, True))
-			
-			block.jump = block.jump.reduceSuccessors(impossible)
-			temp = set(block.jump.getSuccessorPairs())
-			assert((set(impossible)-temp) == (impossible2-temp))
-
-			for child,t in set(impossible)-temp:
-				# print 'removing {} from {}'.format(block, child)
-				for phi in child.phis:
-					phi.removeKey((block,t))
-		self.condenseBlocks()
-		assert(badblocks.isdisjoint(self.blocks))
 		self._conscheck()
 
 	def simplifyJumps(self):
@@ -298,6 +271,13 @@ class SSA_Graph(object):
 				oldEdges = block.jump.getSuccessorPairs()
 				UCs = map(block.unaryConstraints.get, block.jump.params)
 				block.jump = block.jump.constrainJumps(*UCs)
+
+				if block.jump is None:
+					#This block has no valid successors, meaning it must be unreachable
+					#It should be removed automatically in the call to condenseBlocks()
+					counter += 1
+					continue
+
 				newEdges = block.jump.getSuccessorPairs()
 				if newEdges != oldEdges:
 					pruned = [x for x in oldEdges if x not in newEdges]
@@ -306,7 +286,8 @@ class SSA_Graph(object):
 							phi.removeKey((block,t))
 					counter += 1
 		if counter: 
-			print counter, 'jumps constrained'	
+			print counter, 'jumps constrained'
+		self.condenseBlocks()	
 		self._conscheck()
 
 	def _duplicateRegion(self, region, callblock, target, retblock):
@@ -484,7 +465,7 @@ class SSA_Graph(object):
 
 	def makeVariable(self, *args, **kwargs):
 		var = Variable(*args, **kwargs)
-		# var.name = 'x' + makename(var)
+		# var.name = 'x' + str(next(varnum))
 		return var
 
 	def makeVarFromVtype(self, vtype):

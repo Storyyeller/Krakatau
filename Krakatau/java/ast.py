@@ -225,7 +225,17 @@ def makeCastExpr(newtt, expr):
         return BinaryInfix('!=', (expr, Literal.ZERO), objtypes.BoolTT)
     return Cast(TypeName(newtt), expr)
 #############################################################################################################################################
+#Precedence:
+#    0 - pseudoprimary
+#    5 - pseudounary
+#    10-19 binary infix
+#    20 - ternary
+#    21 - assignment
+# Associativity: L = Left, R = Right, A = Full
+
 class JavaExpression(object):
+    precedence = 0 #Default precedence
+
     #all subexpressions should be stored in self.params if possible
     def subExprs(self): return getattr(self, 'params', [])
     def complexity(self): return 1 + max(e.complexity() for e in self.subExprs()) if self.subExprs() else 0
@@ -246,6 +256,18 @@ class JavaExpression(object):
     def addCasts(self, env):
         for param in self.subExprs():
             param.addCasts(env)
+        self.addCasts_sub(env)
+
+    def addCasts_sub(self, env): pass
+
+    def addParens(self):
+        for param in self.subExprs():
+            param.addParens()      
+        self.params = list(self.params) #make it easy for children to edit  
+        self.addParens_sub()
+
+    def addParens_sub(self, env): pass
+
 
     def __repr__(self):
         return type(self).__name__.rpartition('.')[-1] + ' ' + self.print_()
@@ -259,6 +281,12 @@ class ArrayAccess(JavaExpression):
         self.params = params
         self.fmt = '{}[{}]'
 
+    def addParens_sub(self):
+        p0 = self.params[0]
+        if p0.precedence > 0 or isinstance(p0, ArrayCreation):
+            self.params[0] = Parenthesis(p0)
+
+
 class ArrayCreation(JavaExpression):
     def __init__(self, tt, *sizeargs):
         base, dim = tt
@@ -268,17 +296,27 @@ class ArrayCreation(JavaExpression):
         self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(dim-len(sizeargs))
 
 class Assignment(JavaExpression):
+    precedence = 21
     def __init__(self, *params):
         self.params = params
         self.fmt = '{} = {}'
         self.dtype = params[0].dtype
 
-    def addCasts(self, env):
-        super(Assignment, self).addCasts(env)
+    def addCasts_sub(self, env):
         left, right = self.params
         if not isJavaAssignable(env, right.dtype, left.dtype):
             expr = makeCastExpr(left.dtype, right)
             self.params = left, expr
+
+
+_binary_ptable = ['* / %', '+ -', '<< >> >>>', 
+    '< > <= >= instanceof', '== !=', 
+    '&', '^', '|', '&&', '||']
+
+binary_precedences = {}
+for ops, val in zip(_binary_ptable, range(10,20)):
+    for op in ops.split():
+        binary_precedences[op] = val
 
 class BinaryInfix(JavaExpression):
     def __init__(self, opstr, params, dtype=None):
@@ -286,12 +324,30 @@ class BinaryInfix(JavaExpression):
         self.opstr = opstr
         self.fmt = '{{}} {} {{}}'.format(opstr)
         self.dtype = params[0].dtype if dtype is None else dtype
+        self.precedence = binary_precedences[opstr]
+
+    def addParens_sub(self):
+        myprec = self.precedence
+        associative = myprec >= 15 #for now we treat +, *, etc as nonassociative due to floats
+
+        for i, p in enumerate(self.params):
+            if p.precedence > myprec:
+                self.params[i] = Parenthesis(p)
+            elif p.precedence == myprec and i>0 and not associative:
+                self.params[i] = Parenthesis(p)
 
 class Cast(JavaExpression):
+    precedence = 5
     def __init__(self, *params):
         self.dtype = params[0].tt
         self.params = params
         self.fmt = '({}){}'
+
+    def addParens_sub(self):
+        p1 = self.params[1]
+        if p1.precedence > 5 or (isinstance(p1, UnaryPrefix) and p1.opstr[0] in '-+'):
+            self.params[1] = Parenthesis(p1)
+
 
 class ClassInstanceCreation(JavaExpression):
     def __init__(self, typename, tts, arguments):
@@ -300,8 +356,7 @@ class ClassInstanceCreation(JavaExpression):
     def print_(self): 
         return 'new {}({})'.format(self.typename.print_(), ', '.join(x.print_() for x in self.params))
 
-    def addCasts(self, env):
-        super(ClassInstanceCreation, self).addCasts(env)
+    def addCasts_sub(self, env):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
             if expr.dtype != tt:
@@ -314,6 +369,11 @@ class FieldAccess(JavaExpression):
         self.dtype = dtype
         self.params, self.name = [primary], name
         self.fmt = '{}.' + name
+
+    def addParens_sub(self):
+        p0 = self.params[0]
+        if p0.precedence > 0:
+            self.params[0] = Parenthesis(p0)
 
 def printFloat(x, isSingle):
     import math
@@ -402,8 +462,7 @@ class MethodInvocation(JavaExpression):
             arguments = self.params
             return '{}({})'.format(self.name, ', '.join(x.print_() for x in arguments))         
 
-    def addCasts(self, env):
-        super(MethodInvocation, self).addCasts(env)
+    def addCasts_sub(self, env):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
             if expr.dtype != tt:
@@ -411,11 +470,29 @@ class MethodInvocation(JavaExpression):
             newparams.append(expr)
         self.params = newparams
 
+    def addParens_sub(self):
+        p0 = self.params[0]
+        if p0.precedence > 0:
+            self.params[0] = Parenthesis(p0)
+
+class Parenthesis(JavaExpression):
+    def __init__(self, param):
+        self.dtype = params[0].tt
+        self.params = param,
+        self.fmt = '({})'
+
 class Ternary(JavaExpression):
+    precedence = 20
     def __init__(self, *params):
         self.params = params
         self.fmt = '{}?{}:{}'
         self.dtype = params[1].dtype
+
+    def addParens_sub(self):
+        if self.params[0].precedence >= 20:
+            self.params[0] = Parenthesis(self.params[0])
+        if self.params[2].precedence > 20:
+            self.params[2] = Parenthesis(self.params[2])
 
 class TypeName(JavaExpression):
     def __init__(self, tt):
@@ -434,11 +511,18 @@ class TypeName(JavaExpression):
     def complexity(self): return -1 #exprs which have this as a param won't be bumped up to 1 uncessarily
 
 class UnaryPrefix(JavaExpression):
+    precedence = 5
     def __init__(self, opstr, param, dtype=None):
         self.params = [param]
         self.opstr = opstr
         self.fmt = opstr + '{}'
         self.dtype = param.dtype if dtype is None else dtype
+
+    def addParens_sub(self):
+        p0 = self.params[0]
+        if p0.precedence > 5 or (isinstance(p0, UnaryPrefix) and p0.opstr[0] == self.opstr[0]):
+            self.params[0] = Parenthesis(p0)
+
 
 class Dummy(JavaExpression):
     def __init__(self, fmt, params, isNew=False):

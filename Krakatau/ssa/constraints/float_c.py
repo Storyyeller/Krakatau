@@ -17,10 +17,6 @@ class FloatConstraint(ValueType):
 
         self.isBot = (special == SPECIALS) and (finite == botRange(size)) 
 
-    # @staticmethod
-    # def direct(size, min, max, special):
-    #     return FloatConstraint(size, min, max, frozenset(special))
-
     @staticmethod
     def const(size, val):
         if val in SPECIALS:
@@ -49,7 +45,7 @@ class FloatConstraint(ValueType):
             s = varstr + ' = ' + specs
         return s
 
-    def _key(self): return self.size, self.finite, self.spec
+    def _key(self): return self.finite, self.spec
 
     def join(*cons): #more precise (intersection)
         spec = frozenset.intersection(*[c.spec for c in cons])

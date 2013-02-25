@@ -41,4 +41,4 @@ class Switch(BaseJump):
 			self.reverse = {v:self.reverse[v] for v in temp[1:]}
 		return self
 
-	#TODO - implement constrainJumps and getSucessorConstraints
+	#TODO - implement constrainJumps and getSuccessorConstraints

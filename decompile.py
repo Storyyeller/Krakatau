@@ -28,16 +28,16 @@ def makeGraph(m):
     v = verifyBytecode(m.code)
     s = Krakatau.ssa.ssaFromVerified(m.code, v)
     if s.procs:
-        s.mergeSingleSucessorBlocks()
+        s.mergeSingleSuccessorBlocks()
         s.removeUnusedVariables()
         s.inlineSubprocs()
     s.condenseBlocks()
-    s.mergeSingleSucessorBlocks()
+    s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
     s.pessimisticPropagation() #WARNING - currently does not work if any output variables have been pruned already
     s.disconnectConstantVariables()
     s.simplifyJumps()
-    s.mergeSingleSucessorBlocks()
+    s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables() #todo - make this a loop
     return s
 

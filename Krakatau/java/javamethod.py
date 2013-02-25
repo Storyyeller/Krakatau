@@ -197,7 +197,7 @@ class MethodDecompiler(object):
             targets = targets + ((ftblock, (new,False)),)
         gotoMap = dict(targets) #more recent keys override, as desired
 
-        #Create lists of phi assignments necessary for each sucessor
+        #Create lists of phi assignments necessary for each successor
         phidict = collections.defaultdict(list)
         for child in block.jump.getSuccessors():
             assert(child not in phidict) #we assume that parallel edges were removed earlier

@@ -80,12 +80,6 @@ class TypeConstraint(ValueType):
             newexact = [x for x in newexact if x in c.exact or isAnySubtype(env, x, c.supers)]
         result = TypeConstraint.reduce(cons.pop().env, newsupers, newexact)
 
-        # print 'Intersecting '
-        # print '\n'.join(con.print_('x') for con in cons)
-        # print 'Result:\t', result.print_('x')
-
-        # # if objtypes.NullTT in cons[-1].exact:
-        # #     import pdb;pdb.set_trace()
         return result
 
     def meet(*cons):

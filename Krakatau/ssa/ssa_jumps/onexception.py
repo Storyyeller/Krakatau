@@ -61,7 +61,7 @@ class OnException(BaseJump):
 		self.cs.newMask(mask)
 		return self.reduceSuccessors([])
 
-	def getSucessorConstraints(self, (block, t)):
+	def getSuccessorConstraints(self, (block, t)):
 		if t:
 			def propagateConstraints(x):
 				if x is None:

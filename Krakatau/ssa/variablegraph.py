@@ -49,7 +49,7 @@ def getJumpNode(pair, source, outvar, getVarNode, jumplookup):
     #OnException may still have a valid successor even if the param is invalid
     # skipInvalid = isinstance(jump, ssa_jumps.OnException)
     skipInvalid = False
-    n = BaseNode(jump.getSucessorConstraints(pair), skipInvalid)
+    n = BaseNode(jump.getSuccessorConstraints(pair), skipInvalid)
 
     n.sources = [(getVarNode(var),0) for var in jump.params]
     registerUses(n, n.sources)
@@ -86,7 +86,7 @@ def makeGraph(env, blocks):
         block = phi.block
 
         for (source, exc), var in phi.odict.items():
-            if var in source.jump.params and hasattr(source.jump, 'getSucessorConstraints'):
+            if var in source.jump.params and hasattr(source.jump, 'getSuccessorConstraints'):
                 jump, index = getJumpNode((block, exc), source, var, lookup.get, jumplookup)
                 n.sources.append((jump, index))
             else:

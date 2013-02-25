@@ -132,7 +132,7 @@ class SSA_Graph(object):
 				sources[child].add(block)
 		return sources
 
-	def mergeSingleSucessorBlocks(self):
+	def mergeSingleSuccessorBlocks(self):
 		replace = {}
 		removed = set()
 
@@ -290,6 +290,7 @@ class SSA_Graph(object):
 		self.condenseBlocks()	
 		self._conscheck()
 
+	# Subprocedure stuff #####################################################
 	def _duplicateRegion(self, region, callblock, target, retblock):
 		blockmap = {}
 		varmap = {}
@@ -462,6 +463,7 @@ class SSA_Graph(object):
 		if counter:
 			print counter, 'subprocedure calls inlined'
 		self._conscheck()
+	##########################################################################
 
 	def makeVariable(self, *args, **kwargs):
 		var = Variable(*args, **kwargs)

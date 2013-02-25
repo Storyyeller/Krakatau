@@ -27,7 +27,7 @@ class IntConstraint(ValueType):
             return '{} == {}'.format(varstr, self.max)
         return '{} <= {} <= {}'.format(self.min, varstr, self.max)
 
-    def _key(self): return self.width, self.min, self.max
+    def _key(self): return self.min, self.max
 
     def join(*cons):
         xmin = max(c.min for c in cons)

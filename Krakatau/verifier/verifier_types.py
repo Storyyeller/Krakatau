@@ -84,9 +84,9 @@ def mergeTypes(env, t1, t2, forAssignment=False):
     #even though our implementation is completely different. Be careful when rearranging the steps.
     if t1 == t2:
         return t1
-    #Part of our wildcard array checking. I'm not sure how Hotspot does things
+    #Part of our wildcard array checking. Hotspot does things a little differently, since it uses a different set of verifier types
     elif t2 == T_WILDCARD_ARRAY:
-        if forAssignment and t1.isObject and t1.dim:
+        if forAssignment and t1.isObject and (t1.dim or t1.isNull):
             return t2
         return T_INVALID
     elif t1.isObject and t2.isObject and t1.isInit and t2.isInit:

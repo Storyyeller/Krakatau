@@ -7,8 +7,6 @@ from . import ssa_jumps, ssa_ops
 from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
 
-# varnum = itertools.count()
-
 class SSA_Graph(object):
 	entryKey, returnKey, rethrowKey = -1,-2,-3
 
@@ -111,6 +109,10 @@ class SSA_Graph(object):
 
 		for block in self.blocks:
 			block.phis = filterOps(block.phis)
+
+			# if block.key == 3:
+			# 	import pdb;pdb.set_trace()
+
 			block.lines = filterOps(block.lines)
 			block.filterVarConstraints(keepset)
 		#################################################################
@@ -465,9 +467,10 @@ class SSA_Graph(object):
 		self._conscheck()
 	##########################################################################
 
+	varnum = itertools.count() #assign variable names for debugging
 	def makeVariable(self, *args, **kwargs):
 		var = Variable(*args, **kwargs)
-		# var.name = 'x' + str(next(varnum))
+		# var.name = 'x' + str(next(self.varnum))
 		return var
 
 	def makeVarFromVtype(self, vtype):

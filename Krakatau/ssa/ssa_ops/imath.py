@@ -106,20 +106,74 @@ class IXor(BaseOp):
         return propagateBitwise(x, y, operator.__xor__, False, False)
 
 #############################################################################################
+# Shifts currently only propogate ranges in the case where the shift is a known constant
+# TODO - make this handle the general case
+def getMaskedRange(x, bits, signed=True):
+    assert(bits < x.width)
+    y = IntConstraint.const(x.width, (1<<bits) - 1)
+    x = propagateBitwise(x, y, operator.__and__, False, True)[0]
+
+    H = 1<<(bits-1)
+    M = 1<<bits
+
+    if x.max < H or not signed:
+        return x.min, x.max
+    elif x.min >= -H:
+        return x.min-M, x.max-M
+    return -H, H-1
+
 class IShl(BaseOp):
     def __init__(self, parent, args):
         BaseOp.__init__(self, parent, args)
         self.rval = parent.makeVariable(args[0].type, origin=self)
+
+    def propagateConstraints(self, x, y):
+        if y.min < y.max:
+            return IntConstraint.bot(x.width),
+        shift = y.min % x.width
+        if not shift:
+            return x,
+        m1, m2 = getMaskedRange(x, x.width - shift)
+        return IntConstraint.range(x.width, m1<<shift, m2<<shift),
 
 class IShr(BaseOp):
     def __init__(self, parent, args):
         BaseOp.__init__(self, parent, args)
         self.rval = parent.makeVariable(args[0].type, origin=self)
 
+    def propagateConstraints(self, x, y):
+        if y.min < y.max:
+            return IntConstraint.range(x.width, min(x.min, 0), max(x.max, 0)),
+        shift = y.min % x.width
+        if not shift:
+            return x,
+        m1, m2 = x.min, x.max
+        return IntConstraint.range(x.width, m1>>shift, m2>>shift),
+
 class IUshr(BaseOp):
     def __init__(self, parent, args):
         BaseOp.__init__(self, parent, args)
         self.rval = parent.makeVariable(args[0].type, origin=self)
+
+    def propagateConstraints(self, x, y):
+        M = 1<<x.width
+        if y.min < y.max:
+            intmax = (M//2)-1
+            return IntConstraint.range(x.width, min(x.min, 0), max(x.max, intmax)),
+        shift = y.min % x.width
+        if not shift:
+            return x,
+
+        parts = [x.min, x.max]
+        if x.min <= -1 <= x.max:
+            parts.append(-1)        
+        if x.min <= 0 <= x.max:
+            parts.append(0)
+        parts = [p % M for p in parts]
+        m1, m2 = min(parts), max(parts)
+
+        return IntConstraint.range(x.width, m1>>shift, m2>>shift),
+
 #############################################################################################
 exec_tts = ('java/lang/ArithmeticException', 0),
 class IDiv(BaseOp):

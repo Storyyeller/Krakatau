@@ -686,11 +686,6 @@ class MethodDecompiler(object):
             return tuple(itertools.chain.from_iterable(seqs))
 
         def mergeCopyset(csets1, csets2):
-            # if csets1 is None: #can't just do a "return csets1 or csets2" here since they may be empty dicts, not None
-            #     return csets2            
-            # elif csets2 is None:
-            #     return csets1
-
             keys = [k for k in csets1 if k in csets2]
             return {k:tuple(x for x in csets1[k] if x in csets2[k]) for k in keys}
 
@@ -774,51 +769,6 @@ class MethodDecompiler(object):
 
             copyset_stack = tuple(((t[0],t[1]+(copyset,)) if t[0] is target else t) for t in copyset_stack)
             return copyset_stack
-
-    def _fixObjectCreations_old(self, scope, copysets=None):
-        if copysets is None:
-            copysets = []
-
-        newitems = []
-        for item in scope.statements:
-            remove = False
-            for sub in item.getScopes():
-                self._fixObjectCreations(sub, copysets)
-
-            if isinstance(item, ast.ExpressionStatement):
-                expr = item.expr
-
-                if isinstance(expr, ast.Assignment):
-                    left, right = expr.params
-                    if isinstance(right, ast.Dummy) and right.isNew:
-                        copysets.append([left])
-                        remove = True
-                    elif isinstance(right, ast.Local):
-                        hits = [x for x in copysets if right in x or left in x]
-                        if hits:
-                            new = list(itertools.chain(*hits))
-                            new.append(left)
-                            copysets[:] = [x for x in copysets if x not in hits] + [new]
-                            remove = True
-                elif isinstance(expr, ast.MethodInvocation) and expr.name == '<init>':
-                    left = expr.params[0]
-                    newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
-                    newexpr = ast.Assignment(left, newexpr)
-                    item.expr = newexpr
-                    
-                    temp = set([left])
-                    copyset = [x for x in copysets if left in x][0]
-                    copyset = [x for x in copyset if not x in temp and not temp.add(x)]
-                    # copysets[:] = [x for x in copysets if left not in x]
-
-                    newitems.append(item)
-                    for other in copyset:
-                        newitems.append(ast.ExpressionStatement(ast.Assignment(other, left)))
-                    remove = True
-
-            if not remove:
-                newitems.append(item)
-        scope.statements = newitems 
 
     def _pruneVoidReturn(self, scope):
         if scope.statements:

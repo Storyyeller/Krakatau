@@ -669,7 +669,113 @@ class MethodDecompiler(object):
                 self._addCasts(subscope)
             item.addCasts(self.env)
 
-    def _fixObjectCreations(self, scope, copysets=None):
+    def _fixObjectCreations(self, scope, copyset_stack=(), copyset={}):
+        '''Combines new/invokeinit pairs into Java constructor calls'''
+
+        # There are two main data structures used in this function
+        # Copyset: dict(var -> tuple(var)) gives the variables that a 
+        # given new object has been assigned to. Copysets are copied on
+        # modification, so can freely be shared 
+        # Copyset Stack: tuple(item -> tuple(copyset)) gives for each
+        # scope-containing item, the list of all copysets representing 
+        # paths of execution which jump to after that item. These 
+        # copysets must be intersected to find the copyset following the
+        # item.
+
+        def join(seqs):
+            return tuple(itertools.chain.from_iterable(seqs))
+
+        def mergeCopyset(csets1, csets2):
+            # if csets1 is None: #can't just do a "return csets1 or csets2" here since they may be empty dicts, not None
+            #     return csets2            
+            # elif csets2 is None:
+            #     return csets1
+
+            keys = [k for k in csets1 if k in csets2]
+            return {k:tuple(x for x in csets1[k] if x in csets2[k]) for k in keys}
+
+        newitems = []
+        for item in scope.statements:
+            remove = False
+
+            if item.getScopes():
+                newstack = copyset_stack + ((item,()),)
+                items = zip(*newstack)[0]
+
+                #Check if item may not be executed (eg. if with no else)
+                mayskip = isinstance(item, ast.IfStatement) and len(item.getScopes()) < 2
+                mayskip = mayskip or isinstance(item, ast.SwitchStatement) and None not in zip(*item.pairs)[0]
+
+                #TODO - make sure this works correctly with Switch statements with fallthrough
+                returned_stacks = [self._fixObjectCreations(sub, newstack, copyset) for sub in item.getScopes()]
+                assert(returned_stacks[0])
+                assert(zip(*returned_stacks[0])[0] == items)
+
+                copyset_lists = [zip(*stack)[1] for stack in returned_stacks]
+                copyset_lists = zip(*copyset_lists)
+                joins = map(join, copyset_lists)
+                assert(len(joins) == len(items))
+                merged_stack = zip(items, joins)
+
+                copyset_parts = merged_stack.pop()[1]
+                if mayskip:
+                    copyset_parts += copyset,
+
+                copyset_stack = tuple(merged_stack)
+                copyset = reduce(mergeCopyset, copyset_parts)
+
+            if isinstance(item, ast.ExpressionStatement):
+                expr = item.expr
+
+                if isinstance(expr, ast.Assignment):
+                    left, right = expr.params
+                    if isinstance(right, ast.Dummy) and right.isNew:
+                        assert(left not in copyset)
+                        copyset = copyset.copy()
+                        copyset[left] = left,
+                        remove = True
+
+                    elif isinstance(right, ast.Local):
+                        assert(left not in copyset)
+                        hits = [(k,v) for k,v in copyset.items() if right in v]
+                        if hits:
+                            assert(len(hits)==1)
+                            k, v = hits[0]
+                            copyset = copyset.copy()
+                            copyset[k] = v + (left,)
+                            remove = True
+
+                elif isinstance(expr, ast.MethodInvocation) and expr.name == '<init>':
+                    left = expr.params[0]
+                    newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
+                    newexpr = ast.Assignment(left, newexpr)
+                    item.expr = newexpr
+                    
+                    hits = [(k,v) for k,v in copyset.items() if left in v]
+                    assert(len(hits)==1)
+                    k, v = hits[0]
+
+                    newitems.append(item)
+                    for other in v:
+                        newitems.append(ast.ExpressionStatement(ast.Assignment(other, left)))
+
+                    copyset = dict(kv for kv in copyset.items() if kv not in hits)
+                    remove = True
+
+            if not remove:
+                newitems.append(item)
+
+        scope.statements = newitems 
+        if copyset_stack: #if it is empty, we are at the root level and can't return anything
+            if scope.jump is None:
+                target = copyset_stack[-1][0]
+            else:
+                target = scope.jump[0] if not scope.jump[1] else None
+
+            copyset_stack = tuple(((t[0],t[1]+(copyset,)) if t[0] is target else t) for t in copyset_stack)
+            return copyset_stack
+
+    def _fixObjectCreations_old(self, scope, copysets=None):
         if copysets is None:
             copysets = []
 
@@ -703,7 +809,7 @@ class MethodDecompiler(object):
                     temp = set([left])
                     copyset = [x for x in copysets if left in x][0]
                     copyset = [x for x in copyset if not x in temp and not temp.add(x)]
-                    copysets[:] = [x for x in copysets if left not in x]
+                    # copysets[:] = [x for x in copysets if left not in x]
 
                     newitems.append(item)
                     for other in copyset:

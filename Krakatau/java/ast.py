@@ -84,7 +84,7 @@ class LazyLabelBase(JavaStatement):
 
     def getLabel(self):
         if self.label is None:
-            self.label = self.func()
+            self.label = self.func() #Not a bound function!
         return self.label
 
     def getLabelPrefix(self): return '' if self.label is None else self.label + ': '
@@ -99,6 +99,9 @@ class TryStatement(LazyLabelBase):
     def print_(self): 
         parts = [x.print_() for x in self.parts]
         return '{}try\n{}\ncatch({})\n{}'.format(self.getLabelPrefix(), *parts)
+
+    # def __str__(self): return 'Try'+str(self.parts[0].id)
+    # __repr__ = __str__
 
 class IfStatement(LazyLabelBase):
     def __init__(self, labelfunc, expr):
@@ -116,10 +119,14 @@ class IfStatement(LazyLabelBase):
             return '{}if({})\n{}'.format(self.getLabelPrefix(), *parts) 
         return '{}if({})\n{}\nelse\n{}'.format(self.getLabelPrefix(), *parts)
 
+    # def __str__(self): return 'If'+str(self.scopes[0].id)
+    # __repr__ = __str__
+
 class SwitchStatement(LazyLabelBase):
     def __init__(self, labelfunc, expr):
         super(SwitchStatement, self).__init__(labelfunc)
         self.expr = expr #don't rename without changing how var replacement works!
+        #self.pairs = (keys, scope)*
 
     def getScopes(self): return zip(*self.pairs)[1]
 
@@ -149,6 +156,9 @@ class WhileStatement(LazyLabelBase):
     def print_(self): 
         parts = [x.print_() for x in self.parts]
         return '{}while(true)\n{}'.format(self.getLabelPrefix(), *parts)
+
+    # def __str__(self): return 'Wh'+str(self.parts[0].id)
+    # __repr__ = __str__
 
 # sbcount = itertools.count()
 class StatementBlock(LazyLabelBase):
@@ -187,6 +197,7 @@ class StatementBlock(LazyLabelBase):
         return common[-1][0]
 
     # def __str__(self): return 'Sb'+str(self.id)
+    # __repr__ = __str__
 
 #Temporary hack
 class StringStatement(JavaStatement):
@@ -199,6 +210,9 @@ _assignable_sprims = '.byte','.short','.char'
 _assignable_lprims = '.int','.long','.float','.double'
 
 def isJavaAssignable(env, fromt, to):
+    if fromt is None or to is None: #this should never happen, except during debugging
+        return True
+
     if to[1] or to[0][0] != '.':
         #todo - make it check interfaces too
         return objtypes.isSubtype(env, fromt, to)

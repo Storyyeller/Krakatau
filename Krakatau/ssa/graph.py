@@ -109,10 +109,6 @@ class SSA_Graph(object):
 
 		for block in self.blocks:
 			block.phis = filterOps(block.phis)
-
-			# if block.key == 3:
-			# 	import pdb;pdb.set_trace()
-
 			block.lines = filterOps(block.lines)
 			block.filterVarConstraints(keepset)
 		#################################################################

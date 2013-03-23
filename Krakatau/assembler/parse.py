@@ -13,6 +13,10 @@ from .assembler import PoolRef
 #Specify the starting symbol
 start = 'top'
 
+# precedence = (
+#     ('left', 'NEWLINE'),
+# )
+
 ###############################################################################
 name_counter = itertools.count()
 def addRule(func, name, *rhs_rules):
@@ -23,7 +27,7 @@ def addRule(func, name, *rhs_rules):
     globals()[fname] = _inner
 
 def list_sub(p):p[0] = p[1] + p[2:]
-def list_rule(name): #returns a list
+def listRule(name): #returns a list
     name2 = name + 's'
     addRule(list_sub, name2, '{} {}'.format(name2, name), 'empty')    
 
@@ -118,9 +122,18 @@ for name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod', 'method
     addRule(assign1, '{}ref'.format(name), '{}_notref'.format(name), 'ref')
 
 ###############################################################################
+def p_classnoend(p):
+    '''classnoend : version_opt sourcedir_opt classdec superdec interfacedecs topitems'''
+    p[0] = tuple(p[1:])
+
+addRule(assign1, 'classwithend', 'classnoend DEND CLASS sep')
+listRule('classwithend')
+
 def p_top(p):
-    '''top : sep version_opt sourcedir_opt classdec superdec interfacedecs topitems'''
-    p[0] = tuple(p[2:])
+    '''top : sep classwithends classnoend'''
+    p[0] = p[2] + [p[3]]
+#case where all classes have an end
+addRule(assign2, 'top', 'sep classwithends')
 
 def p_version(p):
     '''version_opt : DVERSION intl intl sep'''
@@ -135,7 +148,7 @@ addRule(assign1, 'sourcedir_opt', 'empty')
 for c, type_ in zip('cmf', (ClassFile, Method, Field)):
     name = "{}flag".format(c)
     addRule(upper1, name, *list(type_.flagVals))
-    list_rule(name)
+    listRule(name)
 
 def p_classdec(p):
     '''classdec : DCLASS cflags classref sep 
@@ -145,7 +158,7 @@ def p_classdec(p):
 
 addRule(assign2, 'superdec', 'DSUPER classref sep')
 addRule(assign2, 'interfacedec', 'DIMPLEMENTS classref sep')
-list_rule('interfacedec')
+listRule('interfacedec')
 
 def p_topitem_c(p):
     '''topitem : const_spec'''
@@ -156,7 +169,7 @@ def p_topitem_f(p):
 def p_topitem_m(p):
     '''topitem : method_spec'''
     p[0] = 'method', p[1]
-list_rule('topitem')
+listRule('topitem')
 
 ###############################################################################
 #invoke dynamic stuff
@@ -176,7 +189,7 @@ def p_methodtype_notref(p):
     p[0] = PoolRef('Methodtype', p[1])
 
 addRule(assign1, 'bootstrap_arg', 'ref') #TODO - allow inline constants and strings?
-list_rule('bootstrap_arg')
+listRule('bootstrap_arg')
 
 def p_invokedynamic_notref(p):
     '''invokedynamic_notref : methodhandleref bootstrap_args COLON nameandtyperef'''
@@ -244,7 +257,7 @@ def p_statement_1(p):
                 | lbldec instruction sep
                 | lbldec sep'''
     p[0] = 'ins', ((p[1] or None), p[2])
-list_rule('statement')
+listRule('statement')
 
 addRule(assign1, 'lbldec', 'lbl COLON')
 addRule(assign1, 'method_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','throws_dir','stack_dir')
@@ -373,10 +386,10 @@ def p_defaultentry(p):
 def p_luentry(p):
     '''luentry : intl COLON lbl sep'''
     p[0] = p[1], p[3]
-list_rule('luentry')
+listRule('luentry')
 
 addRule(assign2, 'tblentry', 'lbl sep')
-list_rule('tblentry')
+listRule('tblentry')
 
 def p_lookupswitch(p):
     '''luswitch : empty sep luentrys defaultentry'''
@@ -397,7 +410,7 @@ addRule(nothing, 'endstack', 'DEND STACK') #directives are not expected to end w
 def assign1All(p):p[0] = tuple(p[1:])
 addRule(assign1All, 'verification_type', 'TOP', 'INTEGER', 'FLOAT', 'DOUBLE', 'LONG', 'NULL', 'UNINITIALIZEDTHIS',
                                         'OBJECT classref', 'UNINITIALIZED lbl')
-list_rule('verification_type')
+listRule('verification_type')
 addRule(assign2, 'locals_vtlist', 'LOCALS verification_types sep')
 addRule(assign2, 'stack_vtlist', 'STACK verification_types sep')
 

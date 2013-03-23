@@ -8,9 +8,8 @@ from .. import constant_pool
 from . import instructions as ins
 from . import codes
 
-#Note: these values are used by the disassembler too - remember to update it if necessary
 directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS','VERSION', 'STACK'
-keywords = ['METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
+keywords = ['CLASS','METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 keywords += ['SAME','SAME_LOCALS_1_STACK_ITEM','SAME_LOCALS_1_STACK_ITEM_EXTENDED','CHOP','SAME_EXTENDED','APPEND','FULL']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
 

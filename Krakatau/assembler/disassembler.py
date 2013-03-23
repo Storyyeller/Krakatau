@@ -18,7 +18,6 @@ is_word_regex = re.compile(tokenize.t_WORD+'$')
 
 def isWord(s):
     #if s is in wordget, that means it's a directive or keyword
-    # if s in tokenize.wordget or (not_word_regex.match(s) is not None):
     if s in tokenize.flags or (not_word_regex.match(s) is not None):
         return False
     return (is_word_regex.match(s) is not None) and min(s) > ' ' #eliminate unprintable characters below 32

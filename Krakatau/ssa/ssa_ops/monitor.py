@@ -1,5 +1,5 @@
-from base import BaseOp
-from .. import objtypes, excepttypes
+from .base import BaseOp
+from .. import excepttypes
 from ..constraints import ObjectConstraint, DUMMY
 
 class Monitor(BaseOp):

@@ -1,4 +1,4 @@
-from base import BaseOp
+from .base import BaseOp
 from .. import ssa_types
 from ..constraints import IntConstraint, ObjectConstraint
 import itertools, operator

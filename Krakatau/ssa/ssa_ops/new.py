@@ -1,8 +1,8 @@
-from base import BaseOp
+from .base import BaseOp
 from ..ssa_types import SSA_OBJECT
 
-from .. import objtypes, excepttypes
-from ..constraints import IntConstraint, ObjectConstraint, DUMMY
+from .. import excepttypes
+from ..constraints import ObjectConstraint, DUMMY
 
 class New(BaseOp):
     def __init__(self, parent, name, monad, verifier_type):

@@ -1,9 +1,3 @@
-from __future__ import division
-import collections
-
-import binUnpacker
-import bytecode
-from attributes_raw import get_attributes_raw
 
 class Field(object):
     flagVals = {'PUBLIC':0x0001,

@@ -1,7 +1,5 @@
-from __future__ import division
-import collections
-
-import binUnpacker, constant_pool, method, field
+from Krakatau import constant_pool, method, field
+from Krakatau.attributes_raw import get_attributes_raw
 
 cp_structFmts = {3: '>i',
                 4: '>i',    #floats and doubles internally represented as integers with same bit pattern
@@ -39,8 +37,6 @@ def get_cp_raw(bytestream):
     assert(len(pool) == const_count)
     return pool
 
-from attributes_raw import get_attributes_raw
-
 def get_field_raw(bytestream):
     flags, name, desc = bytestream.get('>HHH')
     attributes = get_attributes_raw(bytestream)
@@ -48,7 +44,7 @@ def get_field_raw(bytestream):
 
 def get_fields_raw(bytestream):
     count = bytestream.get('>H')
-    return [get_field_raw(bytestream) for i in range(count)]
+    return [get_field_raw(bytestream) for _ in range(count)]
 
 #fields and methods have same raw format
 get_method_raw = get_field_raw
@@ -74,7 +70,7 @@ class ClassFile(object):
         flags, self.this, self.super = bytestream.get('>HHH')
 
         interface_count = bytestream.get('>H')
-        self.interfaces_raw = [bytestream.get('>H') for i in range(interface_count)]
+        self.interfaces_raw = [bytestream.get('>H') for _ in range(interface_count)]
 
         self.fields_raw = get_fields_raw(bytestream)
         self.methods_raw = get_methods_raw(bytestream)

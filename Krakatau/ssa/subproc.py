@@ -1,4 +1,4 @@
-import collections, itertools
+import collections
 ODict = collections.OrderedDict
 
 def slotsToDict(inslots):

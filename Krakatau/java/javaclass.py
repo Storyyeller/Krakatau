@@ -1,4 +1,3 @@
-import itertools, collections
 import struct
 
 from ..ssa import objtypes

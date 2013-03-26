@@ -1,9 +1,7 @@
 import itertools, collections
-import os, copy
 
 from ..ssa import ssa_types, ssa_ops, ssa_jumps
-from ..ssa import objtypes, constraints
-from ..ssa.exceptionset import ExceptionSet
+from ..ssa import objtypes
 from .. import graph_util
 from ..namegen import NameGen, LabelGen
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
@@ -52,7 +50,6 @@ def convertJExpr(self, op, info):
         tt = typecode, 0
         expr = ast.Cast(ast.TypeName(tt), params[0])
     elif isinstance(op, (ssa_ops.FCmp, ssa_ops.ICmp)):
-        var1, var2 = params
         boolt = objtypes.BoolTT
         cn1, c0, c1 = ast.Literal.N_ONE, ast.Literal.ZERO, ast.Literal.ONE
 
@@ -434,16 +431,19 @@ class MethodDecompiler(object):
         info = findVarDeclInfo(root, [])
 
         def inlineLeaf(tryscope):
+            inline_cnt = 0
             for i, stmt in enumerate(tryscope.statements):
                 if isinstance(stmt, ast.ExpressionStatement):
                     if isinstance(stmt.expr, ast.Assignment):
                         left, right = stmt.expr.params
                         if isinstance(right, (ast.Local, ast.Literal)):
                             if isinstance(left, ast.Local) and info[left].scope != tryscope:
+                                inline_cnt += 1
                                 continue 
                 break 
-            newitems = tryscope.statements[:i]
-            tryscope.statements = tryscope.statements[i:]
+
+            newitems = tryscope.statements[:inline_cnt]
+            tryscope.statements = tryscope.statements[inline_cnt:]
             return newitems
 
         def inlineSub(scope):

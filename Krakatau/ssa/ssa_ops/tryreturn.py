@@ -1,4 +1,4 @@
-from base import BaseOp
+from .base import BaseOp
 from .. import excepttypes
 from ..constraints import ObjectConstraint
 

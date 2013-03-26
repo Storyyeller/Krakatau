@@ -1,7 +1,6 @@
 import collections, itertools
 
-import ssa_jumps
-from constraints import join, meet, fromConstant
+from constraints import join, meet
 from .. import graph_util
 #UC = unary constraints
 

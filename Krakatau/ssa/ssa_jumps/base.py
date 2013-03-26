@@ -2,7 +2,7 @@ from ..functionbase import SSAFunctionBase
 import copy
 
 class BaseJump(SSAFunctionBase):
-    def __init__(self, parent, arguments=[]):
+    def __init__(self, parent, arguments=()):
         super(BaseJump, self).__init__(parent,arguments)
 
     def replaceBlocks(self, blockDict):

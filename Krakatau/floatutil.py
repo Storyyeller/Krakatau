@@ -38,7 +38,7 @@ def roundMag(size, mag):
         s = dnmin - e
         i = m >> s
         r = (m - (i << s)) * 2
-        h = 1<<s
+        h = 1 << s
         if r > h or r == h and (i&1):
             i += 1
         return i, e+s-mbits-1
@@ -51,13 +51,13 @@ def roundMag(size, mag):
             return INF_MAG
         i = m >> s
         r = (m - (i << s)) * 2
-        h = 1<<s
+        h = 1 << s
         if r > h or r == h and (i&1):
             i += 1
             if i == (1<<mbits):
                 i = i >> 1
                 e += 1
-                if e>emax:
+                if e > emax:
                     return INF_MAG
         return i, e+s-mbits-1
 

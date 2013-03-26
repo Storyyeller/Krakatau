@@ -1,4 +1,4 @@
-import collections, itertools
+import collections
 import struct, operator
 
 from . import instructions, codes
@@ -80,19 +80,19 @@ _format_ops['>HH'] += 'invokedynamic',
 _format_ops['>B'] += 'ldc', 'newarray'
 _format_ops['>i'] += 'goto_w', 'jsr_w'
 
-_op_structs = {}
+op_structs = {}
 for fmt, ops in _format_ops.items():
-    s = struct.Struct(fmt)
-    for op in ops:
-        _op_structs[op] = s
+    _s = struct.Struct(fmt)
+    for _op in ops:
+        op_structs[_op] = _s
 
 def getPadding(pos):
     return (3-pos) % 4
 
 def getInstrLen(instr, pos):
     op = instr[0]
-    if op in _op_structs:
-        return 1 + _op_structs[op].size
+    if op in op_structs:
+        return 1 + op_structs[op].size
     elif op == 'wide':
         return 2 * len(instr[1])
     else:
@@ -116,8 +116,8 @@ def assembleInstruction(instr, labels, pos, pool):
     instr = [(x.toIndex(pool) if isinstance(x, PoolRef) else x) for x in instr[1:]]
     if op in instructions.instrs_lbl:
         instr[0] = lbl2Off(instr[0])
-    if op in _op_structs:
-        rest = _op_structs[op].pack(*instr)
+    if op in op_structs:
+        rest = op_structs[op].pack(*instr)
         return first+rest
     elif op == 'wide':
         subop, args = instr[0]
@@ -156,7 +156,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     #this is greatly complicated due to the need to
     #handle Jasmine line number directives
     for t, statement in statements:
-        if t=='ins':
+        if t == 'ins':
             lbl, instr = statement
             labels[lbl] = pos
             if instr is not None:
@@ -251,7 +251,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
         attributes.append(ln_attr)
 
     if directive_dict['var']:
-        sfunc = Struct('>HHHHH').pack
+        sfunc = struct.Struct('>HHHHH').pack
         vartable = []
         for index, name, desc, start, end in directive_dict['var']:
             start, end = labels[start], labels[end]
@@ -325,7 +325,7 @@ def addLdcRefs(methods, pool):
 
     #TODO - make this a little cleaner so we don't have to mess with the ConstantPool internals
     num = sum(map(len, ldc_refs.values()))
-    slots = [pool.pool.getAvailableIndex() for i in range(num)]
+    slots = [pool.pool.getAvailableIndex() for _ in range(num)]
     pool.pool.reserved.update(slots)
 
     for type_ in ('Int','Float'):
@@ -435,8 +435,8 @@ def assemble(tree, addLineNumbers, jasmode, filename):
     class_code += pool.pool.bytes()
     class_code += struct.pack('>HHH', flagbits, this, super_)
     for stuff in (interfaces, fields, methods, attributes):
-        bytes = struct.pack('>H', len(stuff)) + ''.join(stuff)
-        class_code += bytes
+        bytes_ = struct.pack('>H', len(stuff)) + ''.join(stuff)
+        class_code += bytes_
 
     name = pool.pool.getArgs(this)[0]
     return name, class_code

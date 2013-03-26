@@ -1,9 +1,8 @@
-from __future__ import division
 import collections
 
-import binUnpacker
-import bytecode
-from attributes_raw import get_attributes_raw
+from Krakatau import binUnpacker
+from Krakatau import bytecode
+from Krakatau.attributes_raw import get_attributes_raw
 
 exceptionHandlerRaw = collections.namedtuple("exceptionHandlerRaw",
                                              ["start","end","handler","type_ind"])
@@ -21,7 +20,7 @@ class Code(object):
         self.codelen = codelen
 
         except_cnt = bytestream.get('>H')
-        self.except_raw = [bytestream.get('>HHHH') for i in range(except_cnt)]
+        self.except_raw = [bytestream.get('>HHHH') for _ in range(except_cnt)]
         self.except_raw = [exceptionHandlerRaw(*t) for t in self.except_raw]
         self.attributes_raw = get_attributes_raw(bytestream)
         assert(bytestream.size() == 0)

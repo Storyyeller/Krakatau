@@ -3,7 +3,7 @@ import copy
 ODict = collections.OrderedDict
 
 from ..ssa import ssa_types, ssa_ops, ssa_jumps
-from ..ssa import objtypes, constraints, exceptionset
+from ..ssa import objtypes, exceptionset
 from ..graph_util import topologicalSort, tarjanSCC
 
 class DecompilationError(Exception):

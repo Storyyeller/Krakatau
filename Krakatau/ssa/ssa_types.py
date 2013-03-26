@@ -1,4 +1,4 @@
-import collections, itertools
+import collections
 
 from .. import floatutil as fu
 from ..verifier import verifier_types as vtypes

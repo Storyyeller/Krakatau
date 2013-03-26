@@ -1,10 +1,10 @@
 import zipfile
 import os.path
 
-import binUnpacker
-import stdcache
-from classfile import ClassFile
-from error import ClassLoaderError
+from Krakatau import binUnpacker
+from Krakatau import stdcache
+from Krakatau.classfile import ClassFile
+from Krakatau.error import ClassLoaderError
 
 class Environment(object):
     def __init__(self):
@@ -44,8 +44,8 @@ class Environment(object):
             else: #plain folder
                 try:
                     path = os.path.join(place, name)
-                    with open(path, 'rb') as file:
-                        return file.read()
+                    with open(path, 'rb') as file_:
+                        return file_.read()
                 except IOError:
                     pass
 

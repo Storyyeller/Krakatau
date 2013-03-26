@@ -3,7 +3,7 @@ import re
 
 from ..namegen import NameGen
 from ssa_types import *
-import ssa_ops, ssa_jumps, constraints, subproc
+import ssa_ops, ssa_jumps, subproc
 
 '''Prints out SSA graphs, mostly for debugging purposes'''
 

@@ -1,4 +1,3 @@
-import collections, itertools
 from ..mixin import ValueType
 
 class IntConstraint(ValueType):

@@ -1,7 +1,6 @@
-import itertools, collections
+import itertools
 
 from ..ssa import objtypes
-from .. import floatutil
 from .stringescape import escapeString
 # from ..ssa.constraints import ValueType
 
@@ -280,8 +279,7 @@ class JavaExpression(object):
         self.params = list(self.params) #make it easy for children to edit  
         self.addParens_sub()
 
-    def addParens_sub(self, env): pass
-
+    def addParens_sub(self): pass
 
     def __repr__(self):
         return type(self).__name__.rpartition('.')[-1] + ' ' + self.print_()
@@ -328,9 +326,9 @@ _binary_ptable = ['* / %', '+ -', '<< >> >>>',
     '&', '^', '|', '&&', '||']
 
 binary_precedences = {}
-for ops, val in zip(_binary_ptable, range(10,20)):
-    for op in ops.split():
-        binary_precedences[op] = val
+for _ops, _val in zip(_binary_ptable, range(10,20)):
+    for _op in _ops.split():
+        binary_precedences[_op] = _val
 
 class BinaryInfix(JavaExpression):
     def __init__(self, opstr, params, dtype=None):
@@ -491,7 +489,7 @@ class MethodInvocation(JavaExpression):
 
 class Parenthesis(JavaExpression):
     def __init__(self, param):
-        self.dtype = params[0].tt
+        self.dtype = param.tt
         self.params = param,
         self.fmt = '({})'
 

@@ -1,12 +1,6 @@
-import collections, itertools
-import struct, operator
-import re, math
+import re
 
 from . import instructions, tokenize, assembler, codes
-from .. import constant_pool
-from ..classfile import ClassFile
-from ..method import Method
-from ..field import Field
 from ..binUnpacker import binUnpacker
 
 rhandle_codes = {v:k for k,v in codes.handle_codes.items()}
@@ -22,6 +16,17 @@ def isWord(s):
         return False
     return (is_word_regex.match(s) is not None) and min(s) > ' ' #eliminate unprintable characters below 32
 
+def rstring(s, allowWord=True):
+    '''Returns a representation of the string. If allowWord is true, it will be unquoted if possible'''
+    if allowWord and isWord(s):
+        return s
+    try:
+        if s.encode('ascii') == s:
+            return repr(str(s))
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        pass 
+    return repr(s)
+
 class PoolManager(object):
     def __init__(self, pool):
         self.const_pool = pool #keep this around for the float conversion function
@@ -30,7 +35,7 @@ class PoolManager(object):
         self.used = set() #which cp entries are used non inline and so must be printed
 
         #For each type, store the function needed to generate the rhs of a constant pool specifier
-        temp1 = lambda ind: self.rstring(self.cparg1(ind))
+        temp1 = lambda ind: rstring(self.cparg1(ind))
         temp2 = lambda ind: self.utfref(self.cparg1(ind))
 
         self.cpref_table = {
@@ -57,21 +62,10 @@ class PoolManager(object):
     def cparg1(self, ind):
         return self.pool[ind][1][0]
 
-    def rstring(self, s, allowWord=True):
-        '''Returns a representation of the string. If allowWord is true, it will be unquoted if possible'''
-        if allowWord and isWord(s):
-            return s
-        try:
-            if s.encode('ascii') == s:
-                return repr(str(s))
-        except (UnicodeEncodeError, UnicodeDecodeError) as e:
-            pass 
-        return repr(s)
-
     def inlineutf(self, ind, allowWord=True):
         '''Returns the word if it's short enough to inline, else None'''
         arg = self.cparg1(ind)
-        rstr = self.rstring(arg, allowWord=allowWord)
+        rstr = rstring(arg, allowWord=allowWord)
         if len(rstr) <= 50:
             return rstr
         return None
@@ -156,7 +150,7 @@ class PoolManager(object):
             add('.const [_{}] = {} {}'.format(ind, self.pool[ind][0], defs[ind]))
 
 
-fmt_lookup = {k:v.format for k,v in assembler._op_structs.items()}
+fmt_lookup = {k:v.format for k,v in assembler.op_structs.items()}
 def getInstruction(b, getlbl, poolm):
     pos = b.off
     op = b.get('B')
@@ -180,12 +174,12 @@ def getInstruction(b, getlbl, poolm):
         if name == 'lookupswitch':
             num = b.get('>I')
             entries = ['\t'+name]
-            entries += ['\t\t{} : {}'.format(b.get('>i'), getlbl(b.get('>i')+pos)) for i in range(num)]
+            entries += ['\t\t{} : {}'.format(b.get('>i'), getlbl(b.get('>i')+pos)) for _ in range(num)]
         else:
             low, high = b.get('>ii')
             num = high-low+1
             entries = ['\t{} : {}'.format(name, low)]
-            entries += ['\t\t{}'.format(getlbl(b.get('>i')+pos)) for i in range(num)]
+            entries += ['\t\t{}'.format(getlbl(b.get('>i')+pos)) for _ in range(num)]
         entries += ['\t\tdefault : {}'.format(default)]
         return '\n'.join(entries)
     else:
@@ -246,12 +240,12 @@ def disMethodCode(code, add, poolm):
         if instr:
             add(instr)
 
-def getVerificationType(bytes, poolm, getLbl):
-    s = codes.vt_keywords[bytes.get('>B')]
+def getVerificationType(bytes_, poolm, getLbl):
+    s = codes.vt_keywords[bytes_.get('>B')]
     if s == 'Object':
-        s += ' ' + poolm.classref(bytes.get('>H'))
+        s += ' ' + poolm.classref(bytes_.get('>H'))
     elif s == 'Uninitialized':
-        s += ' ' + getLbl(bytes.get('>H'))
+        s += ' ' + getLbl(bytes_.get('>H'))
     return s
 
 def getStackMapTable(code, poolm, getLbl):
@@ -264,12 +258,12 @@ def getStackMapTable(code, poolm, getLbl):
 
     if smt_attrs:
         assert(len(smt_attrs) == 1)
-        bytes = binUnpacker(smt_attrs[0][1])
-        count = bytes.get('>H')
-        getVT = lambda: getVerificationType(bytes, poolm, getLbl)
+        bytes_ = binUnpacker(smt_attrs[0][1])
+        count = bytes_.get('>H')
+        getVT = lambda: getVerificationType(bytes_, poolm, getLbl)
 
         for frame_num in range(count):
-            tag = bytes.get('>B')
+            tag = bytes_.get('>B')
             header, contents = None, []
 
             if 0 <= tag <= 63:
@@ -280,26 +274,26 @@ def getStackMapTable(code, poolm, getLbl):
                 header = 'same_locals_1_stack_item'
                 contents.append('\tstack ' + getVT())            
             elif tag == 247:
-                offset += bytes.get('>H')
+                offset += bytes_.get('>H')
                 header = 'same_locals_1_stack_item_extended'
                 contents.append('\tstack ' + getVT())
             elif 248 <= tag <= 250:
-                offset += bytes.get('>H')
+                offset += bytes_.get('>H')
                 header = 'chop ' + str(251-tag)            
             elif tag == 251:
-                offset += bytes.get('>H')
+                offset += bytes_.get('>H')
                 header = 'same_extended'
             elif 252 <= tag <= 254:
-                offset += bytes.get('>H')
+                offset += bytes_.get('>H')
                 header = 'append'     
-                contents.append('\tlocals ' + ' '.join(getVT() for i in range(tag-251)))  
+                contents.append('\tlocals ' + ' '.join(getVT() for _ in range(tag-251)))  
             elif tag == 255:
-                offset += bytes.get('>H')
+                offset += bytes_.get('>H')
                 header = 'full'
-                local_count = bytes.get('>H')    
-                contents.append('\tlocals ' + ' '.join(getVT() for i in range(local_count))) 
-                stack_count = bytes.get('>H')    
-                contents.append('\tstack ' + ' '.join(getVT() for i in range(stack_count))) 
+                local_count = bytes_.get('>H')    
+                contents.append('\tlocals ' + ' '.join(getVT() for _ in range(local_count))) 
+                stack_count = bytes_.get('>H')    
+                contents.append('\tstack ' + ' '.join(getVT() for _ in range(stack_count))) 
 
             if contents:
                 contents.append('.end stack')
@@ -317,8 +311,8 @@ def getConstValue(field):
     const_attrs = [attr for attr in field.attributes if cpool.getArgsCheck('Utf8', attr[0]) == 'ConstantValue']
     if const_attrs:
         assert(len(const_attrs) == 1)
-        bytes = binUnpacker(const_attrs[0][1])
-        return bytes.get('>H')
+        bytes_ = binUnpacker(const_attrs[0][1])
+        return bytes_.get('>H')
 
 def disassemble(cls):
     lines = []
@@ -329,16 +323,16 @@ def disassemble(cls):
 
     class_attributes = {cls.cpool.getArgsCheck('Utf8', name_ind):data for name_ind, data in cls.attributes_raw}
     if 'SourceFile' in class_attributes:
-        bytes = binUnpacker(class_attributes['SourceFile'])
-        val_ind = bytes.get('>H')
+        bytes_ = binUnpacker(class_attributes['SourceFile'])
+        val_ind = bytes_.get('>H')
         add('.source {}'.format(poolm.utfref(val_ind)))
 
     if 'BootstrapMethods' in class_attributes:
-        bytes = binUnpacker(class_attributes['BootstrapMethods'])
-        count = bytes.get('>H')
-        for i in range(count):
-            arg1, argc = bytes.get('>HH')
-            args = (arg1,) + bytes.get('>'+'H'*argc, forceTuple=True)
+        bytes_ = binUnpacker(class_attributes['BootstrapMethods'])
+        count = bytes_.get('>H')
+        for _ in range(count):
+            arg1, argc = bytes_.get('>HH')
+            args = (arg1,) + bytes_.get('>'+'H'*argc, forceTuple=True)
             poolm.bootstrap_methods.append(args)
 
     cflags = ' '.join(map(str.lower, cls.flags))
@@ -364,9 +358,9 @@ def disassemble(cls):
         
         throw_attrs = [a for a in method.attributes if cls.cpool.getArgsCheck('Utf8', a[0]) == 'Exceptions']
         for a in throw_attrs:
-            bytes = binUnpacker(a[1])
-            for i in range(bytes.get('>H')):
-                add('.throws ' + poolm.classref(bytes.get('>H')))
+            bytes_ = binUnpacker(a[1])
+            for _ in range(bytes_.get('>H')):
+                add('.throws ' + poolm.classref(bytes_.get('>H')))
 
         disMethodCode(method.code, add, poolm)
         add('.end method')

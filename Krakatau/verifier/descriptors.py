@@ -1,9 +1,4 @@
-import itertools
-
-from .. import error as error_types
-from .. import opnames
-from .. import bytecode
-from verifier_types import *
+from .verifier_types import *
 
 def parseFieldDescriptors(desc_str, unsynthesize=True):
     baseTypes = {'B':[T_BYTE], 'C':[T_CHAR], 'D':T_DOUBLE, 'F':[T_FLOAT],

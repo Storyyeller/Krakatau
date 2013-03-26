@@ -1,5 +1,5 @@
 from __future__ import division
-import opnames
+from Krakatau import opnames
 
 def parseInstructions(bytestream, isConstructor):
     data = bytestream
@@ -141,23 +141,23 @@ def getNextInstruction(data, address):
     elif byte == 0xaa: #Table Switch
         padding = (3-address) % 4
         #OpenJDK requires padding to be 0
-        assert(all((data.get('>b') == 0) for i in range(padding)))
+        assert(all((data.get('>b') == 0) for _ in range(padding)))
         default = data.get('>i') + address
         low = data.get('>i')
         high = data.get('>i')
         assert(high >= low)
         numpairs = high - low + 1
-        offsets = [data.get('>i') + address for i in range(numpairs)]
+        offsets = [data.get('>i') + address for _ in range(numpairs)]
         jumps = zip(range(low, high+1), offsets)
         inst = opnames.SWITCH, default, jumps
     elif byte == 0xab: #Lookup Switch
         padding = (3-address) % 4
         #OpenJDK requires padding to be 0
-        assert(all((data.get('>b') == 0) for i in range(padding)))
+        assert(all((data.get('>b') == 0) for _ in range(padding)))
         default = data.get('>i') + address
         numpairs = data.get('>I')
         assert(numpairs >= 0)
-        pairs = [data.get('>ii') for i in range(numpairs)]
+        pairs = [data.get('>ii') for _ in range(numpairs)]
         keys = [k for k,v in pairs]
         assert(keys == sorted(keys))
         jumps = [(x,(y + address)) for x,y in pairs]

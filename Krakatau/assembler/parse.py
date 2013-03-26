@@ -1,21 +1,17 @@
 from ply import yacc
-import math, ast, struct
-import itertools, collections
+import ast, struct
+import itertools
 
 from ..classfile import ClassFile
 from ..method import Method
 from ..field import Field
 
-from . import instructions as ins
+#Import to import tokens here even though it appears unused, as ply uses it
 from .tokenize import tokens, wordget, flags
 from .assembler import PoolRef
 
 #Specify the starting symbol
 start = 'top'
-
-# precedence = (
-#     ('left', 'NEWLINE'),
-# )
 
 ###############################################################################
 name_counter = itertools.count()
@@ -118,8 +114,8 @@ def p_imethod_notref(p):
 
 #constant pool types related to InvokeDynamic handled later
 
-for name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod', 'methodhandle'):
-    addRule(assign1, '{}ref'.format(name), '{}_notref'.format(name), 'ref')
+for _name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod', 'methodhandle'):
+    addRule(assign1, '{}ref'.format(_name), '{}_notref'.format(_name), 'ref')
 
 ###############################################################################
 def p_classnoend(p):
@@ -146,9 +142,9 @@ addRule(assign1, 'sourcedir_opt', 'empty')
 
 ###############################################################################
 for c, type_ in zip('cmf', (ClassFile, Method, Field)):
-    name = "{}flag".format(c)
-    addRule(upper1, name, *list(type_.flagVals))
-    listRule(name)
+    _name = "{}flag".format(c)
+    addRule(upper1, _name, *list(type_.flagVals))
+    listRule(_name)
 
 def p_classdec(p):
     '''classdec : DCLASS cflags classref sep 

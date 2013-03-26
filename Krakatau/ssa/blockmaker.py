@@ -1,8 +1,6 @@
-import itertools, collections 
+import collections 
 
-from ..verifier import verifier_types as vtypes
 from .. import opnames as vops
-from .. import floatutil
 from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
 from ..verifier.inference_verifier import genericStackCodes
 from ssa_types import *
@@ -39,109 +37,109 @@ def _genericStackOperation(op, stack):
     return makeDict(newstack=newstack)
 
 def _floatOrIntMath(fop, iop):
-    def math1(parent, input, iNode):
+    def math1(parent, input_, iNode):
         cat = getCategory(iNode.instruction[1])
         isfloat = (iNode.instruction[1] in 'DF')
         op = fop if isfloat else iop
 
-        args = input.stack[-cat*2::cat]
+        args = input_.stack[-cat*2::cat]
         line = op(parent, args)
 
-        newstack = input.stack[:-2*cat] + [line.rval] + [None]*(cat-1)
+        newstack = input_.stack[:-2*cat] + [line.rval] + [None]*(cat-1)
         return makeDict(line=line, newstack=newstack)
     return math1
 
 def _intMath(op, isShift):
-    def math2(parent, input, iNode):
+    def math2(parent, input_, iNode):
         cat = getCategory(iNode.instruction[1])
         #some ops (i.e. shifts) always take int as second argument
         size = cat+1 if isShift else cat+cat
-        args = input.stack[-size::cat]
+        args = input_.stack[-size::cat]
         line = op(parent, args)
-        newstack = input.stack[:-size] + [line.rval] + [None]*(cat-1)
+        newstack = input_.stack[:-size] + [line.rval] + [None]*(cat-1)
         return makeDict(line=line, newstack=newstack)
     return math2
 ##############################################################################
 
-def _anewarray(parent, input, iNode):
+def _anewarray(parent, input_, iNode):
     name = parent.getConstPoolArgs(iNode.instruction[1])[0]
     tt = parseArrOrClassName(name)
-    line = ssa_ops.NewArray(parent, input.stack[-1], tt, input.monad)
-    newstack = input.stack[:-1] + [line.rval]
+    line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
+    newstack = input_.stack[:-1] + [line.rval]
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _arrlen(parent, input, iNode):
-    line = ssa_ops.ArrLength(parent, input.stack[-1:])
-    newstack = input.stack[:-1] + [line.rval]
+def _arrlen(parent, input_, iNode):
+    line = ssa_ops.ArrLength(parent, input_.stack[-1:])
+    newstack = input_.stack[:-1] + [line.rval]
     return makeDict(line=line, newstack=newstack)
 
-def _arrload(parent, input, iNode):
+def _arrload(parent, input_, iNode):
     type_ = _charToSSAType[iNode.instruction[1]]
     cat = getCategory(iNode.instruction[1])
 
-    line = ssa_ops.ArrLoad(parent, input.stack[-2:], type_, monad=input.monad)
-    newstack = input.stack[:-2] + [line.rval] + [None]*(cat-1)
+    line = ssa_ops.ArrLoad(parent, input_.stack[-2:], type_, monad=input_.monad)
+    newstack = input_.stack[:-2] + [line.rval] + [None]*(cat-1)
     return makeDict(line=line, newstack=newstack)
 
-def _arrload_obj(parent, input, iNode):
-    line = ssa_ops.ArrLoad(parent, input.stack[-2:], SSA_OBJECT, monad=input.monad)
-    newstack = input.stack[:-2] + [line.rval]
+def _arrload_obj(parent, input_, iNode):
+    line = ssa_ops.ArrLoad(parent, input_.stack[-2:], SSA_OBJECT, monad=input_.monad)
+    newstack = input_.stack[:-2] + [line.rval]
     return makeDict(line=line, newstack=newstack)
 
-def _arrstore(parent, input, iNode):
+def _arrstore(parent, input_, iNode):
     if getCategory(iNode.instruction[1]) > 1:
-        newstack, args = input.stack[:-4], input.stack[-4:-1]
+        newstack, args = input_.stack[:-4], input_.stack[-4:-1]
     else:
-        newstack, args = input.stack[:-3], input.stack[-3:]
-    line = ssa_ops.ArrStore(parent, args, monad=input.monad)
+        newstack, args = input_.stack[:-3], input_.stack[-3:]
+    line = ssa_ops.ArrStore(parent, args, monad=input_.monad)
     return makeDict(line=line, newstack=newstack)
 
-def _arrstore_obj(parent, input, iNode):
-    line = ssa_ops.ArrStore(parent, input.stack[-3:], monad=input.monad)
-    newstack = input.stack[:-3]
+def _arrstore_obj(parent, input_, iNode):
+    line = ssa_ops.ArrStore(parent, input_.stack[-3:], monad=input_.monad)
+    newstack = input_.stack[:-3]
     return makeDict(line=line, newstack=newstack)
 
-def _checkcast(parent, input, iNode):
+def _checkcast(parent, input_, iNode):
     index = iNode.instruction[1]
     desc = parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(desc)
-    line = ssa_ops.CheckCast(parent, tt, input.stack[-1:])
+    line = ssa_ops.CheckCast(parent, tt, input_.stack[-1:])
     return makeDict(line=line)
 
-def _const(parent, input, iNode):
+def _const(parent, input_, iNode):
     ctype, val = iNode.instruction[1:]
     cat = getCategory(ctype)
     type_ = _charToSSAType[ctype]
     var = makeConstVar(parent, type_, val)
-    newstack = input.stack + [var] + [None]*(cat-1)
+    newstack = input_.stack + [var] + [None]*(cat-1)
     return makeDict(newstack=newstack)
 
-def _constnull(parent, input, iNode):
+def _constnull(parent, input_, iNode):
     var = makeConstVar(parent, SSA_OBJECT, 'null')
     var.decltype = objtypes.NullTT
-    newstack = input.stack + [var]
+    newstack = input_.stack + [var]
     return makeDict(newstack=newstack)
 
-def _convert(parent, input, iNode):
+def _convert(parent, input_, iNode):
     src_c, dest_c = iNode.instruction[1:]
     src_cat, dest_cat = getCategory(src_c), getCategory(dest_c)
 
-    stack, arg =  input.stack[:-src_cat], input.stack[-src_cat]
+    stack, arg =  input_.stack[:-src_cat], input_.stack[-src_cat]
     line = ssa_ops.Convert(parent, arg, _charToSSAType[dest_c])
 
     newstack = stack + [line.rval] + [None]*(dest_cat-1)
     return makeDict(line=line, newstack=newstack)
 
-def _fcmp(parent, input, iNode):
+def _fcmp(parent, input_, iNode):
     op, c, NaN_val = iNode.instruction
     cat = getCategory(c)
 
-    args = input.stack[-cat*2::cat]
+    args = input_.stack[-cat*2::cat]
     line = ssa_ops.FCmp(parent, args, NaN_val)
-    newstack = input.stack[:-cat*2] + [line.rval]
+    newstack = input_.stack[:-cat*2] + [line.rval]
     return makeDict(line=line, newstack=newstack)
 
-def _field_access(parent, input, iNode):
+def _field_access(parent, input_, iNode):
     index = iNode.instruction[1]
     target, name, desc = parent.getConstPoolArgs(index)
     cat = len(parseFieldDescriptor(desc))
@@ -149,84 +147,84 @@ def _field_access(parent, input, iNode):
     argcnt = cat if 'put' in iNode.instruction[0] else 0
     if not 'static' in iNode.instruction[0]:
             argcnt += 1
-    splitInd = len(input.stack) - argcnt
+    splitInd = len(input_.stack) - argcnt
 
-    args = [x for x in input.stack[splitInd:] if x is not None]
-    line = ssa_ops.FieldAccess(parent, iNode.instruction, (target, name, desc), args=args, monad=input.monad)
-    newstack = input.stack[:splitInd] + line.returned
+    args = [x for x in input_.stack[splitInd:] if x is not None]
+    line = ssa_ops.FieldAccess(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad)
+    newstack = input_.stack[:splitInd] + line.returned
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _if_a(parent, input, iNode):
+def _if_a(parent, input_, iNode):
     null = makeConstVar(parent, SSA_OBJECT, 'null')
     null.decltype = objtypes.NullTT
-    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input.stack[-1], null))
-    newstack = input.stack[:-1]
+    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input_.stack[-1], null))
+    newstack = input_.stack[:-1]
     return makeDict(jump=jump, newstack=newstack)
 
-def _if_i(parent, input, iNode):
+def _if_i(parent, input_, iNode):
     zero = makeConstVar(parent, SSA_INT, 0)
-    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input.stack[-1], zero))
-    newstack = input.stack[:-1]
+    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input_.stack[-1], zero))
+    newstack = input_.stack[:-1]
     return makeDict(jump=jump, newstack=newstack)
 
-def _if_icmp(parent, input, iNode):
-    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, input.stack[-2:])
-    newstack = input.stack[:-2]
+def _if_icmp(parent, input_, iNode):
+    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, input_.stack[-2:])
+    newstack = input_.stack[:-2]
     return makeDict(jump=jump, newstack=newstack)
 
-def _iinc(parent, input, iNode):
+def _iinc(parent, input_, iNode):
     junk, index, amount = iNode.instruction
     
-    oldval = input.locals[index]
+    oldval = input_.locals[index]
     constval = makeConstVar(parent, SSA_INT, amount)
     line = ssa_ops.IAdd(parent, (oldval, constval))
 
-    newlocals = list(input.locals)
+    newlocals = list(input_.locals)
     newlocals[index] = line.rval
     return makeDict(line=line, newlocals=newlocals)
 
-def _instanceof(parent, input, iNode):
+def _instanceof(parent, input_, iNode):
     index = iNode.instruction[1]
     desc = parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(desc)
-    line = ssa_ops.InstanceOf(parent, tt, input.stack[-1:])
-    newstack = input.stack[:-1] + [line.rval]
+    line = ssa_ops.InstanceOf(parent, tt, input_.stack[-1:])
+    newstack = input_.stack[:-1] + [line.rval]
     return makeDict(line=line, newstack=newstack)
 
-def _invoke(parent, input, iNode):
+def _invoke(parent, input_, iNode):
     index = iNode.instruction[1]
     target, name, desc = parent.getConstPoolArgs(index)
 
     argcnt = len(parseMethodDescriptor(desc)[0])
     if not 'static' in iNode.instruction[0]:
             argcnt += 1
-    splitInd = len(input.stack) - argcnt
+    splitInd = len(input_.stack) - argcnt
 
     #If we are an initializer, store a copy of the uninitialized verifier type so the Java decompiler can patch things up later
     unvt = iNode.stack[-argcnt] if iNode.instruction[0] == 'invokeinit' else None
 
-    args = [x for x in input.stack[splitInd:] if x is not None]
-    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input.monad, verifier_type=unvt)
-    newstack = input.stack[:splitInd] + line.returned
+    args = [x for x in input_.stack[splitInd:] if x is not None]
+    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad, verifier_type=unvt)
+    newstack = input_.stack[:splitInd] + line.returned
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _jsr(parent, input, iNode):
-    newstack = input.stack + [None]
+def _jsr(parent, input_, iNode):
+    newstack = input_.stack + [None]
 
     if iNode.returnedFrom is None:
         return makeDict(newstack=newstack)
     else:
         #Simply store the data for now and fix things up once all the blocks are created
-        jump = subproc.ProcCallOp(input, iNode)
+        jump = subproc.ProcCallOp(input_, iNode)
         return makeDict(jump=jump, newstack=newstack)
 
-def _lcmp(parent, input, iNode):
-    args = input.stack[-4::2]
+def _lcmp(parent, input_, iNode):
+    args = input_.stack[-4::2]
     line = ssa_ops.ICmp(parent, args)
-    newstack = input.stack[:-4] + [line.rval]
+    newstack = input_.stack[:-4] + [line.rval]
     return makeDict(line=line, newstack=newstack)
 
-def _ldc(parent, input, iNode):
+def _ldc(parent, input_, iNode):
     index, cat = iNode.instruction[1:]
     entry_type = parent.getConstPoolType(index)
     args = parent.getConstPoolArgs(index)
@@ -250,34 +248,34 @@ def _ldc(parent, input, iNode):
     #Todo - handle MethodTypes and MethodHandles?
 
     assert(var)
-    newstack = input.stack + [var] + [None]*(cat-1)
+    newstack = input_.stack + [var] + [None]*(cat-1)
     return makeDict(newstack=newstack)
 
-def _load(parent, input, iNode):
+def _load(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
-    newstack = input.stack + input.locals[index:index+cat]
+    newstack = input_.stack + input_.locals[index:index+cat]
     return makeDict(newstack=newstack)
 
-def _monitor(parent, input, iNode):
+def _monitor(parent, input_, iNode):
     isExit = 'exit' in iNode.instruction[0]
-    line = ssa_ops.Monitor(parent, input.stack[-1:], input.monad, isExit)
-    newstack = input.stack[:-1]
+    line = ssa_ops.Monitor(parent, input_.stack[-1:], input_.monad, isExit)
+    newstack = input_.stack[:-1]
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _multinewarray(parent, input, iNode):
+def _multinewarray(parent, input_, iNode):
     op, index, dim = iNode.instruction
     name = parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(name)
     assert(tt[1] >= dim)
 
-    line = ssa_ops.MultiNewArray(parent, input.stack[-dim:], tt, input.monad)
-    newstack = input.stack[:-dim] + [line.rval]
+    line = ssa_ops.MultiNewArray(parent, input_.stack[-dim:], tt, input_.monad)
+    newstack = input_.stack[:-dim] + [line.rval]
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _neg(parent, input, iNode):
+def _neg(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
-    arg = input.stack[-cat:][0]
+    arg = input_.stack[-cat:][0]
 
     if (iNode.instruction[1] in 'DF'):
         line = ssa_ops.FNeg(parent, [arg])
@@ -285,10 +283,10 @@ def _neg(parent, input, iNode):
         zero = makeConstVar(parent, arg.type, 0)
         line = ssa_ops.ISub(parent, [zero,arg])
 
-    newstack = input.stack[:-cat] + [line.rval] + [None]*(cat-1)
+    newstack = input_.stack[:-cat] + [line.rval] + [None]*(cat-1)
     return makeDict(line=line, newstack=newstack)
 
-def _new(parent, input, iNode):
+def _new(parent, input_, iNode):
     index = iNode.instruction[1]
     classname = parent.getConstPoolArgs(index)[0]
 
@@ -297,64 +295,64 @@ def _new(parent, input, iNode):
     verifier_type = stack[-1]
     assert(not verifier_type.isInit)
 
-    line = ssa_ops.New(parent, classname, input.monad, verifier_type)
-    newstack = input.stack + [line.rval]
+    line = ssa_ops.New(parent, classname, input_.monad, verifier_type)
+    newstack = input_.stack + [line.rval]
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _newarray(parent, input, iNode):
+def _newarray(parent, input_, iNode):
     vtypes = parseFieldDescriptor(iNode.instruction[1], unsynthesize=False)
     tt = objtypes.verifierToSynthetic(vtypes[0])
 
-    line = ssa_ops.NewArray(parent, input.stack[-1], tt, input.monad)
-    newstack = input.stack[:-1] + [line.rval]
+    line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
+    newstack = input_.stack[:-1] + [line.rval]
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
-def _nop(parent, input, iNode):
+def _nop(parent, input_, iNode):
     return makeDict()
 
-def _ret(parent, input, iNode):
-    jump = subproc.DummyRet(input, iNode)
+def _ret(parent, input_, iNode):
+    jump = subproc.DummyRet(input_, iNode)
     return makeDict(jump=jump)
 
-def _return(parent, input, iNode):
-    line = ssa_ops.TryReturn(parent, input.monad)
+def _return(parent, input_, iNode):
+    line = ssa_ops.TryReturn(parent, input_.monad)
 
     #Our special return block expects only the return values on the stack
     rtype = iNode.instruction[1]
     if rtype is None:
         newstack = []
     else:
-        newstack = input.stack[-getCategory(rtype):]
+        newstack = input_.stack[-getCategory(rtype):]
     return makeDict(line=line, newstack=newstack)
 
-def _store(parent, input, iNode):
+def _store(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
     
-    newlocals = list(input.locals)
+    newlocals = list(input_.locals)
     if len(newlocals) < index+cat:
         newlocals += [None] * (index+cat - len(newlocals))
 
-    newlocals[index:index+cat] = input.stack[-cat:]
-    newstack = input.stack[:-cat]
+    newlocals[index:index+cat] = input_.stack[-cat:]
+    newstack = input_.stack[:-cat]
     return makeDict(newstack=newstack, newlocals=newlocals)
 
-def _switch(parent, input, iNode):
+def _switch(parent, input_, iNode):
     junk, default, table = iNode.instruction
-    jump = ssa_jumps.Switch(parent, default, table, input.stack[-1:])
-    newstack = input.stack[:-1]
+    jump = ssa_jumps.Switch(parent, default, table, input_.stack[-1:])
+    newstack = input_.stack[:-1]
     return makeDict(jump=jump, newstack=newstack)
 
-def _throw(parent, input, iNode):
-    line = ssa_ops.Throw(parent, input.stack[-1:])
+def _throw(parent, input_, iNode):
+    line = ssa_ops.Throw(parent, input_.stack[-1:])
     return makeDict(line=line, newstack=[])
 
-def _truncate(parent, input, iNode):
+def _truncate(parent, input_, iNode):
     dest_c = iNode.instruction[1]
     signed, width = {'B':(True,8), 'C':(False,16), 'S':(True, 16)}[dest_c]
 
-    line = ssa_ops.Truncate(parent, input.stack[-1], signed=signed, width=width)
-    newstack = input.stack[:-1] + [line.rval]
+    line = ssa_ops.Truncate(parent, input_.stack[-1], signed=signed, width=width)
+    newstack = input_.stack[:-1] + [line.rval]
     return makeDict(line=line, newstack=newstack)
 
 _instructionHandlers = {

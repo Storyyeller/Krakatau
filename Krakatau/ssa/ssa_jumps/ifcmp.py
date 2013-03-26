@@ -1,4 +1,4 @@
-from base import BaseJump
+from .base import BaseJump
 from .. import ssa_types
 from ..constraints import IntConstraint, ObjectConstraint
 from .goto import Goto

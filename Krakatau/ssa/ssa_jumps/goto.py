@@ -1,4 +1,4 @@
-from base import BaseJump
+from .base import BaseJump
 
 class Goto(BaseJump):
     def __init__(self, parent, target):

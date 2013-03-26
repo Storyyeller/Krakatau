@@ -1,7 +1,7 @@
 import itertools, collections
 
 class NameGen(object):
-    def __init__(self, reserved=[]):
+    def __init__(self, reserved=frozenset()):
         self.counters = collections.defaultdict(itertools.count)
         self.names = set(reserved)
 

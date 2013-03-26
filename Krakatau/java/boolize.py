@@ -1,4 +1,4 @@
-import itertools, collections
+import collections
 
 from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT
 from . import ast
@@ -24,7 +24,7 @@ def graphCutVars(root, arg_vars, visit_cb):
             nodes[key] = _GraphNode(key)
         return nodes[key]
 
-    def contract(*keys, **kwargs):
+    def contract(*keys):
         knodes = map(get, keys)
         new = knodes[0]
         new.keys = frozenset().union(*(x.keys for x in knodes))

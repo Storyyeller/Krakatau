@@ -322,25 +322,25 @@ def disMethod(method, add, poolm):
             add('.throws ' + poolm.classref(bytes_.get('>H')))
 
     def getFirst(key):
-        return meth_attributes[key] if key in meth_attributes else None
+        return meth_attributes[key][0] if key in meth_attributes else None
 
     for vis in ('Visible', 'Invisible'):
         attr = getFirst('Runtime{}Annotations'.format(vis))
         if attr is not None:
-            bytes_ = binUnpacker(a)
+            bytes_ = binUnpacker(attr)
             for _ in range(bytes_.get('>H')):
                 disAnnotation(bytes_, '.runtime{} '.format(vis.lower()), add, poolm)
 
         attr = getFirst('Runtime{}ParameterAnnotations'.format(vis))
         if attr is not None:
-            bytes_ = binUnpacker(a)
+            bytes_ = binUnpacker(attr)
             for i in range(bytes_.get('>B')):
                 for _ in range(bytes_.get('>H')):
                     disAnnotation(bytes_, '.runtime{} parameter {} '.format(vis.lower(), i), add, poolm)
 
     attr = getFirst('AnnotationDefault')
     if attr is not None:
-        bytes_ = binUnpacker(a)
+        bytes_ = binUnpacker(attr)
         disElementValue(bytes_, '.annotationdefault ', add, poolm)
 
     # if meth_attributes:
@@ -352,7 +352,7 @@ def disMethod(method, add, poolm):
 def disElementValue(bytes_, prefix, add, poolm, indent):
     tag = codes.et_rtags[bytes_.getRaw(1)]
     if tag == 'annotation':
-        getAnnotation(bytes_, prefix, add, poolm, indent + '\t')
+        disAnnotation(bytes_, prefix, add, poolm, indent + '\t')
     else:
         if tag in ('byte','char','double','int','float','long','short','boolean','string'):
             val = poolm.ldc(bytes_.get('>H'))
@@ -370,9 +370,9 @@ def disElementValue(bytes_, prefix, add, poolm, indent):
             add(indent + '.end array')
 
 def disAnnotation(bytes_, prefix, add, poolm, indent=''):
-    add(indent + prefix + ' annotation ' + poolm.utfref(bytes_.get('>H')))
+    add(indent + prefix + 'annotation ' + poolm.utfref(bytes_.get('>H')))
 
-    for _ in bytes_.get('>H'):
+    for _ in range(bytes_.get('>H')):
         key = poolm.utfref(bytes_.get('>H'))
         getElementValue(bytes_, key + ' = ', add, poolm, indent+'\t')
     add(indent + '.end annotation')

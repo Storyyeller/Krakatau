@@ -1,5 +1,5 @@
 import os.path
-import time
+import time, zipfile
 
 import Krakatau
 import Krakatau.binUnpacker
@@ -8,10 +8,13 @@ import Krakatau.assembler.disassembler
 
 from Krakatau import script_util
 
-def disassembleClass(targets=None, outpath=None):
+def readFile(filename):
+    with open(filename, 'rb') as f:
+        return f.read()
+
+def disassembleClass(readTarget, targets=None, outpath=None):
     if outpath is None:
         outpath = os.getcwd()
-
 
     # targets = targets[::-1]
     start_time = time.time()
@@ -19,8 +22,7 @@ def disassembleClass(targets=None, outpath=None):
     for i,target in enumerate(targets):
         print 'processing target {}, {} remaining'.format(target, len(targets)-i)
 
-        with open(target, 'rb') as f:
-            data = f.read()
+        data = readTarget(target)
         stream = Krakatau.binUnpacker.binUnpacker(data=data)
         class_ = ClassFile(stream)
 
@@ -40,4 +42,14 @@ if __name__== "__main__":
     args = parser.parse_args()
 
     targets = script_util.findFiles(args.target, args.r, '.class')
-    disassembleClass(targets, args.out)
+
+    #allow reading files from a jar if target is specified as a jar
+    if args.target.endswith('.jar'):
+        def readArchive(name):
+            with zipfile.ZipFile(args.target, 'r') as archive:
+                return archive.open(name).read()
+        readTarget = readArchive
+    else:
+        readTarget = readFile
+
+    disassembleClass(readTarget, targets, args.out)

@@ -2,7 +2,7 @@ import collections
 
 from Krakatau import binUnpacker
 from Krakatau import bytecode
-from Krakatau.attributes_raw import get_attributes_raw
+from Krakatau.attributes_raw import get_attributes_raw, fixAttributeNames
 
 exceptionHandlerRaw = collections.namedtuple("exceptionHandlerRaw",
                                              ["start","end","handler","type_ind"])
@@ -31,6 +31,7 @@ class Code(object):
         # print 'Parsing code for', method.name, method.descriptor, method.flags
         codestream = binUnpacker.binUnpacker(data = self.bytecode_raw)
         self.bytecode = bytecode.parseInstructions(codestream, self.isIdConstructor)
+        self.attributes = fixAttributeNames(self.attributes_raw, self.class_.cpool)
 
         for e in self.except_raw:
             assert(e.start in self.bytecode)
@@ -98,8 +99,7 @@ class Method(object):
 
     def _loadCode(self):
         cpool = self.class_.cpool
-        code_attrs = [a for a in self.attributes if
-                      cpool.getArgsCheck('Utf8', a[0]) == 'Code']
+        code_attrs = [a for a in self.attributes if a[0] == 'Code']
         if self.native or self.abstract:
             assert(not code_attrs)
             self.code = None

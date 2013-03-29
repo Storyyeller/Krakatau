@@ -33,10 +33,10 @@ class ClassDecompiler(object):
         initexpr = None
         if field.static:
             cpool = self.class_.cpool
-            const_attrs = [attr for attr in field.attributes if cpool.getArgsCheck('Utf8', attr[0]) == 'ConstantValue']
+            const_attrs = [data for name,data in field.attributes if name == 'ConstantValue']
             if const_attrs:
                 assert(len(const_attrs) == 1)
-                data = const_attrs[0][1]
+                data = const_attrs[0]
                 index = struct.unpack('>h', data)[0]
                 initexpr = loadConstValue(cpool, index)
         return ast2.FieldDef(' '.join(flags), ast.TypeName(dtype), field.name, initexpr)       

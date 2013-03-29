@@ -8,9 +8,11 @@ from .. import constant_pool
 from . import instructions as ins
 from . import codes
 
-directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS','VERSION', 'STACK'
+directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS',
+directives += 'VERSION', 'STACK', 'RUNTIMEVISIBLE', 'RUNTIMEINVISIBLE', 'ANNOTATIONDEFAULT'
 keywords = ['CLASS','METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 keywords += ['SAME','SAME_LOCALS_1_STACK_ITEM','SAME_LOCALS_1_STACK_ITEM_EXTENDED','CHOP','SAME_EXTENDED','APPEND','FULL']
+keywords += ['ANNOTATION','ARRAY','PARAMETER']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
 
 lowwords = set().union(keywords, flags)
@@ -58,7 +60,7 @@ tokens = ('NEWLINE', 'COLON', 'EQUALS', 'WORD', 'CPINDEX',
 def t_WORDS(t):
     t.type = wordget[t.value]
     return t
-t_WORDS.__doc__ = r'(?:{})(?=$|[\s])'.format('|'.join(wordget.keys()))
+t_WORDS.__doc__ = r'(?:{})(?=$|[\s])'.format('|'.join(wordget.keys())).replace('.',r'\.') #quick hack. Todo: see if we can remove this whole thing
 
 def t_ignore_COMMENT(t):
     r';.*'

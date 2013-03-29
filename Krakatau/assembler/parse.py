@@ -6,7 +6,7 @@ from ..classfile import ClassFile
 from ..method import Method
 from ..field import Field
 
-#Import to import tokens here even though it appears unused, as ply uses it
+#Important to import tokens here even though it appears unused, as ply uses it
 from .tokenize import tokens, wordget, flags
 from .assembler import PoolRef
 
@@ -68,7 +68,8 @@ def p_doublel(p):
     '''doublel : DOUBLE_LITERAL'''
     p[0] = parseDouble(p[1])
 
-
+#We can allow keywords as inline classnames as long as they aren't flag names
+#Which would be ambiguous
 okwords = set([w for w in wordget.values() if w not in flags])
 addRule(assign1, 'notflag', 'WORD', 'STRING_LITERAL', *okwords)
 
@@ -247,16 +248,20 @@ addRule(nothing, 'endmethod', 'DEND METHOD sep')
 
 def p_statement_0(p):
     '''statement : method_directive sep'''
-    p[0] = 'dir',p[1]
+    p[0] = False, p[1]
 def p_statement_1(p):
+    '''statement : code_directive sep'''
+    p[0] = True, (False, p[1])
+def p_statement_2(p):
     '''statement : empty instruction sep 
                 | lbldec instruction sep
                 | lbldec sep'''
-    p[0] = 'ins', ((p[1] or None), p[2])
+    p[0] = True, (True, ((p[1] or None), p[2]))
 listRule('statement')
 
 addRule(assign1, 'lbldec', 'lbl COLON')
-addRule(assign1, 'method_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','throws_dir','stack_dir')
+addRule(assign1, 'method_directive', 'throws_dir','annotation_dir','annotation_param_dir','annotation_def_dir')
+addRule(assign1, 'code_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','stack_dir')
 
 def p_limit_dir(p):
     '''limit_dir : DLIMIT LOCALS intl 
@@ -266,10 +271,6 @@ def p_limit_dir(p):
 def p_except_dir(p):
     '''except_dir : DCATCH classref FROM lbl TO lbl USING lbl'''
     p[0] = 'catch', (p[2], p[4], p[6], p[8])
-
-def p_throws_dir(p):
-    '''throws_dir : DTHROWS classref'''
-    p[0] = 'throws', p[2]
 
 def p_linenumber_dir(p):
     '''linenumber_dir : DLINE intl'''
@@ -399,6 +400,24 @@ def p_wide_instr(p):
     '''wide_instr : OP_INT intl
                 | OP_INT_INT intl intl'''
     p[0] = tuple(p[1:])
+
+# Method attributes
+def p_throws_dir(p):
+    '''throws_dir : DTHROWS classref'''
+    p[0] = 'throws', p[2]
+
+def p_annotation_dir(p):
+    '''annotation_dir : DRUNTIMEVISIBLE annotation
+                    | DRUNTIMEINVISIBLE annotation'''
+    p[0] = p[1], (None, p[2])
+def p_annotation_param_dir(p):
+    '''annotation_param_dir : DRUNTIMEVISIBLE PARAMETER intl annotation
+                           | DRUNTIMEINVISIBLE PARAMETER intl annotation'''
+    p[0] = p[1], (p[3], p[4])
+def p_annotation_def_dir(p):
+    '''annotation_def_dir : DANNOTATIONDEFAULT element_value'''
+    p[0] = p[1], p[2]
+
 #######################################################################
 #Stack map stuff
 addRule(nothing, 'endstack', 'DEND STACK') #directives are not expected to end with a sep
@@ -420,6 +439,33 @@ def p_stack_dir(p):
                     | FULL sep locals_vtlist stack_vtlist endstack'''
     p[0] = 'stackmap', tuple(p[1:])
 addRule(assign2, 'stack_dir', 'DSTACK stack_dir_rest')
+#######################################################################
+#Annotation stuff
+from .codes import et_tags
+primtags = set(wordget.get(x, 'WORD') for x in 'byte char double int float long short boolean string'.split())
+addRule(assign1, 'primtag', *primtags)
+addRule(assign1, 'ldc_any', 'ldc1_notref', 'ldc2_notref', 'ref')
+
+def p_element_value(p):
+    '''element_value : primtag ldc_any
+                    | CLASS classref
+                    | ENUM utf8ref utf8ref
+                    | ANNOTATION annotation
+                    | ARRAY element_array'''
+    p[0] = et_tags[p[1]], tuple(p[2:])
+
+addRule(assign1, 'element_value_line', 'element_value sep')
+listRule('element_value_line')
+addRule(assign1, 'element_array', 'element_value_lines DEND ARRAY')
+
+def p_key_ev_line(p):
+    '''key_ev_line : utf8ref EQUALS element_value_line'''
+    p[0] = p[1], p[3]
+listRule('key_ev_line')
+
+def p_annotation(p):
+    '''annotation : ANNOTATION utf8ref sep key_ev_lines DEND ANNOTATION'''
+    p[0] = p[2], p[4]
 #######################################################################
 
 def p_error(p):

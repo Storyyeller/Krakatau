@@ -5,3 +5,7 @@ newarr_codes = dict(zip('boolean char float double byte short int long'.split(),
 
 vt_keywords = ['Top','Integer','Float','Double','Long','Null','UninitializedThis','Object','Uninitialized']
 vt_codes = {k:i for i,k in enumerate(vt_keywords)}
+
+
+et_rtags = dict(zip('BCDFIJSZsce@[', 'byte char double int float long short boolean string class enum annotation array'.split()))
+et_tags = {v:k for k,v in et_rtags.items()}

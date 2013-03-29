@@ -30,6 +30,7 @@ if __name__== "__main__":
     base_path = args.out if args.out is not None else os.getcwd()
 
     for target in targets:
+        print 'Processing file', target
         pairs = assembleClass(target, args.g, args.jas)
         for name, data in pairs:
             filename = script_util.writeFile(base_path, name, '.class', data)

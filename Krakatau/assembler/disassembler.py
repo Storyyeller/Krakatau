@@ -207,6 +207,7 @@ def getInstruction(b, getlbl, poolm):
 
         funcs = {
                 'OP_CLASS': poolm.classref, 
+                'OP_CLASS_INT': poolm.classref, 
                 'OP_FIELD': poolm.notjasref, #this is a special case due to the jasmin thing
                 'OP_METHOD': poolm.multiref, 
                 'OP_METHOD_INT': poolm.multiref, 

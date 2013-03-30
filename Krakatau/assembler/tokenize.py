@@ -21,7 +21,7 @@ casewords = set().union(codes.vt_keywords, constant_pool.name2Type.keys())
 wordget = {}
 wordget.update({w.lower():w.upper() for w in lowwords})
 wordget.update({w:w.upper() for w in casewords})
-wordget.update({'.'+w.lower():'D'+w for w in directives})
+wordget.update({'.'+w.lower():'D_'+w for w in directives})
 
 assert(set(wordget).isdisjoint(ins.allinstructions))
 for op in ins.instrs_noarg:
@@ -67,7 +67,7 @@ def t_NEWLINE(t):
 
 def t_STRING_LITERAL(t):
     # See http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705#5455705
-    r'''[uU]?[rR]?(?:
+    r'''[uUbB]?[rR]?(?:
         """[^"\\]*              # any number of unescaped characters
             (?:\\.[^"\\]*       # escaped followed by 0 or more unescaped
                 |"[^"\\]+       # single quote followed by at least one unescaped
@@ -96,7 +96,8 @@ float_base = r'''(?:
     [Nn][Aa][Nn]|                                       #Nan
     [-+]?(?:                                            #Inf and normal both use sign
         [Ii][Nn][Ff]|                                   #Inf
-        \d+\.\d+(?:[eE][+-]?\d+)?|                         #decimal float
+        \d+\.\d*(?:[eE][+-]?\d+)?|                         #decimal float
+        \d+[eE][+-]?\d+|                                   #decimal float with no fraction (exponent mandatory)
         0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP][+-]?\d+        #hexidecimal float
         )
     )

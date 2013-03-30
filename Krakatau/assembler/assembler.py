@@ -94,7 +94,7 @@ def getInstrLen(instr, pos):
     if op in op_structs:
         return 1 + op_structs[op].size
     elif op == 'wide':
-        return 2 * len(instr[1])
+        return 2 + 2 * len(instr[1])
     else:
         padding = getPadding(pos)
         count = len(instr[1][1])
@@ -122,7 +122,8 @@ def assembleInstruction(instr, labels, pos, pool):
     elif op == 'wide':
         subop, args = instr[0]
         prefix = chr(instructions.allinstructions.index(subop))
-        rest = struct.pack('>'+'H'*len(args), args)
+        fmt = '>Hh' if len(args) > 1 else '>H'
+        rest = struct.pack(fmt, *args)
         return first + prefix + rest
     else:
         padding = getPadding(pos)
@@ -270,6 +271,11 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     if not code_len:
         return None
 
+    for attrname, data in directive_dict['.codeattribute']:
+        attr = struct.pack('>HI', attrname.toIndex(pool), len(data)) + data
+        attributes.append(attr)        
+
+
     #Old versions use shorter fields for stack, locals, and code length
     header_fmt = '>HHI' if version > (45,2) else '>BBH'
 
@@ -285,7 +291,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
 
 def assembleElementValue(val, pool):
     tag, data = val
-    assert(tag in codes.rtags)
+    assert(tag in codes.et_rtags)
 
     if tag in 'BCDFIJSZsc':
         rest = struct.pack('>H', data[0].toIndex(pool))
@@ -294,8 +300,8 @@ def assembleElementValue(val, pool):
     elif tag == '@':
         rest = assembleAnnotation(data[0], pool)
     elif tag == '[':
-        rest = struct.pack('>H', len(data[0]))
-        rest += ''.join(assembleElementValue(arrval, pool) for arrval in data[0])
+        rest = struct.pack('>H', len(data[1]))
+        rest += ''.join(assembleElementValue(arrval, pool) for arrval in data[1])
     return tag+rest
 
 def assembleAnnotation(annotation, pool):
@@ -303,7 +309,7 @@ def assembleAnnotation(annotation, pool):
 
     parts = [struct.pack('>HH', typeref.toIndex(pool), len(keylines))]
     for name, val in keylines:
-        parts.append(name.toIndex(pool))
+        parts.append(struct.pack('>H', name.toIndex(pool)))
         parts.append(assembleElementValue(val, pool))
     return ''.join(parts)
 
@@ -451,8 +457,8 @@ def assembleClassAttributes(addcb, directive_dict, pool, addLineNumbers, jasmode
             part = struct.pack('>HHHH', inner.toIndex(pool), outer.toIndex(pool), name.toIndex(pool), flagbits)
             parts.append(part)
 
-            attr = struct.pack('>HIH', pool.Utf8("InnerClasses"), 2+8*len(parts), len(parts)) + ''.join(parts)
-            addcb(attr)
+        attr = struct.pack('>HIH', pool.Utf8("InnerClasses"), 2+8*len(parts), len(parts)) + ''.join(parts)
+        addcb(attr)
 
     if '.enclosing' in directive_dict:
         class_, nat = directive_dict['.enclosing'][0]

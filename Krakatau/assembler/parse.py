@@ -69,10 +69,12 @@ def p_doublel(p):
     p[0] = parseDouble(p[1])
 
 #We can allow keywords as inline classnames as long as they aren't flag names
-#Which would be ambiguous
-okwords = set([w for w in wordget.values() if w not in flags])
-badwords = set(wordget.values()) - okwords #used by disassembler
-addRule(assign1, 'notflag', 'WORD', 'STRING_LITERAL', *okwords)
+#which would be ambiguous. We don't allow directives to simplfy the grammar
+#rules, since they wouldn't be valid identifiers anyway.
+badwords = frozenset(map(str.lower, flags))
+badwords |= frozenset(k for k in wordget if '.' in k) 
+oktokens = frozenset(v for k,v in wordget.items() if k not in badwords)
+addRule(assign1, 'notflag', 'WORD', 'STRING_LITERAL', *oktokens)
 
 def p_ref(p):
     '''ref : CPINDEX'''
@@ -124,7 +126,7 @@ def p_classnoend(p):
     '''classnoend : version_opt classattribute_lines classdec superdec interfacedecs classattribute_lines topitems'''
     p[0] = tuple(p[1:])
 
-addRule(assign1, 'classwithend', 'classnoend DEND CLASS sep')
+addRule(assign1, 'classwithend', 'classnoend D_END CLASS sep')
 listRule('classwithend')
 
 def p_top(p):
@@ -134,7 +136,7 @@ def p_top(p):
 addRule(assign2, 'top', 'sep classwithends')
 
 def p_version(p):
-    '''version_opt : DVERSION intl intl sep'''
+    '''version_opt : D_VERSION intl intl sep'''
     p[0] = p[2], p[3]
 addRule(assign1, 'version_opt', 'empty')
 
@@ -145,13 +147,13 @@ for c, type_ in zip('cmf', (ClassFile, Method, Field)):
     listRule(_name)
 
 def p_classdec(p):
-    '''classdec : DCLASS cflags classref sep 
-                | DINTERFACE cflags classref sep'''
+    '''classdec : D_CLASS cflags classref sep 
+                | D_INTERFACE cflags classref sep'''
     #if interface, add interface to flags
     p[0] = (p[1] == '.interface'), p[2], p[3]
 
-addRule(assign2, 'superdec', 'DSUPER classref sep')
-addRule(assign2, 'interfacedec', 'DIMPLEMENTS classref sep')
+addRule(assign2, 'superdec', 'D_SUPER classref sep')
+addRule(assign2, 'interfacedec', 'D_IMPLEMENTS classref sep')
 listRule('interfacedec')
 
 addRule(assign1, 'classattribute_line', 'classattribute sep')
@@ -195,7 +197,7 @@ def p_invokedynamic_notref(p):
 
 ###############################################################################
 def p_const_spec(p):
-    '''const_spec : DCONST ref EQUALS const_rhs sep'''
+    '''const_spec : D_CONST ref EQUALS const_rhs sep'''
     p[0] = p[2], p[4]
 
 def assignPoolSingle(typen):
@@ -219,7 +221,7 @@ for ptype in ('Int','Float','Long','Double'):
 
 
 def p_field_spec(p):
-    '''field_spec : DFIELD fflags utf8ref utf8ref field_constval fieldattribute_list'''
+    '''field_spec : D_FIELD fflags utf8ref utf8ref field_constval fieldattribute_list'''
     p[0] = p[2:7]
 
 addRule(nothing, 'field_constval', 'empty')
@@ -234,7 +236,7 @@ def p_field_attrlist1(p):
     '''field_al_nonempty : fieldattribute sep field_al_nonempty'''
     p[0] = [p[1]]+ p[3]
 def p_field_attrlist2(p):
-    '''field_al_nonempty : fieldattribute sep DEND FIELD sep'''
+    '''field_al_nonempty : fieldattribute sep D_END FIELD sep'''
     p[0] = [p[1]]
 
 addRule(assign2, 'fieldattribute_list', 'sep field_al_nonempty', 'sep empty')
@@ -245,10 +247,10 @@ def p_method_spec(p):
     p[0] = p[1],p[2]
 
 def p_defmethod_0(p):
-    '''defmethod : DMETHOD mflags jas_meth_namedesc sep'''
+    '''defmethod : D_METHOD mflags jas_meth_namedesc sep'''
     p[0] = p[2],p[3] 
 def p_defmethod_1(p):
-    '''defmethod : DMETHOD mflags utf8ref COLON utf8ref sep'''
+    '''defmethod : D_METHOD mflags utf8ref COLON utf8ref sep'''
     p[0] = p[2],(p[3], p[5]) 
 
 def p_jas_meth_namedesc(p):
@@ -257,7 +259,7 @@ def p_jas_meth_namedesc(p):
     name = PoolRef('Utf8', name)
     desc = PoolRef('Utf8', paren+desc)
     p[0] = name, desc
-addRule(nothing, 'endmethod', 'DEND METHOD sep')
+addRule(nothing, 'endmethod', 'D_END METHOD sep')
 
 def p_statement_0(p):
     '''statement : method_directive sep'''
@@ -277,20 +279,20 @@ addRule(assign1, 'method_directive', 'methodattribute')
 addRule(assign1, 'code_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','stack_dir', 'generic_codeattribute_dir')
 
 def p_limit_dir(p):
-    '''limit_dir : DLIMIT LOCALS intl 
-                | DLIMIT STACK intl'''
+    '''limit_dir : D_LIMIT LOCALS intl 
+                | D_LIMIT STACK intl'''
     p[0] = p[1], (p[2], p[3])
 
 def p_except_dir(p):
-    '''except_dir : DCATCH classref FROM lbl TO lbl USING lbl'''
+    '''except_dir : D_CATCH classref FROM lbl TO lbl USING lbl'''
     p[0] = p[1], (p[2], p[4], p[6], p[8])
 
 def p_linenumber_dir(p):
-    '''linenumber_dir : DLINE intl'''
+    '''linenumber_dir : D_LINE intl'''
     p[0] = p[1], p[2]
 
 def p_localvar_dir(p):
-    '''localvar_dir : DVAR intl IS utf8ref utf8ref FROM lbl TO lbl'''
+    '''localvar_dir : D_VAR intl IS utf8ref utf8ref FROM lbl TO lbl'''
     p[0] = p[1], (p[2], p[4], p[5], p[7], p[9])
 
 def p_instruction(p):
@@ -412,7 +414,7 @@ def p_tableswitch(p):
 def p_wide_instr(p):
     '''wide_instr : OP_INT intl
                 | OP_INT_INT intl intl'''
-    p[0] = tuple(p[1:])
+    p[0] = p[1], tuple(p[2:])
 
 #######################################################################
 # Explicit Attributes
@@ -423,52 +425,52 @@ addRule(assign1, 'methodattribute', 'cfmattribute', 'throws_dir', 'annotation_pa
 
 #Class, field, method
 def p_annotation_dir(p):
-    '''annotation_dir : DRUNTIMEVISIBLE annotation
-                    | DRUNTIMEINVISIBLE annotation'''
+    '''annotation_dir : D_RUNTIMEVISIBLE annotation
+                    | D_RUNTIMEINVISIBLE annotation'''
     p[0] = p[1], (None, p[2])
 
 def p_signature_dir(p):
-    '''signature_dir : DSIGNATURE utf8ref'''
+    '''signature_dir : D_SIGNATURE utf8ref'''
     p[0] = p[1], p[2]
 
 #Class only
 def p_sourcefile_dir(p):
-    '''sourcefile_dir : DSOURCE utf8ref'''
+    '''sourcefile_dir : D_SOURCE utf8ref'''
     p[0] = p[1], p[2]
 
 def p_inner_dir(p): 
-    '''inner_dir : DINNER cflags utf8ref classref classref'''
+    '''inner_dir : D_INNER cflags utf8ref classref classref'''
     p[0] = p[1], (p[4],p[5],p[3],p[2]) #use JasminXT's (flags, name, inner, outer) order but switch internally to correct order
 
 def p_enclosing_dir(p): 
-    '''enclosing_dir : DENCLOSING METHOD classref nameandtyperef'''
+    '''enclosing_dir : D_ENCLOSING METHOD classref nameandtyperef'''
     p[0] = p[1], (p[3], p[4])
 
 #Method only
 def p_throws_dir(p):
-    '''throws_dir : DTHROWS classref'''
+    '''throws_dir : D_THROWS classref'''
     p[0] = p[1], p[2]
 
 def p_annotation_param_dir(p):
-    '''annotation_param_dir : DRUNTIMEVISIBLE PARAMETER intl annotation
-                           | DRUNTIMEINVISIBLE PARAMETER intl annotation'''
+    '''annotation_param_dir : D_RUNTIMEVISIBLE PARAMETER intl annotation
+                           | D_RUNTIMEINVISIBLE PARAMETER intl annotation'''
     p[0] = p[1], (p[3], p[4])
 def p_annotation_def_dir(p):
-    '''annotation_def_dir : DANNOTATIONDEFAULT element_value'''
+    '''annotation_def_dir : D_ANNOTATIONDEFAULT element_value'''
     p[0] = p[1], p[2]
 
 #Generic
 def p_generic_attribute_dir(p): 
-    '''generic_attribute_dir : DATTRIBUTE utf8ref STRING_LITERAL'''
+    '''generic_attribute_dir : D_ATTRIBUTE utf8ref STRING_LITERAL'''
     p[0] = p[1], (p[2], p[3])
 
 def p_generic_codeattribute_dir(p): 
-    '''generic_codeattribute_dir : DCODEATTRIBUTE utf8ref STRING_LITERAL'''
+    '''generic_codeattribute_dir : D_CODEATTRIBUTE utf8ref STRING_LITERAL'''
     p[0] = p[1], (p[2], p[3])
 
 #######################################################################
 #Stack map stuff
-addRule(nothing, 'endstack', 'DEND STACK') #directives are not expected to end with a sep
+addRule(nothing, 'endstack', 'D_END STACK') #directives are not expected to end with a sep
 
 def assign1All(p):p[0] = tuple(p[1:])
 addRule(assign1All, 'verification_type', 'TOP', 'INTEGER', 'FLOAT', 'DOUBLE', 'LONG', 'NULL', 'UNINITIALIZEDTHIS',
@@ -486,7 +488,7 @@ def p_stack_dir(p):
                     | APPEND sep locals_vtlist endstack
                     | FULL sep locals_vtlist stack_vtlist endstack'''
     p[0] = '.stackmap', tuple(p[1:])
-addRule(assign2, 'stack_dir', 'DSTACK stack_dir_rest')
+addRule(assign2, 'stack_dir', 'D_STACK stack_dir_rest')
 #######################################################################
 #Annotation stuff
 from .codes import et_tags
@@ -499,12 +501,12 @@ def p_element_value(p):
                     | CLASS classref
                     | ENUM utf8ref utf8ref
                     | ANNOTATION annotation
-                    | ARRAY element_array'''
+                    | ARRAY sep element_array'''
     p[0] = et_tags[p[1]], tuple(p[2:])
 
 addRule(assign1, 'element_value_line', 'element_value sep')
 listRule('element_value_line')
-addRule(assign1, 'element_array', 'element_value_lines DEND ARRAY')
+addRule(assign1, 'element_array', 'element_value_lines D_END ARRAY')
 
 def p_key_ev_line(p):
     '''key_ev_line : utf8ref EQUALS element_value_line'''
@@ -512,7 +514,7 @@ def p_key_ev_line(p):
 listRule('key_ev_line')
 
 def p_annotation(p):
-    '''annotation : ANNOTATION utf8ref sep key_ev_lines DEND ANNOTATION'''
+    '''annotation : ANNOTATION utf8ref sep key_ev_lines D_END ANNOTATION'''
     p[0] = p[2], p[4]
 #######################################################################
 

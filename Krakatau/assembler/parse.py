@@ -71,6 +71,7 @@ def p_doublel(p):
 #We can allow keywords as inline classnames as long as they aren't flag names
 #Which would be ambiguous
 okwords = set([w for w in wordget.values() if w not in flags])
+badwords = set(wordget.values()) - okwords #used by disassembler
 addRule(assign1, 'notflag', 'WORD', 'STRING_LITERAL', *okwords)
 
 def p_ref(p):
@@ -120,7 +121,7 @@ for _name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod', 'metho
 
 ###############################################################################
 def p_classnoend(p):
-    '''classnoend : version_opt sourcedir_opt classdec superdec interfacedecs topitems'''
+    '''classnoend : version_opt classattribute_lines classdec superdec interfacedecs classattribute_lines topitems'''
     p[0] = tuple(p[1:])
 
 addRule(assign1, 'classwithend', 'classnoend DEND CLASS sep')
@@ -137,10 +138,6 @@ def p_version(p):
     p[0] = p[2], p[3]
 addRule(assign1, 'version_opt', 'empty')
 
-#optional Jasmin source directive
-addRule(assign2, 'sourcedir_opt', 'DSOURCE utf8ref sep')
-addRule(assign1, 'sourcedir_opt', 'empty')
-
 ###############################################################################
 for c, type_ in zip('cmf', (ClassFile, Method, Field)):
     _name = "{}flag".format(c)
@@ -156,6 +153,9 @@ def p_classdec(p):
 addRule(assign2, 'superdec', 'DSUPER classref sep')
 addRule(assign2, 'interfacedec', 'DIMPLEMENTS classref sep')
 listRule('interfacedec')
+
+addRule(assign1, 'classattribute_line', 'classattribute sep')
+listRule('classattribute_line')
 
 def p_topitem_c(p):
     '''topitem : const_spec'''
@@ -219,13 +219,26 @@ for ptype in ('Int','Float','Long','Double'):
 
 
 def p_field_spec(p):
-    '''field_spec : DFIELD fflags utf8ref utf8ref field_constval sep'''
-    p[0] = p[2:6]
+    '''field_spec : DFIELD fflags utf8ref utf8ref field_constval fieldattribute_list'''
+    p[0] = p[2:7]
 
 addRule(nothing, 'field_constval', 'empty')
 addRule(assign2, 'field_constval', 'EQUALS ref', 
                                     'EQUALS ldc1_notref', 
                                     'EQUALS ldc2_notref')
+
+#Sadly, we must only allow .end field when at least one attribute is specified
+#in order to avoid grammatical ambiguity. JasminXT does not share this problem
+#because it lacks the .end class syntax which causes the conflict
+def p_field_attrlist1(p):
+    '''field_al_nonempty : fieldattribute sep field_al_nonempty'''
+    p[0] = [p[1]]+ p[3]
+def p_field_attrlist2(p):
+    '''field_al_nonempty : fieldattribute sep DEND FIELD sep'''
+    p[0] = [p[1]]
+
+addRule(assign2, 'fieldattribute_list', 'sep field_al_nonempty', 'sep empty')
+
 
 def p_method_spec(p):
     '''method_spec : defmethod statements endmethod'''
@@ -260,25 +273,25 @@ def p_statement_2(p):
 listRule('statement')
 
 addRule(assign1, 'lbldec', 'lbl COLON')
-addRule(assign1, 'method_directive', 'throws_dir','annotation_dir','annotation_param_dir','annotation_def_dir')
-addRule(assign1, 'code_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','stack_dir')
+addRule(assign1, 'method_directive', 'methodattribute')
+addRule(assign1, 'code_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','stack_dir', 'generic_codeattribute_dir')
 
 def p_limit_dir(p):
     '''limit_dir : DLIMIT LOCALS intl 
                 | DLIMIT STACK intl'''
-    p[0] = p[2], p[3]
+    p[0] = p[1], (p[2], p[3])
 
 def p_except_dir(p):
     '''except_dir : DCATCH classref FROM lbl TO lbl USING lbl'''
-    p[0] = 'catch', (p[2], p[4], p[6], p[8])
+    p[0] = p[1], (p[2], p[4], p[6], p[8])
 
 def p_linenumber_dir(p):
     '''linenumber_dir : DLINE intl'''
-    p[0] = 'line', p[2]
+    p[0] = p[1], p[2]
 
 def p_localvar_dir(p):
     '''localvar_dir : DVAR intl IS utf8ref utf8ref FROM lbl TO lbl'''
-    p[0] = 'var', p[2], p[4], p[5], p[7], p[9]
+    p[0] = p[1], (p[2], p[4], p[5], p[7], p[9])
 
 def p_instruction(p):
     '''instruction : OP_NONE
@@ -401,15 +414,41 @@ def p_wide_instr(p):
                 | OP_INT_INT intl intl'''
     p[0] = tuple(p[1:])
 
-# Method attributes
-def p_throws_dir(p):
-    '''throws_dir : DTHROWS classref'''
-    p[0] = 'throws', p[2]
+#######################################################################
+# Explicit Attributes
+addRule(assign1, 'cfmattribute', 'annotation_dir', 'signature_dir', 'generic_attribute_dir')
+addRule(assign1, 'classattribute', 'cfmattribute', 'sourcefile_dir', 'inner_dir', 'enclosing_dir')
+addRule(assign1, 'fieldattribute', 'cfmattribute')
+addRule(assign1, 'methodattribute', 'cfmattribute', 'throws_dir', 'annotation_param_dir', 'annotation_def_dir')
 
+#Class, field, method
 def p_annotation_dir(p):
     '''annotation_dir : DRUNTIMEVISIBLE annotation
                     | DRUNTIMEINVISIBLE annotation'''
     p[0] = p[1], (None, p[2])
+
+def p_signature_dir(p):
+    '''signature_dir : DSIGNATURE utf8ref'''
+    p[0] = p[1], p[2]
+
+#Class only
+def p_sourcefile_dir(p):
+    '''sourcefile_dir : DSOURCE utf8ref'''
+    p[0] = p[1], p[2]
+
+def p_inner_dir(p): 
+    '''inner_dir : DINNER cflags utf8ref classref classref'''
+    p[0] = p[1], (p[4],p[5],p[3],p[2]) #use JasminXT's (flags, name, inner, outer) order but switch internally to correct order
+
+def p_enclosing_dir(p): 
+    '''enclosing_dir : DENCLOSING METHOD classref nameandtyperef'''
+    p[0] = p[1], (p[3], p[4])
+
+#Method only
+def p_throws_dir(p):
+    '''throws_dir : DTHROWS classref'''
+    p[0] = p[1], p[2]
+
 def p_annotation_param_dir(p):
     '''annotation_param_dir : DRUNTIMEVISIBLE PARAMETER intl annotation
                            | DRUNTIMEINVISIBLE PARAMETER intl annotation'''
@@ -417,6 +456,15 @@ def p_annotation_param_dir(p):
 def p_annotation_def_dir(p):
     '''annotation_def_dir : DANNOTATIONDEFAULT element_value'''
     p[0] = p[1], p[2]
+
+#Generic
+def p_generic_attribute_dir(p): 
+    '''generic_attribute_dir : DATTRIBUTE utf8ref STRING_LITERAL'''
+    p[0] = p[1], (p[2], p[3])
+
+def p_generic_codeattribute_dir(p): 
+    '''generic_codeattribute_dir : DCODEATTRIBUTE utf8ref STRING_LITERAL'''
+    p[0] = p[1], (p[2], p[3])
 
 #######################################################################
 #Stack map stuff
@@ -437,7 +485,7 @@ def p_stack_dir(p):
                     | SAME_LOCALS_1_STACK_ITEM_EXTENDED sep stack_vtlist endstack
                     | APPEND sep locals_vtlist endstack
                     | FULL sep locals_vtlist stack_vtlist endstack'''
-    p[0] = 'stackmap', tuple(p[1:])
+    p[0] = '.stackmap', tuple(p[1:])
 addRule(assign2, 'stack_dir', 'DSTACK stack_dir_rest')
 #######################################################################
 #Annotation stuff
@@ -472,7 +520,7 @@ def p_error(p):
     if p is None:
         print "Syntax error: unexpected EOF"
     else: #remember to subtract 1 from line number since we had a newline at the start of the file
-        print "Syntax error at line {}: unexpected token {}".format(p.lineno-1, p.value)
+        print "Syntax error at line {}: unexpected token {!r}".format(p.lineno-1, p.value)
     
     #Ugly hack since Ply doesn't provide any useful error information
     import inspect
@@ -481,6 +529,11 @@ def p_error(p):
     print 'Expected:', ', '.join(cvars['actions'][cvars['state']].keys())
     print 'Found:', cvars['ltype']
     print 'Current stack:', cvars['symstack']
+
+    #Discard the rest of the input so that Ply doesn't attempt error recovery
+    tok = yacc.token()
+    while tok is not None:
+        tok = yacc.token()
 
 def makeParser(**kwargs):
     return yacc.yacc(**kwargs)

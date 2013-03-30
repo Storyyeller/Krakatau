@@ -65,7 +65,7 @@ OUT : File or directory name where class files are to be written. Defaults
 	in the traceback. If these attributes are already specified manually,
 	they will not be overridden.
 
--jas : Enables Jasmin compatibility mode. Specifying 'all' as the exception
+-jas : Enables incompatible Jasmin quirks. Specifying 'all' as the exception
 	handler type will implicitly catch all exceptions rather than catching a
 	class named all. The ACC_SUPER flag is added to classes even if not
 	specified. A SourceFile attribute based on the filename is added if no
@@ -78,10 +78,10 @@ target : Name of file to assemble. If -r is specified, this should be a
 	directory.
 
 The Krakatau assembler is intended as a replacement for Jasmin, and was 
-originally written due to the limitations of Jasmin. It is backwards compatible 
-with Jasmin, but it also offers many new features, as well as simplifying the 
-syntax. Note that for full compatibility, some Jasmin quirks require the 
--jas flag to be enabled, but most Jasmin syntax will work even without it.
+originally written due to the limitations of Jasmin. It is mostly backwards 
+compatible with Jasmin's syntax, though not necessarily with the extensions 
+introduced in JasminXT. However, Krakatau offers many new features, most 
+importantly the ability to directly specify constant pool references. 
 
 A tutorial on writing Java Bytecode Assembly with Krakatau is available at 
 https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
@@ -109,7 +109,6 @@ be reassembled. Together with the Krakatau assembler, this tool should be
 able to roundtrip any class through assembly and back into an equivalent 
 class with the following caveat:
 
-* Attributes other than Code, ConstantValue, StackMapTable, BootstrapMethods, 
-	Exceptions, and SourceFile are currently ignored. The disassembler does not 
-	attempt to disassemble LineNumberTable or LocalVariableTable even though 
-	they are supported by the assembler.
+* The exact format and ordering of attributes may not be preserved. The
+	disassembler does not attempt to disassemble LineNumberTable, 
+	LocalVariableTable, or LocalVariableTypeTable attributes.

@@ -9,8 +9,8 @@ from . import instructions as ins
 from . import codes
 
 directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS',
-directives += 'VERSION', 'STACK', 'RUNTIMEVISIBLE', 'RUNTIMEINVISIBLE', 'ANNOTATIONDEFAULT'
-keywords = ['CLASS','METHOD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
+directives += 'VERSION', 'STACK', 'RUNTIMEVISIBLE', 'RUNTIMEINVISIBLE', 'ANNOTATIONDEFAULT', 'INNER', 'ENCLOSING', 'SIGNATURE', 'ATTRIBUTE', 'CODEATTRIBUTE'
+keywords = ['CLASS','METHOD','FIELD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
 keywords += ['SAME','SAME_LOCALS_1_STACK_ITEM','SAME_LOCALS_1_STACK_ITEM_EXTENDED','CHOP','SAME_EXTENDED','APPEND','FULL']
 keywords += ['ANNOTATION','ARRAY','PARAMETER']
 flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
@@ -22,7 +22,6 @@ wordget = {}
 wordget.update({w.lower():w.upper() for w in lowwords})
 wordget.update({w:w.upper() for w in casewords})
 wordget.update({'.'+w.lower():'D'+w for w in directives})
-assert(len(wordget) == len(lowwords) + len(casewords) + len(directives)) #make sure we didn't have a collision with duplicate keywords
 
 assert(set(wordget).isdisjoint(ins.allinstructions))
 for op in ins.instrs_noarg:
@@ -56,11 +55,6 @@ for op in ins.allinstructions:
 #special PLY value
 tokens = ('NEWLINE', 'COLON', 'EQUALS', 'WORD', 'CPINDEX', 
     'STRING_LITERAL', 'INT_LITERAL', 'LONG_LITERAL', 'FLOAT_LITERAL', 'DOUBLE_LITERAL') + tuple(set(wordget.values()))
-
-def t_WORDS(t):
-    t.type = wordget[t.value]
-    return t
-t_WORDS.__doc__ = r'(?:{})(?=$|[\s])'.format('|'.join(wordget.keys())).replace('.',r'\.') #quick hack. Todo: see if we can remove this whole thing
 
 def t_ignore_COMMENT(t):
     r';.*'
@@ -108,15 +102,32 @@ float_base = r'''(?:
     )
 '''
 
-t_INT_LITERAL = int_base
-t_LONG_LITERAL = int_base + r'[lL]'
-t_DOUBLE_LITERAL = float_base
-t_FLOAT_LITERAL = float_base + r'[fF]'
+#Sadly there's no nice way to define these even with reflection hacks
+#Hopefully we can get Ply patched some day or fork it or something so 
+#it's not so much of a pain
+
+#These are matched in order of appearence (specifically, f.func_code.co_firstlineno)
+#So anything that can be a prefix of another must go last
+def t_FLOAT_LITERAL(t): return t
+t_FLOAT_LITERAL.__doc__ = float_base + r'[fF]'
+def t_DOUBLE_LITERAL(t): return t
+t_DOUBLE_LITERAL.__doc__ = float_base
+def t_LONG_LITERAL(t): return t
+t_LONG_LITERAL.__doc__ = int_base + r'[lL]'
+def t_INT_LITERAL(t): return t
+t_INT_LITERAL.__doc__ = int_base
+
+def t_CPINDEX(t): return t
+t_CPINDEX.__doc__ = r'\[[0-9a-z_]+\]'
+
+
+def t_WORD(t):
+    r'''[^\s:="']+'''
+    t.type = wordget.get(t.value, 'WORD')
+    return t
 
 t_COLON = r':'
 t_EQUALS = r'='
-t_CPINDEX = r'\[[0-9a-z_]+\]'
-t_WORD = r'''[^\s:="']+'''
 t_ignore = ' \t\r'
 
 def t_error(t):

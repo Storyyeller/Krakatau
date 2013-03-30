@@ -171,7 +171,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
                 offsets.append(pos)
                 pos += getInstrLen(instr, pos)
         #some directives require us to keep track of the corresponding bytecode offset
-        elif statement[0] in ('line','stackmap'):
+        elif statement[0] in ('.line','.stackmap'):
             dir_offsets[statement[0]].append(pos)
     code_len = pos
 
@@ -182,11 +182,13 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     assert(len(code_bytes) == code_len)
 
     directive_dict = groupList(directives)
-    stack = min(directive_dict['stack'] + [65535]) 
-    locals_ = min(directive_dict['locals'] + [65535]) 
+    limits = groupList(directive_dict['.limit'])
+
+    stack = min(limits['stack'] + [65535]) 
+    locals_ = min(limits['locals'] + [65535]) 
 
     excepts = []
-    for name, start, end, target in directive_dict['catch']:
+    for name, start, end, target in directive_dict['.catch']:
         #Hack for compatibility with Jasmin
         if jasmode and name.args and (name.args[1].args == ('Utf8','all')):
             name.index = 0
@@ -204,11 +206,11 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
             s += struct.pack('>H', labels[vt[1]])
         return s
 
-    if directive_dict['stackmap']:
+    if directive_dict['.stackmap']:
         frames = []
         last_pos = -1
 
-        for pos, info in zip(dir_offsets['stackmap'], directive_dict['stackmap']):
+        for pos, info in zip(dir_offsets['.stackmap'], directive_dict['.stackmap']):
             offset = pos - last_pos - 1
             last_pos = pos
             assert(offset >= 0)
@@ -255,10 +257,10 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
         ln_attr = struct.pack('>HIH', pool.Utf8("LineNumberTable"), 2+4*len(lntable), len(lntable)) + ''.join(lntable)        
         attributes.append(ln_attr)
 
-    if directive_dict['var']:
+    if directive_dict['.var']:
         sfunc = struct.Struct('>HHHHH').pack
         vartable = []
-        for index, name, desc, start, end in directive_dict['var']:
+        for index, name, desc, start, end in directive_dict['.var']:
             start, end = labels[start], labels[end]
             name, desc = name.toIndex(pool), desc.toIndex(pool)
             vartable.append(sfunc(start, end-start, name, desc, index))
@@ -321,20 +323,16 @@ def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
         method_attributes.append(code_attr)
 
     directive_dict = groupList(meth_statements)
-    if directive_dict['throws']:
-        t_inds = [struct.pack('>H', x.toIndex(pool)) for x in directive_dict['throws']]
+    if directive_dict['.throws']:
+        t_inds = [struct.pack('>H', x.toIndex(pool)) for x in directive_dict['.throws']]
         throw_attr = struct.pack('>HIH', pool.Utf8("Exceptions"), 2+2*len(t_inds), len(t_inds)) + ''.join(t_inds)        
         method_attributes.append(throw_attr)
 
     #Runtime annotations
     for vis in ('Invisible','Visible'):
-        paramd = groupList(directive_dict['runtime'+vis.lower()])
+        paramd = groupList(directive_dict['.runtime'+vis.lower()])
 
         if None in paramd:
-            annotations = [assembleAnnotation(a, pool) for a in paramd[None]]
-            attrlen = 2+sum(map(len, annotations))
-            attr = struct.pack('>HIH', pool.Utf8("Runtime{}Annotations".format(vis)), attrlen, len(annotations)) + ''.join(annotations)
-            method_attributes.append(attr)
             del paramd[None]
 
         if paramd:
@@ -348,10 +346,12 @@ def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
             method_attributes.append(attr)
 
     if 'annotationdefault' in directive_dict:
-        val = directive_dict['annotationdefault']
+        val = directive_dict['.annotationdefault']
         data = assembleElementValue(val, pool)
         attr = struct.pack('>HI', pool.Utf8("AnnotationDefault"), len(data)) + data        
         method_attributes.append(attr)
+
+
 
     return struct.pack('>HHHH', flagbits, name, desc, len(method_attributes)) + ''.join(method_attributes)
 
@@ -414,9 +414,57 @@ def addLdcRefs(methods, pool):
     assert(not slots)
     assert(not pool.pool.reserved)
 
+def assembleClassFieldMethodAttributes(addcb, directive_dict, pool):
+    for vis in ('Invisible','Visible'):
+        paramd = groupList(directive_dict['.runtime'+vis.lower()])
+        if None in paramd:
+            annotations = [assembleAnnotation(a, pool) for a in paramd[None]]
+            attrlen = 2+sum(map(len, annotations))
+            attr = struct.pack('>HIH', pool.Utf8("Runtime{}Annotations".format(vis)), attrlen, len(annotations)) + ''.join(annotations)
+            addcb(attr)
+
+    for name in directive_dict['.signature']:
+        attr = struct.pack('>HIH', pool.Utf8("Signature"), 2, name.toIndex(pool))
+        addcb(attr)
+
+    for name, data in directive_dict['.attribute']:
+        attr = struct.pack('>HI', name.toIndex(pool), len(data)) + data
+        addcb(attr)
+
+
+def assembleClassAttributes(addcb, directive_dict, pool, addLineNumbers, jasmode, filename):
+
+    sourcefile = directive_dict.get('.source',[None])[0] #PoolRef or None
+    if jasmode and not sourcefile:
+        sourcefile = pool.Utf8(filename)
+    elif addLineNumbers and not sourcefile:
+        sourcefile = pool.Utf8("SourceFile")
+    if sourcefile:
+        attr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, sourcefile.toIndex(pool))
+        addcb(attr)
+
+    if '.inner' in directive_dict:
+        parts = []
+        for inner, outer, name, flags in directive_dict['.inner']:
+            flagbits = map(ClassFile.flagVals.get, flags)
+            flagbits = reduce(operator.__or__, flagbits, 0)
+            part = struct.pack('>HHHH', inner.toIndex(pool), outer.toIndex(pool), name.toIndex(pool), flagbits)
+            parts.append(part)
+
+            attr = struct.pack('>HIH', pool.Utf8("InnerClasses"), 2+8*len(parts), len(parts)) + ''.join(parts)
+            addcb(attr)
+
+    if '.enclosing' in directive_dict:
+        class_, nat = directive_dict['.enclosing'][0]
+        attr = struct.pack('>HIHH', pool.Utf8("EnclosingMethod"), 4, class_.toIndex(pool), nat.toIndex(pool))
+        addcb(attr)
+
+    assembleClassFieldMethodAttributes(addcb, directive_dict, pool)
+
+
 def assemble(tree, addLineNumbers, jasmode, filename):
     pool = PoolInfo()
-    version, sourcefile, classdec, superdec, interface_decs, topitems = tree
+    version, cattrs1, classdec, superdec, interface_decs, cattrs2, topitems = tree
     if not version: #default to version 49.0 except in Jasmin compatibility mode
         version = (45,3) if jasmode else (49,0)
 
@@ -426,9 +474,8 @@ def assemble(tree, addLineNumbers, jasmode, filename):
     methods = []
     attributes = []
 
-    top_d = collections.defaultdict(list)
-    for t, val in topitems:
-        top_d[t].append(val)
+    directive_dict = groupList(cattrs1 + cattrs2)
+    top_d = groupList(topitems)
 
     for slot, value in top_d['const']:
         if slot.index is not None:
@@ -442,17 +489,18 @@ def assemble(tree, addLineNumbers, jasmode, filename):
     #to maximize the chance of a successful assembly
     addLdcRefs(top_d['method'], pool)
 
-    for flags, name, desc, const in top_d['field']:
+    for flags, name, desc, const, field_directives in top_d['field']:
         flagbits = map(Field.flagVals.get, flags)
         flagbits = reduce(operator.__or__, flagbits, 0)
         name = name.toIndex(pool)
         desc = desc.toIndex(pool)
 
+        fattrs = []
         if const is not None:
             attr = struct.pack('>HIH', pool.Utf8("ConstantValue"), 2, const.toIndex(pool))
-            fattrs = [attr]
-        else:
-            fattrs = []
+            fattrs.append(attr)
+
+        assembleClassFieldMethodAttributes(fattrs.append, groupList(field_directives), pool)
 
         field_code = struct.pack('>HHHH', flagbits, name, desc, len(fattrs)) + ''.join(fattrs)
         fields.append(field_code)
@@ -466,18 +514,10 @@ def assemble(tree, addLineNumbers, jasmode, filename):
         attrhead = struct.pack('>HIH', pool.Utf8("BootstrapMethods"), 2+len(attrbody), len(entries))
         attributes.append(attrhead + attrbody)
 
-    if jasmode and not sourcefile:
-        sourcefile = pool.Utf8(filename)
-    elif addLineNumbers and not sourcefile:
-        sourcefile = pool.Utf8("SourceFile")
-    if sourcefile:
-        if isinstance(sourcefile, PoolRef):
-            sourcefile = sourcefile.toIndex(pool)
-        sourceattr = struct.pack('>HIH', pool.Utf8("SourceFile"), 2, sourcefile)
-        attributes.append(sourceattr)
+    #Explicit class attributes
+    assembleClassAttributes(attributes.append, directive_dict, pool, addLineNumbers, jasmode, filename)
 
     interfaces = [struct.pack('>H', x.toIndex(pool)) for x in interface_decs]
-
     intf, cflags, this = classdec
     cflags = set(cflags)
     if intf:

@@ -1,3 +1,4 @@
+from .attributes_raw import fixAttributeNames
 
 class Field(object):
     flagVals = {'PUBLIC':0x0001,
@@ -15,15 +16,16 @@ class Field(object):
         self.class_ = classFile
         cpool = self.class_.cpool
         
-        flags, self.name_id, self.desc_id, self.attributes = data
+        flags, self.name_id, self.desc_id, self.attributes_raw = data
 
         self.name = cpool.getArgsCheck('Utf8', self.name_id)
         self.descriptor = cpool.getArgsCheck('Utf8', self.desc_id)
         # print 'Loading field ', self.name, self.descriptor
+        self.attributes = fixAttributeNames(self.attributes_raw, cpool)
 
         self.flags = set(name for name,mask in Field.flagVals.items() if (mask & flags))
         self.static = 'STATIC' in self.flags
-
+        
     def __str__(self):
         parts = map(str.lower, self.flags)
         parts += [self.descriptor, self.name]

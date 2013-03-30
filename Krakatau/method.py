@@ -1,8 +1,7 @@
 import collections
 
-from Krakatau import binUnpacker
-from Krakatau import bytecode
-from Krakatau.attributes_raw import get_attributes_raw, fixAttributeNames
+from . import binUnpacker, bytecode
+from .attributes_raw import get_attributes_raw, fixAttributeNames
 
 exceptionHandlerRaw = collections.namedtuple("exceptionHandlerRaw",
                                              ["start","end","handler","type_ind"])
@@ -73,11 +72,12 @@ class Method(object):
         self.class_ = classFile
         cpool = self.class_.cpool
         
-        flags, self.name_id, self.desc_id, self.attributes = data
+        flags, self.name_id, self.desc_id, self.attributes_raw = data
 
         self.name = cpool.getArgsCheck('Utf8', self.name_id)
         self.descriptor = cpool.getArgsCheck('Utf8', self.desc_id)
         # print 'Loading method ', self.name, self.descriptor
+        self.attributes = fixAttributeNames(self.attributes_raw, cpool)
 
         self.flags = set(name for name,mask in Method.flagVals.items() if (mask & flags))
         self._checkFlags()

@@ -1,5 +1,5 @@
-from Krakatau import constant_pool, method, field
-from Krakatau.attributes_raw import get_attributes_raw, fixAttributeNames
+from . import constant_pool, method, field
+from .attributes_raw import get_attributes_raw, fixAttributeNames
 
 cp_structFmts = {3: '>i',
                 4: '>i',    #floats and doubles internally represented as integers with same bit pattern
@@ -50,9 +50,6 @@ def get_fields_raw(bytestream):
 get_method_raw = get_field_raw
 get_methods_raw = get_fields_raw
 
-def fixFieldAttributes(fields_raw, cpool):
-    return [data[:-1] + (fixAttributeNames(data[-1], cpool),) for data in fields_raw]
-
 class ClassFile(object):
     flagVals = {'PUBLIC':0x0001,
                 'FINAL':0x0010,
@@ -86,8 +83,8 @@ class ClassFile(object):
         self.cpool = cpool = constant_pool.ConstPool(self.const_pool_raw)
         self.name = self.cpool.getArgsCheck('Class', self.this)
         
-        self.fields = [field.Field(m, self) for m in fixFieldAttributes(self.fields_raw, cpool)]    
-        self.methods = [method.Method(m, self) for m in fixFieldAttributes(self.methods_raw, cpool)]
+        self.fields = [field.Field(m, self) for m in self.fields_raw]    
+        self.methods = [method.Method(m, self) for m in self.methods_raw]
         self.attributes = fixAttributeNames(self.attributes_raw, cpool)
 
     def load(self, env, name, subclasses):

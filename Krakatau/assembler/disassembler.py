@@ -1,8 +1,9 @@
 import collections
 import re
 
-from . import instructions, tokenize, assembler, codes
+from . import instructions, tokenize, parse, assembler, codes
 from ..binUnpacker import binUnpacker
+from ..classfile import ClassFile
 
 MAX_INLINE_LENGTH = 50
 
@@ -11,11 +12,12 @@ rnewarr_codes = {v:k for k,v in codes.newarr_codes.items()}
 
 not_word_regex = '(?:{}|{}|{}|;)'.format(tokenize.int_base, tokenize.float_base, tokenize.t_CPINDEX)
 not_word_regex = re.compile(not_word_regex, re.VERBOSE)
-is_word_regex = re.compile(tokenize.t_WORD+'$')
+is_word_regex = re.compile(tokenize.t_WORD.__doc__+'$')
+assert(is_word_regex.match("''") is None)
 
 def isWord(s):
-    #if s is in wordget, that means it's a directive or keyword
-    if s in tokenize.flags or (not_word_regex.match(s) is not None):
+    '''Determine if s can be used as an inline word'''
+    if s in parse.badwords or (not_word_regex.match(s) is not None):
         return False
     return (is_word_regex.match(s) is not None) and min(s) > ' ' #eliminate unprintable characters below 32
 
@@ -78,6 +80,8 @@ class PoolManager(object):
         return '[_{}]'.format(ind)
     
     def utfref(self, ind):
+        if ind == 0:
+            return '[0]'         
         inline = self.inlineutf(ind) 
         return inline if inline is not None else self.ref(ind) 
 
@@ -90,6 +94,8 @@ class PoolManager(object):
 
     #For Field, Method, IMethod, and NameAndType. Effectively notref
     def multiref(self, ind):
+        if ind == 0:
+            return '[0]' 
         typen, args = self.pool[ind]
         if typen == "Utf8":
             return self.utfref(ind)
@@ -152,10 +158,13 @@ class PoolManager(object):
         for ind in sorted(defs):
             add('.const [_{}] = {} {}'.format(ind, self.pool[ind][0], defs[ind]))
 
+def getAttributeTriples(obj): #name_ind, name, data
+    return [(name_ind, name, data1) for (name_ind, data1), (name, data2) in zip(obj.attributes_raw, obj.attributes)]
+
 def getAttributesDict(obj):
     d = collections.defaultdict(list)
-    for name, attr in obj.attributes:
-        d[name].append(attr)
+    for ind, name, attr in getAttributeTriples(obj):
+        d[name].append((ind, attr))
     return d
 
 fmt_lookup = {k:v.format for k,v in assembler.op_structs.items()}
@@ -166,7 +175,7 @@ def getInstruction(b, getlbl, poolm):
     name = instructions.allinstructions[op]
     if name == 'wide':
         name2 = instructions.allinstructions[b.get('B')]
-        if name == 'iinc':
+        if name2 == 'iinc':
             args = list(b.get('>Hh'))
         else:
             args = [b.get('>H')]
@@ -232,7 +241,8 @@ def disMethodCode(code, add, poolm):
         parts = poolm.classref(e.type_ind), getlbl(e.start), getlbl(e.end), getlbl(e.handler)
         add('\t.catch {} from {} to {} using {}'.format(*parts))
 
-    frames = getStackMapTable(code, poolm, getlbl)
+    code_attributes = getAttributesDict(code)
+    frames = getStackMapTable(code_attributes, poolm, getlbl)
 
     instrs = []
     b = binUnpacker(code.bytecode_raw)
@@ -248,6 +258,11 @@ def disMethodCode(code, add, poolm):
         if instr:
             add(instr)
 
+    #Generic code attributes
+    for name in code_attributes:
+        for name_ind, attr in code_attributes[name]:
+            add('.codeattribute {} {!r}'.format(poolm.utfref(name_ind), attr))
+
 def getVerificationType(bytes_, poolm, getLbl):
     s = codes.vt_keywords[bytes_.get('>B')]
     if s == 'Object':
@@ -256,17 +271,15 @@ def getVerificationType(bytes_, poolm, getLbl):
         s += ' ' + getLbl(bytes_.get('>H'))
     return s
 
-def getStackMapTable(code, poolm, getLbl):
-    #TODO - make this less ugly
-    cpool = code.class_.cpool
-    smt_attrs = [attr for attr in code.attributes_raw if attr[0] == 'StackMapTable']
+def getStackMapTable(code_attributes, poolm, getLbl):
+    smt_attrs = code_attributes['StackMapTable']
     
     frames = {}
     offset = 0
 
     if smt_attrs:
         assert(len(smt_attrs) == 1)
-        bytes_ = binUnpacker(smt_attrs[0][1])
+        bytes_ = binUnpacker(smt_attrs.pop()[1])
         count = bytes_.get('>H')
         getVT = lambda: getVerificationType(bytes_, poolm, getLbl)
 
@@ -311,40 +324,49 @@ def getStackMapTable(code, poolm, getLbl):
             offset += 1 #frames after the first have an offset one larger than the listed offset
     return frames
 
+def disCFMAttribute(name_ind, name, bytes_, add, poolm):
+    for vis in ('Visible', 'Invisible'):
+        if name == 'Runtime{}Annotations'.format(vis):        
+            count = bytes_.get('>H')
+            for _ in range(count):
+                disAnnotation(bytes_, '.runtime{} '.format(vis.lower()), add, poolm)
+            if count: #otherwise we'll create an empty generic attribute
+                return
+
+    if name == "Signature":
+        add('.signature {}'.format(poolm.utfref(bytes_.get('>H'))))
+        return
+    #Create generic attribute if it can't be represented by a standard directive
+    add('.attribute {} {!r}'.format(poolm.utfref(name_ind), bytes_.getRaw(bytes_.size())))
+
+def disMethodAttribute(name_ind, name, bytes_, add, poolm):
+    if name == 'Code':
+        return
+    elif name == 'AnnotationDefault':
+        disElementValue(bytes_, '.annotationdefault ', add, poolm)
+        return
+    elif name == 'Exceptions':
+        count = bytes_.get('>H')
+        for _ in range(count):
+            add('.throws ' + poolm.classref(bytes_.get('>H')))
+        if count: #otherwise we'll create an empty generic attribute
+            return
+
+    for vis in ('Visible', 'Invisible'):
+        if name == 'Runtime{}ParameterAnnotations'.format(vis):        
+            for i in range(bytes_.get('>B')):
+                for _ in range(bytes_.get('>H')):
+                    disAnnotation(bytes_, '.runtime{} parameter {} '.format(vis.lower(), i), add, poolm)
+            return #generic fallback on empty list not yet supported
+
+    disCFMAttribute(name_ind, name, bytes_, add, poolm)
+
 def disMethod(method, add, poolm):
     mflags = ' '.join(map(str.lower, method.flags))
     add('.method {} {} : {}'.format(mflags, poolm.utfref(method.name_id), poolm.utfref(method.desc_id)))
     
-    meth_attributes = getAttributesDict(method)
-    for a in meth_attributes['Exceptions']:
-        bytes_ = binUnpacker(a)
-        for _ in range(bytes_.get('>H')):
-            add('.throws ' + poolm.classref(bytes_.get('>H')))
-
-    def getFirst(key):
-        return meth_attributes[key][0] if key in meth_attributes else None
-
-    for vis in ('Visible', 'Invisible'):
-        attr = getFirst('Runtime{}Annotations'.format(vis))
-        if attr is not None:
-            bytes_ = binUnpacker(attr)
-            for _ in range(bytes_.get('>H')):
-                disAnnotation(bytes_, '.runtime{} '.format(vis.lower()), add, poolm)
-
-        attr = getFirst('Runtime{}ParameterAnnotations'.format(vis))
-        if attr is not None:
-            bytes_ = binUnpacker(attr)
-            for i in range(bytes_.get('>B')):
-                for _ in range(bytes_.get('>H')):
-                    disAnnotation(bytes_, '.runtime{} parameter {} '.format(vis.lower(), i), add, poolm)
-
-    attr = getFirst('AnnotationDefault')
-    if attr is not None:
-        bytes_ = binUnpacker(attr)
-        disElementValue(bytes_, '.annotationdefault ', add, poolm)
-
-    # if meth_attributes:
-    #     add('')
+    for name_ind, name, attr in getAttributeTriples(method):
+        disMethodAttribute(name_ind, name, binUnpacker(attr), add, poolm)
 
     disMethodCode(method.code, add, poolm)
     add('.end method')
@@ -365,8 +387,8 @@ def disElementValue(bytes_, prefix, add, poolm, indent):
 
         add(indent + '{} {} {}'.format(prefix, tag, val))
         if tag == 'array':
-            for _ in bytes_.get('>H'):
-                getElementValue(bytes_, '', add, poolm, indent+'\t')
+            for _ in range(bytes_.get('>H')):
+                disElementValue(bytes_, '', add, poolm, indent+'\t')
             add(indent + '.end array')
 
 def disAnnotation(bytes_, prefix, add, poolm, indent=''):
@@ -374,19 +396,38 @@ def disAnnotation(bytes_, prefix, add, poolm, indent=''):
 
     for _ in range(bytes_.get('>H')):
         key = poolm.utfref(bytes_.get('>H'))
-        getElementValue(bytes_, key + ' = ', add, poolm, indent+'\t')
+        disElementValue(bytes_, key + ' = ', add, poolm, indent+'\t')
     add(indent + '.end annotation')
 
 #Todo - make fields automatically unpack this themselves
 def getConstValue(field):
     if not field.static:
         return None
-    cpool = field.class_.cpool
     const_attrs = [attr for attr in field.attributes if attr[0] == 'ConstantValue']
     if const_attrs:
         assert(len(const_attrs) == 1)
         bytes_ = binUnpacker(const_attrs[0][1])
         return bytes_.get('>H')
+
+_classflags = [(v,k.lower()) for k,v in ClassFile.flagVals.items()]
+def disClassAttribute(name_ind, name, bytes_, add, poolm):
+    if name == 'InnerClasses':
+        count = bytes_.get('>H')
+        for _ in range(count):
+            inner, outer, innername, flagbits = bytes_.get('>HHHH')
+
+            flags = [v for k,v in _classflags if k&flagbits]
+            inner = poolm.classref(inner)
+            outer = poolm.classref(outer)
+            innername = poolm.utfref(innername)
+
+            add('.inner {} {} {} {}'.format(' '.join(flags), innername, inner, outer))
+        if count: #otherwise we'll create an empty generic attribute
+            return
+    elif name == 'EnclosingMethod':
+        cls, nat = bytes_.get('>HH')
+        add('.enclosing method {} {}'.format(poolm.classref(cls), poolm.multiref(nat)))
+    disCFMAttribute(name_ind, name, bytes_, add, poolm)
 
 def disassemble(cls):
     lines = []
@@ -398,12 +439,12 @@ def disassemble(cls):
 
     class_attributes = getAttributesDict(cls)
     if 'SourceFile' in class_attributes:
-        bytes_ = binUnpacker(class_attributes['SourceFile'][0])
+        bytes_ = binUnpacker(class_attributes['SourceFile'].pop()[1])
         val_ind = bytes_.get('>H')
         add('.source {}'.format(poolm.utfref(val_ind)))
 
     if 'BootstrapMethods' in class_attributes:
-        bytes_ = binUnpacker(class_attributes['BootstrapMethods'][0])
+        bytes_ = binUnpacker(class_attributes['BootstrapMethods'].pop()[1])
         count = bytes_.get('>H')
         for _ in range(count):
             arg1, argc = bytes_.get('>HH')
@@ -415,8 +456,12 @@ def disassemble(cls):
     add('.super {}'.format(poolm.classref(cls.super)))
     for ii in cls.interfaces_raw:
         add('.implements {}'.format(poolm.classref(ii)))
-    add('')
 
+    for name in class_attributes:
+        for name_ind, attr in class_attributes[name]:
+            disClassAttribute(name_ind, name, binUnpacker(attr), add, poolm)
+
+    add('')
     for field in cls.fields:
         fflags = ' '.join(map(str.lower, field.flags))
         const = getConstValue(field)
@@ -425,6 +470,17 @@ def disassemble(cls):
             add('.field {} {} {} = {}'.format(fflags, poolm.utfref(field.name_id), poolm.utfref(field.desc_id), poolm.ldc(const)))
         else:
             add('.field {} {} {}'.format(fflags, poolm.utfref(field.name_id), poolm.utfref(field.desc_id)))
+
+        facount = 0
+        for name_ind, name, attr in getAttributeTriples(field):
+            if name == 'ConstantValue' and field.static:
+                continue
+            disMethodAttribute(name_ind, name, binUnpacker(attr), add, poolm)
+            facount += 1
+        if facount > 0:
+            add('.end field')
+            add('')
+
     add('')
 
     for method in cls.methods:

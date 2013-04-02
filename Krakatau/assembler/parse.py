@@ -400,7 +400,7 @@ def p_luentry(p):
     p[0] = p[1], p[3]
 listRule('luentry')
 
-addRule(assign2, 'tblentry', 'lbl sep')
+addRule(assign1, 'tblentry', 'lbl sep')
 listRule('tblentry')
 
 def p_lookupswitch(p):

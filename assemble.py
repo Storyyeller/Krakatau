@@ -12,7 +12,7 @@ def assembleClass(filename, makeLineNumbers, jasmode, debug=0):
     lexer = tokenize.makeLexer(debug=debug)
     parser = parse.makeParser(debug=debug)
     parse_trees = parser.parse(assembly, lexer=lexer)
-    return [assembler.assemble(tree, makeLineNumbers, jasmode, basename) for tree in parse_trees]
+    return parse_trees and [assembler.assemble(tree, makeLineNumbers, jasmode, basename) for tree in parse_trees]
 
 if __name__== "__main__":
     print 'Krakatau  Copyright (C) 2012-13  Robert Grosse'
@@ -29,9 +29,14 @@ if __name__== "__main__":
     targets = script_util.findFiles(args.target, args.r, '.j')
     base_path = args.out if args.out is not None else os.getcwd()
 
-    for target in targets:
-        print 'Processing file', target
+    for i, target in enumerate(targets):
+        print 'Processing file {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
         pairs = assembleClass(target, args.g, args.jas)
+
+        # if pairs is None:
+        #     print 'Assembly of ', target, 'failed!'
+        #     continue
+
         for name, data in pairs:
             filename = script_util.writeFile(base_path, name, '.class', data)
             print 'Class written to', filename

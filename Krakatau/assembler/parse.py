@@ -123,7 +123,7 @@ for _name in ('utf8','class', 'nameandtype', 'method', 'interfacemethod', 'metho
 
 ###############################################################################
 def p_classnoend(p):
-    '''classnoend : version_opt classattribute_lines classdec superdec interfacedecs classattribute_lines topitems'''
+    '''classnoend : version_opt class_directive_lines classdec superdec interfacedecs class_directive_lines topitems'''
     p[0] = tuple(p[1:])
 
 addRule(assign1, 'classwithend', 'classnoend D_END CLASS sep')
@@ -156,8 +156,9 @@ addRule(assign2, 'superdec', 'D_SUPER classref sep')
 addRule(assign2, 'interfacedec', 'D_IMPLEMENTS classref sep')
 listRule('interfacedec')
 
-addRule(assign1, 'classattribute_line', 'classattribute sep')
-listRule('classattribute_line')
+addRule(assign1, 'class_directive', 'classattribute', 'innerlength_dir')
+addRule(assign1, 'class_directive_line', 'class_directive sep')
+listRule('class_directive_line')
 
 def p_topitem_c(p):
     '''topitem : const_spec'''
@@ -445,6 +446,13 @@ def p_inner_dir(p):
 def p_enclosing_dir(p): 
     '''enclosing_dir : D_ENCLOSING METHOD classref nameandtyperef'''
     p[0] = p[1], (p[3], p[4])
+
+#This is included here even though strictly speaking, it's not an attribute. Rather it's a directive that affects the assembly
+#of the InnerClasses attribute
+def p_innerlength_dir(p): 
+    '''innerlength_dir : D_INNERLENGTH intl'''
+    p[0] = p[1], p[2]
+
 
 #Method only
 def p_throws_dir(p):

@@ -357,8 +357,7 @@ def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
         attr = struct.pack('>HI', pool.Utf8("AnnotationDefault"), len(data)) + data        
         method_attributes.append(attr)
 
-
-
+    assembleClassFieldMethodAttributes(method_attributes.append, directive_dict, pool)
     return struct.pack('>HHHH', flagbits, name, desc, len(method_attributes)) + ''.join(method_attributes)
 
 def getLdcRefs(statements):
@@ -433,10 +432,19 @@ def assembleClassFieldMethodAttributes(addcb, directive_dict, pool):
         attr = struct.pack('>HIH', pool.Utf8("Signature"), 2, name.toIndex(pool))
         addcb(attr)
 
-    for name, data in directive_dict['.attribute']:
-        attr = struct.pack('>HI', name.toIndex(pool), len(data)) + data
-        addcb(attr)
+    #.innerlength directive overrides the normal attribute length calculation
+    hasoverride = len(directive_dict['.innerlength']) > 0
 
+    for name, data in directive_dict['.attribute']:    
+        name_ind = name.toIndex(pool)
+
+        if hasoverride and pool.pool.getArgsCheck('Utf8', name_ind) == 'InnerClasses':
+            attrlen = directive_dict['.innerlength'][0]
+        else:
+            attrlen = len(data)
+
+        attr = struct.pack('>HI', name_ind, attrlen) + data
+        addcb(attr)
 
 def assembleClassAttributes(addcb, directive_dict, pool, addLineNumbers, jasmode, filename):
 
@@ -457,7 +465,9 @@ def assembleClassAttributes(addcb, directive_dict, pool, addLineNumbers, jasmode
             part = struct.pack('>HHHH', inner.toIndex(pool), outer.toIndex(pool), name.toIndex(pool), flagbits)
             parts.append(part)
 
-        attr = struct.pack('>HIH', pool.Utf8("InnerClasses"), 2+8*len(parts), len(parts)) + ''.join(parts)
+        #.innerlength directive overrides the normal attribute length calculation
+        innerlen = 2+8*len(parts) if '.innerlength' not in directive_dict else directive_dict['.innerlength'][0]
+        attr = struct.pack('>HIH', pool.Utf8("InnerClasses"), innerlen, len(parts)) + ''.join(parts)
         addcb(attr)
 
     if '.enclosing' in directive_dict:

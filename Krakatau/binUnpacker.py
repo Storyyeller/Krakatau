@@ -8,10 +8,11 @@ class binUnpacker(object):
             self.bytes = data
         self.off = 0
 
-    def get(self, fmt, forceTuple=False):
-##        print fmt, len(self.bytes) - self.off        
+    def get(self, fmt, forceTuple=False, peek=False):       
         val = struct.unpack_from(fmt, self.bytes, self.off)
-        self.off += struct.calcsize(fmt)
+        
+        if not peek:
+            self.off += struct.calcsize(fmt)
         if not forceTuple and len(val) == 1:
             val = val[0]
         return val

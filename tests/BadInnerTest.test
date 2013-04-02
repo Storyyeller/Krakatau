@@ -1,0 +1,10 @@
+(S'BadInnerTest'
+p1
+(lp2
+(S''
+(S'Bad inners, bad inners, whatcha gonna do?\r\n'
+S''
+tp3
+tp4
+atp5
+.

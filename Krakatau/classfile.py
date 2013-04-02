@@ -74,7 +74,9 @@ class ClassFile(object):
 
         self.fields_raw = get_fields_raw(bytestream)
         self.methods_raw = get_methods_raw(bytestream)
-        self.attributes_raw = get_attributes_raw(bytestream)
+
+        ic_indices = [i for i,x in enumerate(self.const_pool_raw) if x == (1, ("InnerClasses",))]
+        self.attributes_raw = get_attributes_raw(bytestream, ic_indices)
         assert(bytestream.size() == 0)
 
         self.flags = set(name for name,mask in ClassFile.flagVals.items() if (mask & flags))

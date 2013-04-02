@@ -411,23 +411,32 @@ def getConstValue(field):
         return bytes_.get('>H')
 
 _classflags = [(v,k.lower()) for k,v in ClassFile.flagVals.items()]
-def disClassAttribute(name_ind, name, bytes_, add, poolm):
-    if name == 'InnerClasses':
-        count = bytes_.get('>H')
-        for _ in range(count):
-            inner, outer, innername, flagbits = bytes_.get('>HHHH')
+def disInnerClassesAttribute(name_ind, length, bytes_, add, poolm):
+    count = bytes_.get('>H')
 
-            flags = [v for k,v in _classflags if k&flagbits]
-            inner = poolm.classref(inner)
-            outer = poolm.classref(outer)
-            innername = poolm.utfref(innername)
+    if length != 2+8*count:
+        add('.innerlength {}'.format(length))
 
-            add('.inner {} {} {} {}'.format(' '.join(flags), innername, inner, outer))
-        if count: #otherwise we'll create an empty generic attribute
-            return
-    elif name == 'EnclosingMethod':
+    for _ in range(count):
+        inner, outer, innername, flagbits = bytes_.get('>HHHH')
+
+        flags = [v for k,v in _classflags if k&flagbits]
+        inner = poolm.classref(inner)
+        outer = poolm.classref(outer)
+        innername = poolm.utfref(innername)
+
+        add('.inner {} {} {} {}'.format(' '.join(flags), innername, inner, outer))
+
+    if not count:
+        add('.attribute InnerClasses "\\0\\0"')
+
+
+def disOtherClassAttribute(name_ind, name, bytes_, add, poolm):
+    assert(name != 'InnerClasses')
+    if name == 'EnclosingMethod':
         cls, nat = bytes_.get('>HH')
         add('.enclosing method {} {}'.format(poolm.classref(cls), poolm.multiref(nat)))
+        return
     disCFMAttribute(name_ind, name, bytes_, add, poolm)
 
 def disassemble(cls):
@@ -459,8 +468,13 @@ def disassemble(cls):
         add('.implements {}'.format(poolm.classref(ii)))
 
     for name in class_attributes:
-        for name_ind, attr in class_attributes[name]:
-            disClassAttribute(name_ind, name, binUnpacker(attr), add, poolm)
+        if name == "InnerClasses":
+            assert(len(class_attributes[name]) == 1)
+            for name_ind, (length, attr) in class_attributes[name]:
+                disInnerClassesAttribute(name_ind, length, binUnpacker(attr), add, poolm)            
+        else:
+            for name_ind, attr in class_attributes[name]:
+                disOtherClassAttribute(name_ind, name, binUnpacker(attr), add, poolm)
 
     add('')
     for field in cls.fields:

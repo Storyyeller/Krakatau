@@ -717,8 +717,15 @@ class MethodDecompiler(object):
                     copyset_parts += copyset,
 
                 copyset_stack = tuple(merged_stack)
-                copyset = reduce(mergeCopyset, copyset_parts)
 
+                if copyset_parts:
+                    copyset = reduce(mergeCopyset, copyset_parts)
+                else: #In this case, every one of the subscopes breaks, meaning that whatever follows this item is unreachable
+                    assert(item is scope.statements[-1])
+                    copyset = None
+
+            #Todo - handle conditional statements that can also have an expression (if, switch, while)
+            #Not currently necessary as we'll never generate such statement expressions containing constructor calls
             if isinstance(item, ast.ExpressionStatement):
                 expr = item.expr
 
@@ -767,7 +774,8 @@ class MethodDecompiler(object):
             else:
                 target = scope.jump[0] if not scope.jump[1] else None
 
-            copyset_stack = tuple(((t[0],t[1]+(copyset,)) if t[0] is target else t) for t in copyset_stack)
+            oursets = (copyset,) if copyset is not None else ()
+            copyset_stack = tuple(((t[0],t[1]+oursets) if t[0] is target else t) for t in copyset_stack)
             return copyset_stack
 
     def _pruneVoidReturn(self, scope):

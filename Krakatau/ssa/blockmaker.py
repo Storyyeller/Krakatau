@@ -125,7 +125,7 @@ def _convert(parent, input_, iNode):
     src_cat, dest_cat = getCategory(src_c), getCategory(dest_c)
 
     stack, arg =  input_.stack[:-src_cat], input_.stack[-src_cat]
-    line = ssa_ops.Convert(parent, arg, _charToSSAType[dest_c])
+    line = ssa_ops.Convert(parent, arg, _charToSSAType[src_c], _charToSSAType[dest_c])
 
     newstack = stack + [line.rval] + [None]*(dest_cat-1)
     return makeDict(line=line, newstack=newstack)

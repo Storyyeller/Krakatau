@@ -9,7 +9,7 @@ NINF = -1,INF_MAG
 ZERO = 1,ZERO_MAG
 NZERO = -1,ZERO_MAG
 
-#key suitable for sorting finite nonzero values
+#key suitable for sorting finite (normalized) nonzero values
 sortkey = lambda (s,(m,e)):(s,s*e,s*m)
 
 #Size info for type - mantissa bits, min exponent, max exponent

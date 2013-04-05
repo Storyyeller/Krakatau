@@ -19,7 +19,9 @@ def isWord(s):
     '''Determine if s can be used as an inline word'''
     if s in parse.badwords or (not_word_regex.match(s) is not None):
         return False
-    return (is_word_regex.match(s) is not None) and min(s) > ' ' #eliminate unprintable characters below 32
+    #eliminate unprintable characters below 32
+    #also, don't allow characters above 127 to keep things simpler
+    return (is_word_regex.match(s) is not None) and min(s) > ' ' and max(s) <= '\x7f'
 
 def rstring(s, allowWord=True):
     '''Returns a representation of the string. If allowWord is true, it will be unquoted if possible'''
@@ -88,7 +90,7 @@ class PoolManager(object):
     #Also works for Strings and MethodTypes
     def classref(self, ind):
         if ind == 0:
-            return '[0]'    
+            return '[0]'  
         inline = self.inlineutf(self.cparg1(ind)) 
         return inline if inline is not None else self.ref(ind)
 
@@ -344,7 +346,7 @@ def disMethodAttribute(name_ind, name, bytes_, add, poolm):
     if name == 'Code':
         return
     elif name == 'AnnotationDefault':
-        disElementValue(bytes_, '.annotationdefault ', add, poolm)
+        disElementValue(bytes_, '.annotationdefault ', add, poolm, '')
         return
     elif name == 'Exceptions':
         count = bytes_.get('>H')
@@ -380,7 +382,7 @@ def disElementValue(bytes_, prefix, add, poolm, indent):
         if tag in ('byte','char','double','int','float','long','short','boolean','string'):
             val = poolm.ldc(bytes_.get('>H'))
         elif tag == 'class':
-            val = poolm.classref(bytes_.get('>H'))        
+            val = poolm.utfref(bytes_.get('>H'))        
         elif tag == 'enum':
             val = poolm.utfref(bytes_.get('>H')) + ' ' + poolm.utfref(bytes_.get('>H'))        
         elif tag == 'array':

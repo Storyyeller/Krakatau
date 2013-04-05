@@ -504,13 +504,15 @@ primtags = set(wordget.get(x, 'WORD') for x in 'byte char double int float long 
 addRule(assign1, 'primtag', *primtags)
 addRule(assign1, 'ldc_any', 'ldc1_notref', 'ldc2_notref', 'ref')
 
-def p_element_value(p):
+def p_element_value_0(p):
     '''element_value : primtag ldc_any
-                    | CLASS classref
+                    | CLASS utf8ref
                     | ENUM utf8ref utf8ref
-                    | ANNOTATION annotation
                     | ARRAY sep element_array'''
     p[0] = et_tags[p[1]], tuple(p[2:])
+def p_element_value_1(p):
+    '''element_value : annotation'''
+    p[0] = '@', (p[1],)
 
 addRule(assign1, 'element_value_line', 'element_value sep')
 listRule('element_value_line')

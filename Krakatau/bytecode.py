@@ -33,7 +33,7 @@ def getNextInstruction(data, address):
     byte = data.get('>B')
 
     #typecode - B,C,S, and Bool are only used for array types and sign extension
-    A,B,C,D,F,I,L,S = "ABCDFILS"
+    A,B,C,D,F,I,L,S = "ABCDFIJS"
     Bool = "Z"
 
     if byte in simpleOps:

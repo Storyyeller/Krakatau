@@ -165,7 +165,7 @@ class StatementBlock(LazyLabelBase):
         super(StatementBlock, self).__init__(labelfunc)
         self.jump = None
         self.parent = None #should be assigned later
-        # self.id = next(sbcount)
+        # self.id = next(sbcount) #For debugging purposes
 
     def setBreak(self, val):
         if self.jump is not None:
@@ -182,7 +182,7 @@ class StatementBlock(LazyLabelBase):
             temp = JumpStatement(*self.jump)
             contents.append(temp.print_())
         contents = '\n'.join(contents)
-        #contents = '//{} <- {}\n'.format(str(self), ', '.join(map(str, self.sources[False]))) + contents
+        # contents = '//{} <- {}\n'.format(str(self), ', '.join(map(str, self.sources[False]))) + contents
         indented = ['    '+line for line in contents.splitlines()]
         lines = [self.getLabelPrefix() + '{'] + indented + ['}']
         return '\n'.join(lines)

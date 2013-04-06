@@ -8,9 +8,9 @@ import ssa_ops, ssa_jumps
 import objtypes #for LDC
 import subproc
 
-_charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'L':SSA_LONG,
+_charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'J':SSA_LONG,
                 'B':SSA_INT, 'C':SSA_INT, 'S':SSA_INT}
-def getCategory(c): return 2 if c in 'LD' else 1
+def getCategory(c): return 2 if c in 'JD' else 1
 
 def makeDict(**kwargs): return kwargs
 

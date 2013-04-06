@@ -1,17 +1,18 @@
 from ..mixin import ValueType
 
 class IntConstraint(ValueType):
-    def __init__(self, width, min, max):
+    def __init__(self, width, min_, max_):
         self.width = width
-        self.min = min
-        self.max = max
-        self.reducible = min<max
-        self.isBot = (-min == max+1 == (1<<width)//2)
-        # self.isTop = min > max
+        self.min = min_
+        self.max = max_
+        self.reducible = min_<max_
+        self.isBot = (-min_ == max_+1 == (1<<width)//2)
 
     @staticmethod
-    def range(width, min, max):
-        return IntConstraint(width, min, max)
+    def range(width, min_, max_):
+        if min_ > max_:
+            return None
+        return IntConstraint(width, min_, max_)
 
     @staticmethod
     def const(width, val):

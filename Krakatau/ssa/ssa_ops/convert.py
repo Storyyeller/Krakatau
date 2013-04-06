@@ -1,7 +1,6 @@
 from .base import BaseOp
 from ..constraints import IntConstraint, FloatConstraint
-
-from .imath import propagateBitwise
+from . import bitwise_util
 
 class Convert(BaseOp):
     def __init__(self, parent, arg, source_ssa, target_ssa):
@@ -19,9 +18,8 @@ class Convert(BaseOp):
         if srct == 'int':
             if destt == 'int':
                 if srcw > destw:
-                    #copied from imath.py
-                    mask = IntConstraint(srcw, 0, (1<<destw)-1)
-                    x = propagateBitwise(x, mask, operator.__and__, False, True)
+                    mask = IntConstraint(srcw, (1<<destw)-1, (1<<destw)-1)
+                    x = bitwise_util.propagateAnd(x,mask)
                 return IntConstraint(destw, x.min, x.max),
             # elif destt == 'float':
             #     ints = [x.min, x.max]

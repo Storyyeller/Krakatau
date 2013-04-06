@@ -77,8 +77,7 @@ def makeGraph(env, blocks):
         #sources and uses will be reassigned upon opnode creation
         n.output = [curUC]
         lookup[var] = n
-        # n.root = var.name[1] + str(hash((var)) % 1000)
-        # var.name = n.root
+        # n.root = var
 
     for phi in phis:
         n = BaseNode(philamb, True)

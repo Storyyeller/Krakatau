@@ -20,7 +20,7 @@ def disassembleClass(readTarget, targets=None, outpath=None):
     start_time = time.time()
     # random.shuffle(targets)
     for i,target in enumerate(targets):
-        print 'processing target {}, {} remaining'.format(target, len(targets)-i)
+        print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
 
         data = readTarget(target)
         stream = Krakatau.binUnpacker.binUnpacker(data=data)

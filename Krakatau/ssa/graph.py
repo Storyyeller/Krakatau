@@ -49,6 +49,8 @@ class SSA_Graph(object):
 
     def condenseBlocks(self):
         old = self.blocks
+        #Can't do a consistency check on entry as the graph may be in an inconsistent state at this point
+        #Since the purpose of this function is to prune unreachable blocks from self.blocks
 
         sccs = graph_util.tarjanSCC([self.entryBlock], lambda block:block.jump.getSuccessors())
         sccs = list(reversed(sccs))
@@ -190,11 +192,8 @@ class SSA_Graph(object):
                 for op in block.phis + block.lines:
                     op.replaceVars(replace)
                 block.jump.replaceVars(replace)
-        if removed:
-            print len(removed), 'blocks merged,', len(replace), 'variables merged'
 
     def disconnectConstantVariables(self):
-        counter = 0
         for block in self.blocks:
             for var, uc in block.unaryConstraints.items():
                 if var.origin is not None:
@@ -210,10 +209,7 @@ class SSA_Graph(object):
                         var.origin.removeOutput(var)
                         var.origin = None
                         var.const = newval
-                        counter += 1
             block.phis = [phi for phi in block.phis if phi.rval is not None]
-        if counter: 
-            print counter, 'variables disconnected'
         self._conscheck()
 
     def _conscheck(self):
@@ -233,7 +229,6 @@ class SSA_Graph(object):
 
     def pessimisticPropagation(self):
         assert(not self.procs)
-        counter = 0
 
         graph = variablegraph.makeGraph(self.env, self.blocks)
         variablegraph.processGraph(graph)
@@ -249,20 +244,14 @@ class SSA_Graph(object):
                         var.origin.removeOutput(var)
                     var.name = "UNREACHABLE" #for debug printing
                     # var.name += '-'
-                    counter += 1
                 else:
                     newUC = constraints.join(oldUC, newUC)
-                    if newUC != oldUC:
-                        counter += 1
                     block.unaryConstraints[var] = newUC
-        if counter: 
-            print counter, 'variables constrained'
         self._conscheck()
 
     def simplifyJumps(self):
         self._conscheck()
         #Determine if any jumps are impossible based on known constraints of params: if(0 == 0) etc
-        counter = 0
         for block in self.blocks:
             if hasattr(block.jump, 'constrainJumps'):
                 assert(block.jump.params)
@@ -273,7 +262,6 @@ class SSA_Graph(object):
                 if block.jump is None:
                     #This block has no valid successors, meaning it must be unreachable
                     #It should be removed automatically in the call to condenseBlocks()
-                    counter += 1
                     continue
 
                 newEdges = block.jump.getSuccessorPairs()
@@ -282,9 +270,6 @@ class SSA_Graph(object):
                     for (child,t) in pruned:
                         for phi in child.phis:
                             phi.removeKey((block,t))
-                    counter += 1
-        if counter: 
-            print counter, 'jumps constrained'
         self.condenseBlocks()   
         self._conscheck()
 
@@ -466,7 +451,7 @@ class SSA_Graph(object):
     varnum = itertools.count() #assign variable names for debugging
     def makeVariable(self, *args, **kwargs):
         var = Variable(*args, **kwargs)
-        # var.name = 'x' + str(next(self.varnum))
+        # var.name = args[0][0][0] + str(next(self.varnum))
         return var
 
     def makeVarFromVtype(self, vtype):

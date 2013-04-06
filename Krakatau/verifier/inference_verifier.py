@@ -40,7 +40,7 @@ def genericStackUpdate((num, replaceCodes), stack):
                 assert(isUnsplit(stack, i))
     return stack
 
-stackCharPatterns = {opnames.NOP:'-', opnames.CONSTNULL:'-N', opnames.LCMP:'LL-I',
+stackCharPatterns = {opnames.NOP:'-', opnames.CONSTNULL:'-N', opnames.LCMP:'JJ-I',
                      opnames.ARRLEN:'Y-I',opnames.MONENTER:'A-',opnames.MONEXIT:'A-',
                      opnames.INSTANCEOF:'A-I',opnames.CONST:'-{0}',
                      opnames.CONVERT:'{0}-{1}',opnames.TRUNCATE:'I-I',
@@ -55,7 +55,7 @@ stackCharPatterns = {opnames.NOP:'-', opnames.CONSTNULL:'-N', opnames.LCMP:'LL-I
                      opnames.SHL:'{0}I-{0}', opnames.SHR:'{0}I-{0}',
                      opnames.USHR:'{0}I-{0}', opnames.NEG:'{0}-{0}',}
 
-_decode_char = {'N':(T_NULL,), 'I':(T_INT,), 'F':(T_FLOAT,), 'L':T_LONG,
+_decode_char = {'N':(T_NULL,), 'I':(T_INT,), 'F':(T_FLOAT,), 'J':T_LONG,
                 'D':T_DOUBLE, 'B':(T_BYTE,), 'C':(T_CHAR,), 'S':(T_SHORT,),
                 'Z':(T_BYTE,), 'Y':(T_WILDCARD_ARRAY,),
                 'A':(T_OBJECT('java/lang/Object'),)}

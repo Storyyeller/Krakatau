@@ -103,7 +103,7 @@ def visitExpr_array(expr, arg_vars, addedge, contract):
     elif isinstance(expr, ast.ArrayAccess):
         if pkeys:
             contract(expr, pkeys[-1])   
-    elif isinstance(expr, (ast.MethodInvocation)):
+    elif isinstance(expr, (ast.MethodInvocation, ast.ClassInstanceCreation)):
         for i,tt in enumerate(expr.tts):
             if tt and tt[0] in _prefixes:
                 contract((tt[0]==BoolTT[0]), (expr,i))
@@ -157,7 +157,7 @@ def visitExpr_bool(expr, arg_vars, addedge, contract):
             contract(expr, *pkeys)
         else:
             assert(0)
-    elif isinstance(expr, (ast.MethodInvocation)):
+    elif isinstance(expr, (ast.MethodInvocation, ast.ClassInstanceCreation)):
         for i,tt in enumerate(expr.tts):
             if tt in all_tts:
                 contract((tt==BoolTT), (expr,i))

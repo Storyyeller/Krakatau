@@ -715,7 +715,6 @@ class MethodDecompiler(object):
                 copyset_parts = merged_stack.pop()[1]
                 if mayskip:
                     copyset_parts += copyset,
-
                 copyset_stack = tuple(merged_stack)
 
                 if copyset_parts:
@@ -723,6 +722,12 @@ class MethodDecompiler(object):
                 else: #In this case, every one of the subscopes breaks, meaning that whatever follows this item is unreachable
                     assert(item is scope.statements[-1])
                     copyset = None
+
+            #Nothing after this is reachable
+            #Todo - add handling for merging across a thrown exception
+            if isinstance(item, (ast.ReturnStatement, ast.ThrowStatement)):
+                assert(item is scope.statements[-1])
+                copyset = None
 
             #Todo - handle conditional statements that can also have an expression (if, switch, while)
             #Not currently necessary as we'll never generate such statement expressions containing constructor calls
@@ -742,6 +747,7 @@ class MethodDecompiler(object):
                         hits = [(k,v) for k,v in copyset.items() if right in v]
                         if hits:
                             assert(len(hits)==1)
+                            assert(isinstance(left, ast.Local))
                             k, v = hits[0]
                             copyset = copyset.copy()
                             copyset[k] = v + (left,)
@@ -763,7 +769,6 @@ class MethodDecompiler(object):
 
                     copyset = dict(kv for kv in copyset.items() if kv not in hits)
                     remove = True
-
             if not remove:
                 newitems.append(item)
 
@@ -818,11 +823,11 @@ class MethodDecompiler(object):
             ast_root = self._createAST(root, (), None)
             ast_root.bases = (ast_root,)
 
+            self._fixObjectCreations(ast_root)
             self._simplifyBlocks(ast_root)
             self._setScopeParents(ast_root)
             self._inlineTryBeginning(ast_root)
             boolize.boolizeVars(ast_root, argsources)
-            self._fixObjectCreations(ast_root)
 
             self._setScopeParents(ast_root)
             self._mergeVariables(ast_root, argsources)

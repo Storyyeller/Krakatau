@@ -50,7 +50,7 @@ class Environment(object):
                     pass
 
     def _loadClass(self, name, subclasses):
-        print "Loading ", name[:70]
+        print "Loading", name[:70]
         data = self._searchForFile(name)
 
         if data is None:

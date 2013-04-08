@@ -98,7 +98,10 @@ class ObjectConstraint(ValueType):
 
     @staticmethod
     def fromTops(env, supers, exact, nonnull=False):
-        return ObjectConstraint(not nonnull, TypeConstraint(env, supers, exact))
+        types = TypeConstraint(env, supers, exact)
+        if nonnull and not types:
+            return None
+        return ObjectConstraint(not nonnull, types)
 
     def _key(self): return self.null, self.types
 

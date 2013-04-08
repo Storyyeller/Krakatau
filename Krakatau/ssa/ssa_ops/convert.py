@@ -9,24 +9,24 @@ class Convert(BaseOp):
         self.target = target_ssa
         self.rval = parent.makeVariable(target_ssa, origin=self)
 
-    def propagateConstraints(self, x):
-        #Cases: i2l, i2f, i2d, l2i, l2f, l2d, f2i, f2l, f2d, d2i, d2l, d2f
+    # def propagateConstraints(self, x):
+    #     #Cases: i2l, i2f, i2d, l2i, l2f, l2d, f2i, f2l, f2d, d2i, d2l, d2f
 
-        srct, srcw = self.source
-        destt, destw = self.target
+    #     srct, srcw = self.source
+    #     destt, destw = self.target
 
-        if srct == 'int':
-            if destt == 'int':
-                if srcw > destw:
-                    mask = IntConstraint(srcw, (1<<destw)-1, (1<<destw)-1)
-                    x = bitwise_util.propagateAnd(x,mask)
-                return IntConstraint(destw, x.min, x.max),
-            # elif destt == 'float':
-            #     ints = [x.min, x.max]
-            #     for v in (-1,0,1):
-            #         if x.min <= v <= x.max:
-            #             ints.append(v)
+    #     if srct == 'int':
+    #         if destt == 'int':
+    #             if srcw > destw:
+    #                 mask = IntConstraint(srcw, (1<<destw)-1, (1<<destw)-1)
+    #                 x = bitwise_util.propagateAnd(x,mask)
+    #             return IntConstraint(destw, x.min, x.max),
+    #         # elif destt == 'float':
+    #         #     ints = [x.min, x.max]
+    #         #     for v in (-1,0,1):
+    #         #         if x.min <= v <= x.max:
+    #         #             ints.append(v)
 
-        if destt == 'int':
-            return IntConstraint.bot(destw),
-        return FloatConstraint.bot(destw),
+    #     if destt == 'int':
+    #         return IntConstraint.bot(destw),
+    #     return FloatConstraint.bot(destw),

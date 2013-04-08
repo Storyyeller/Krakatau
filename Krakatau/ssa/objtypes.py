@@ -27,7 +27,7 @@ def isSubtype(env, x, y):
     yname, ydim = y
 
     if ydim > xdim:
-        return env.isSubclass(xname, yname)
+        return False
     elif xdim > ydim: #TODO - these constants should be defined in one place to reduce risk of typos
         return yname in ('java/lang/Object','java/lang/Cloneable','java/io/Serializable')
     else:

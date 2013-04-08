@@ -106,7 +106,7 @@ def mergeTypes(env, t1, t2, forAssignment=False):
         if t1.dim or t2.dim:
             if t1.dim == t2.dim:
                 temp = mergeTypes(env, t1.baset, t2.baset, forAssignment)
-                return temp if temp is T_INVALID else T_ARRAY(temp) 
+                return T_OBJECT('java/lang/Object') if temp is T_INVALID else T_ARRAY(temp) 
             else:
                 if t1.dim > t2.dim:
                     t1, t2 = t2, t1

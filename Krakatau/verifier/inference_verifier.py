@@ -298,10 +298,10 @@ class InstructionNode(object):
             newstack, newlocals, newmasks, newflags = self._updateLocals()        
         elif op in (opnames.ARRLOAD_OBJ, opnames.ARRSTORE_OBJ):
             if op == opnames.ARRLOAD_OBJ:
-                t = self.stack[-2].baset 
+                t = self.stack[-2].baset if not self.stack[-2].isNull else T_NULL
                 before, after = (T_ARRAY(t), T_INT), (t,)
             else:
-                t = self.stack[-3].baset 
+                t = self.stack[-3].baset if not self.stack[-3].isNull else T_NULL
                 before, after = (T_ARRAY(t), T_INT, t), ()
             self._assertStackTop(before)
             newstack = self.stack[:-len(before)] + after

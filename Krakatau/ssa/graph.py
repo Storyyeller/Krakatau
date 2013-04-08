@@ -147,6 +147,9 @@ class SSA_Graph(object):
                 successors = set(block.jump.getSuccessorPairs()) #Warning - make sure not to merge if we have a single successor with a double edge
                 if len(successors) != 1:
                     break
+                #Even if an exception thrown has single target, don't merge because we need a way to actually access the thrown exception
+                if isinstance(block.jump, ssa_jumps.OnException):
+                    break
 
                 #We don't bother modifying sources upon merging since the only property we care about is number of successors, which will be unchanged
                 child = successors.pop()[0]
@@ -222,7 +225,11 @@ class SSA_Graph(object):
                 else:
                     parents = zip(*phi.odict)[0]
                     assert(set(parents) == sources[block])
+
                 assert(phi.rval is None or phi.rval in block.unaryConstraints)
+                for k,v in phi.odict.items():
+                    assert(v.origin is None or v in k[0].unaryConstraints)
+                    
         for proc in self.procs:
             for callop in proc.callops:
                 assert(set(proc.retop.input) == set(callop.out))
@@ -242,6 +249,7 @@ class SSA_Graph(object):
 
                     if var.origin is not None:
                         var.origin.removeOutput(var)
+                        var.origin = None
                     var.name = "UNREACHABLE" #for debug printing
                     # var.name += '-'
                 else:

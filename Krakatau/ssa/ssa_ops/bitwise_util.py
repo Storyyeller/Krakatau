@@ -13,6 +13,7 @@ def split_pow2ranges(x,y):
         k = min(numzeroes, (y-x+1).bit_length()-1)
         out.append((x,k))
         x += 1<<k
+    assert(x == y+1)
     return out
 
 def propagateBitwise(arg1, arg2, op, usemin, usemax):

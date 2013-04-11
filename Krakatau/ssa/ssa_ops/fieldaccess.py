@@ -29,11 +29,7 @@ class FieldAccess(BaseOp):
         self.mout = constraints.DUMMY
         self.eout = constraints.ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
         if self.rval is not None:
-            if vtypes[0].isObject:
-                decltype = objtypes.verifierToDeclType(vtypes[0])
-                self.rout = constraints.ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, decltype))
-            else:
-                self.rout = constraints.fromVariable(env, self.rval)
+            self.rout = constraints.fromVariable(env, self.rval)
 
     def propagateConstraints(self, *incons):
         if self.rval is None:

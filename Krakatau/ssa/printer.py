@@ -15,7 +15,7 @@ class VarNameGen(NameGen):
             return var.name
         if var.const is not None:
             if isinstance(var.const, basestring):
-                if  var.decltype[0] == '<null>':
+                if  var.decltype[0] == '.null':
                     prefix = 'cn'
                 else:
                     #remove all non alphanumeric and _ characters

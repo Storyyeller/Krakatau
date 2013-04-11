@@ -33,7 +33,7 @@ class ProcCallOp(ProcJumpBase):
         self.input = slotsToDict(inslots)
         self.iNode = iNode
 
-        self.fallthrough = iNode.returnPoint
+        self.fallthrough = iNode.next_instruction
         self.target = iNode.successors[0]
         #self.out
 

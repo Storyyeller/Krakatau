@@ -287,9 +287,15 @@ class JavaExpression(object):
 
 class ArrayAccess(JavaExpression):
     def __init__(self, *params):
+        if params[0].dtype == objtypes.NullTT:
+            #Unfortunately, Java doesn't really support array access on null constants
+            #So we'll just cast it to Object[] as a hack
+            param = makeCastExpr(('java/lang/Object',1), params[0])
+            params = param, params[1]
+
         base, dim = params[0].dtype
         assert(dim >= 1)
-        self.dtype = base, dim-1 
+        self.dtype = base, dim-1
         self.params = params
         self.fmt = '{}[{}]'
 

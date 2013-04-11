@@ -94,7 +94,7 @@ def getInstrLen(instr, pos):
     if op in op_structs:
         return 1 + op_structs[op].size
     elif op == 'wide':
-        return 2 + 2 * len(instr[1])
+        return 2 + 2 * len(instr[1][1])
     else:
         padding = getPadding(pos)
         count = len(instr[1][1])

@@ -5,11 +5,10 @@ from .. import excepttypes
 from ..constraints import ObjectConstraint, DUMMY
 
 class New(BaseOp):
-    def __init__(self, parent, name, monad, verifier_type):
+    def __init__(self, parent, name, monad):
         super(New, self).__init__(parent, [monad], makeException=True)
         self.tt = name,0
         self.rval = parent.makeVariable(SSA_OBJECT, origin=self)
-        self.uninit_verifier_type = verifier_type
         self.env = parent.env
 
     def propagateConstraints(self, m):

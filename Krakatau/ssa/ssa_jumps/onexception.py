@@ -84,3 +84,6 @@ class OnException(BaseJump):
             #In fallthrough case, no exception so always return invalid
             assert(block == self.default)
             return lambda arg:[None]
+
+
+            

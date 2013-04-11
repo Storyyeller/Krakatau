@@ -5,12 +5,12 @@ from ..ssa_types import verifierToSSAType, SSA_MONAD
 from .. import objtypes, constraints
 
 class Invoke(BaseOp):
-    def __init__(self, parent, instr, info, args, monad, verifier_type):
+    def __init__(self, parent, instr, info, args, monad, isThisCtor):
         super(Invoke, self).__init__(parent, [monad]+args, makeException=True)
 
         self.instruction = instr
         self.target, self.name, self.desc = info
-        self.uninit_verifier_type = verifier_type #vtype of first arg if we're an init
+        self.isThisCtor = isThisCtor #whether this is a ctor call for the current class
 
         vtypes = parseMethodDescriptor(self.desc)[1]
 
@@ -31,11 +31,7 @@ class Invoke(BaseOp):
         self.mout = constraints.DUMMY
         self.eout = constraints.ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
         if self.rval is not None:
-            if vtypes[0].isObject:
-                decltype = objtypes.verifierToDeclType(vtypes[0])
-                self.rout = constraints.ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, decltype))
-            else:
-                self.rout = constraints.fromVariable(env, self.rval)
+            self.rout = constraints.fromVariable(env, self.rval)
 
     def propagateConstraints(self, *incons):
         if self.rval is None:

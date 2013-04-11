@@ -2,163 +2,136 @@ import collections, itertools
 
 #Define types for Inference
 nt = collections.namedtuple
-_prim_cat1t = nt('_prim_cat1t', ['type','isObject','cat2'])
-_prim_cat2t = nt('_prim_cat2t', ['type','isObject','cat2','top'])
-_address_t = nt('_prim_cat2t', ['type','isObject','cat2','entryPoint'])
-_obj_t = nt('_obj_t', ['isObject','cat2','isNull','isInit','origin','dim','baset'])
+fullinfo_t = nt('fullinfo_t', ['tag','dim','extra'])
 
-#override print functions
-_prim_cat1t.__str__ = lambda t: t.type or 'INVALID'
-_prim_cat2t.__str__ = lambda t: t.type if not t.top else '<top>'
-_address_t.__str__ = lambda t: 'addr<{}>'.format(t.entryPoint)
+#Differences from Hotspot with our tags:
+#BOGUS changed to None. Array omitted as it is unused. Void omitted as unecessary. Boolean added
+valid_tags = ['.'+x for x in 'int float double double2 long long2 obj new init address byte short char boolean'.split()]
+valid_tags = frozenset([None] + valid_tags)
 
-def _printObjectType(t):
-    if t.isNull:
-        return '<null>'
-    if not t.isInit:
-        if t.origin is None:
-            return '<uninit this>'
-        else:
-            return '<uninit @{}>{}'.format(t.origin, t.baset)
-    if t.dim:
-        return t.baset.__str__() + '[]'
-    return t.baset
-_obj_t.__str__ = _printObjectType
+def _makeinfo(tag, dim=0, extra=None):
+    assert(tag in valid_tags)
+    return fullinfo_t(tag, dim, extra)
 
-def _makeprim(name, cat2):
-    if cat2: #cat2 types return a tuple of botType, topType
-        bot = _prim_cat2t(name, False, True, top=False)
-        top = _prim_cat2t(name, False, True, top=True)
-        return bot,top
-    else:
-        return _prim_cat1t(name, False, False)
 
-#singleton types
-T_INVALID = _makeprim(None, False)
-T_INT = _makeprim('int', False)
-T_FLOAT = _makeprim('float', False)
-T_LONG = _makeprim('long', True)        
-T_DOUBLE = _makeprim('double', True)
-T_NULL = _obj_t(True,False, isNull=True, isInit=True, origin=None, dim=0, baset=None)
+T_INVALID = _makeinfo(None)
+T_INT = _makeinfo('.int')
+T_FLOAT = _makeinfo('.float')
+T_DOUBLE = _makeinfo('.double')
+T_DOUBLE2 = _makeinfo('.double2') #Hotspot only uses these in locals, but we use them on the stack too to simplify things
+T_LONG = _makeinfo('.long')
+T_LONG2 = _makeinfo('.long2')
 
-#synthetic types - these are only used for the base types of arrays
-T_SHORT = _makeprim('short', False)
-T_CHAR = _makeprim('char', False)
-T_BYTE = _makeprim('byte', False)
-T_BOOL = _makeprim('bool', False)
+T_NULL = _makeinfo('.obj')
+T_UNINIT_THIS = _makeinfo('.init')
+
+T_BYTE = _makeinfo('.byte')
+T_SHORT = _makeinfo('.short')
+T_CHAR = _makeinfo('.char')
+T_BOOL = _makeinfo('.boolean') #Hotspot doesn't have a bool type, but we can use this elsewhere
+
+cat2tops = {T_LONG:T_LONG2, T_DOUBLE:T_DOUBLE2}
 
 #types with arguments
 def T_ADDRESS(entry):
-    return _address_t('address',False,False, entryPoint=entry)
+    return _makeinfo('.address', extra=entry)
 
 def T_OBJECT(name):
-    return _obj_t(True,False, isNull=False, isInit=True, origin=None, dim=0, baset=name)
+    return _makeinfo('.obj', extra=name)
 
 def T_ARRAY(baset, newDimensions=1):
-    assert(newDimensions >= 0) #internal assertion
-    assert(baset != T_INVALID)
-    while newDimensions:
-        baseDim = baset.dim if (baset != T_WILDCARD and baset.isObject) else 0
-        baset = _obj_t(True,False, isNull=False, isInit=True,
-                       origin=None, dim=baseDim+1, baset=baset)
-        newDimensions -= 1
-    return baset
+    assert(0 <= baset.dim <= 255-newDimensions)
+    return _makeinfo(baset.tag, baset.dim+newDimensions, baset.extra)
 
-def T_UNINIT_OBJECT(name, origin):
-    return _obj_t(True,False, isNull=False, isInit=False, origin=origin, dim=0, baset=name)
+def T_UNINIT_OBJECT(origin):
+    return _makeinfo('.new', extra=origin)
 
-def T_UNINIT_THIS(name):
-    return T_UNINIT_OBJECT(name, None)
+OBJECT_INFO = T_OBJECT('java/lang/Object')
+CLONE_INFO = T_OBJECT('java/lang/Cloneable')
+SERIAL_INFO = T_OBJECT('java/io/Serializable')
 
-#Only used for type checking patterns - should never acutally appear
-T_WILDCARD = None
-T_WILDCARD_ARRAY = T_ARRAY(T_WILDCARD)
+def objOrArray(fi): #False on uninitialized
+    return fi.tag == '.obj' or fi.dim > 0
 
 def unSynthesizeType(t):
     if t in (T_BOOL, T_BYTE, T_CHAR, T_SHORT):
         return T_INT
     return t
 
+def decrementDim(fi):
+    if fi == T_NULL:
+        return T_NULL
+    assert(fi.dim)
+    
+    tag = unSynthesizeType(fi).tag if fi.dim <= 1 else fi.tag
+    return _makeinfo(tag, fi.dim-1, fi.extra)
+
+def withNoDimension(fi):
+    return _makeinfo(fi.tag, 0, fi.extra)
+
+def _decToObjArray(fi):
+    return fi if fi.tag == '.obj' else T_ARRAY(OBJECT_INFO, fi.dim-1)
+
+def _arrbase(fi):
+    return _makeinfo(fi.tag, 0, fi.extra)
+
 def mergeTypes(env, t1, t2, forAssignment=False):
     #Note: This function is intended to have the same results as the equivalent function in Hotspot's old inference verifier
-    #even though our implementation is completely different. Be careful when rearranging the steps.
     if t1 == t2:
         return t1
-    #Part of our wildcard array checking. Hotspot does things a little differently, since it uses a different set of verifier types
-    elif t2 == T_WILDCARD_ARRAY:
-        if forAssignment and t1.isObject and (t1.dim or t1.isNull):
-            return t2
+    #non objects must match exactly
+    if not objOrArray(t1) or not objOrArray(t2):
         return T_INVALID
-    elif t1.isObject and t2.isObject and t1.isInit and t2.isInit:
-        if t1.isNull:
-            return t2
-        if t2.isNull:
-            return t1
 
-        if t2 == T_OBJECT('java/lang/Object'):
-            return t2
-        elif t1 == T_OBJECT('java/lang/Object'):
-            #Hotspot's inference verifier allows (nonarray) objects to be assigned to interfaces
-            if forAssignment and t2.dim == 0 and 'INTERFACE' in env.getFlags(t2.baset):
-                return t2
-            return t1
+    if t1 == T_NULL:
+        return t2
+    elif t2 == T_NULL:
+        return t1
 
-        if t1.dim or t2.dim:
-            if t1.dim == t2.dim:
-                temp = mergeTypes(env, t1.baset, t2.baset, forAssignment)
-                return T_OBJECT('java/lang/Object') if temp is T_INVALID else T_ARRAY(temp) 
-            else:
-                if t1.dim > t2.dim:
-                    t1, t2 = t2, t1
-                temp = t1
-                while temp.dim and temp.baset.isObject:
-                    temp = temp.baset
-                if temp.baset in  ('java/lang/Cloneable','java/io/Serializable'):
-                    return t1
-                return T_ARRAY(T_OBJECT('java/lang/Object'), t1.dim)
-        else: #neither is an array, get first common superclass
-            if forAssignment and 'INTERFACE' in env.getFlags(t2.baset): 
-                return t2
-            hierarchy1 = env.getSupers(t1.baset)
-            hierarchy2 = env.getSupers(t2.baset)
-            matches = [x for x,y in zip(hierarchy1,hierarchy2) if x==y]
-            assert(matches[0] == 'java/lang/Object') #internal assertion
-            return T_OBJECT(matches[-1])        
-    return T_INVALID
+    if t1 == OBJECT_INFO or t2 == OBJECT_INFO:
+        if forAssignment and t2.dim == 0 and 'INTERFACE' in env.getFlags(t2.extra):
+            return t2 #Hack for interface assignment
+        return OBJECT_INFO
+
+    if t1.dim or t2.dim:
+        for x in (t1,t2):
+            if x in (CLONE_INFO,SERIAL_INFO):
+                return x
+        t1 = _decToObjArray(t1)
+        t2 = _decToObjArray(t2)
+
+        if t1.dim > t2.dim:
+            t1, t2 = t2, t1
+
+        if t1.dim == t2.dim:
+            res = mergeTypes(env, _arrbase(t1), _arrbase(t2), forAssignment)
+            return res if res == T_INVALID else _makeinfo('.obj', t1.dim, res.extra)
+        else: #t1.dim < t2.dim
+            return t1 if _arrbase(t1) in (CLONE_INFO,SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
+    else: #neither is array 
+        if 'INTERFACE' in env.getFlags(t2.extra):
+            return t2 if forAssignment else OBJECT_INFO
+
+        hierarchy1 = env.getSupers(t1.extra)
+        hierarchy2 = env.getSupers(t2.extra)
+        matches = [x for x,y in zip(hierarchy1,hierarchy2) if x==y]
+        assert(matches[0] == 'java/lang/Object') #internal assertion
+        return T_OBJECT(matches[-1])        
 
 def isAssignable(env, t1, t2):
     return mergeTypes(env, t1, t2, True) == t2
 
-def isAssignableSeq(env, seq1, seq2):
-    if (len(seq1) != len(seq2)):
-        return False
-    return all(isAssignable(env, t1, t2) for t1,t2 in zip(seq1, seq2))
-
-def mergeTypeSequences(env, seq1, seq2, lazyLength):
-    if lazyLength:
-        zipped = itertools.izip_longest(seq1, seq2, fillvalue=T_INVALID)
-        zipped = list(zipped)
+#Make verifier types printable for easy debugging
+def vt_toStr(self):
+    if self == T_INVALID:
+        return '.none'
+    elif self == T_NULL:
+        return '.null'
+    if self.tag == '.obj':
+        base = self.extra
+    elif self.extra is not None:
+        base = '{}<{}>'.format(self.tag, self.extra)
     else:
-        if (len(seq1) != len(seq2)):
-            return None
-        zipped = zip(seq1, seq2)
-    
-    merged = []
-    #We go until we find one that can't be assigned and then merge the rest
-    #Note that this is not the same as merging everything because isAssignable
-    #Allows objects to be assigned to interfaces
-    for val, target in zipped:
-        if isAssignable(env, val, target):
-            merged.append(target)
-        else:
-            break
-    i = len(merged)
-    if i < len(zipped):
-        merged.extend(mergeTypes(env, t1, t2) for t1,t2 in zipped[i:])
-    #now prune end of the list to (potentially) save space and time later
-    if lazyLength:
-        while merged and merged[-1] == T_INVALID:
-            merged.pop()
-    return tuple(merged)
-
-
+        base = self.tag
+    return base + '[]'*self.dim
+fullinfo_t.__str__ = fullinfo_t.__repr__ = vt_toStr

@@ -7,6 +7,10 @@ from . import ssa_jumps, ssa_ops
 from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
 
+from .. import opnames
+from ..verifier import verifier_types
+
+
 class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3
 
@@ -19,8 +23,7 @@ class SSA_Graph(object):
         inputTypes, returnTypes = parseUnboundMethodDescriptor(method.descriptor, self.class_.name, method.static)
 
         #entry point
-        # funcArgs = [self.makeVarFromVtype(vt) for vt in inputTypes if not (vt.cat2 and vt.top)]
-        funcArgs = map(self.makeVarFromVtype, inputTypes)
+        funcArgs = [self.makeVarFromVtype(vt, {}) for vt in inputTypes]
         funcInMonad = self.makeVariable(SSA_MONAD)
         entryslots = slots_t(monad=funcInMonad, locals=funcArgs, stack=[])
         self.inputArgs = [funcInMonad] + funcArgs
@@ -32,7 +35,7 @@ class SSA_Graph(object):
 
         #return 
         newmonad = self.makeVariable(SSA_MONAD)
-        newstack = map(self.makeVarFromVtype, returnTypes)[:1] #make sure not to include dummy if returning double/long
+        newstack = [self.makeVarFromVtype(vt, {}) for vt in returnTypes[:1]] #make sure not to include dummy if returning double/long
         returnb = BasicBlock(self.returnKey, lines=[], jump=ssa_jumps.Return(self, [newmonad] + newstack))
         returnb.inslots = slots_t(monad=newmonad, locals=[], stack=newstack)
         returnb.tempvars = []
@@ -278,6 +281,22 @@ class SSA_Graph(object):
                     for (child,t) in pruned:
                         for phi in child.phis:
                             phi.removeKey((block,t))
+
+        #Unreachable blocks may not automatically be removed bby jump.constraintJumps
+        #Because it only looks at its own params
+        badblocks = set(block for block in self.blocks if block.jump is None)
+        newbad = set()
+        while badblocks:
+            for block in self.blocks:
+                if block.jump is None:
+                    continue
+
+                badpairs = [(child,t) for child,t in block.jump.getSuccessorPairs() if child in badblocks]
+                block.jump = block.jump.reduceSuccessors(badpairs)
+                if block.jump is None:
+                    newbad.add(block)
+            badblocks, newbad = newbad, set()
+
         self.condenseBlocks()   
         self._conscheck()
 
@@ -462,14 +481,13 @@ class SSA_Graph(object):
         # var.name = args[0][0][0] + str(next(self.varnum))
         return var
 
-    def makeVarFromVtype(self, vtype):
+    def makeVarFromVtype(self, vtype, initMap):
+        vtype = initMap.get(vtype, vtype)
         type_ = verifierToSSAType(vtype)
         if type_ is not None:
             var = self.makeVariable(type_)
-            var.verifier_type = vtype
-            if vtype.isObject:
-                var.decltype = objtypes.verifierToDeclType(vtype)
-                # print var, var.decltype
+            if type_ == SSA_OBJECT:
+                var.decltype = objtypes.verifierToSynthetic(vtype)
             return var
         return None
 
@@ -493,7 +511,14 @@ def isTerminal(parent, block):
 def ssaFromVerified(code, iNodes):
     parent = SSA_Graph(code)
 
-    blocks = [blockmaker.fromInstruction(parent, iNode) for iNode in iNodes if iNode.visited]
+    initMap = {}
+    for node in iNodes:
+        if node.op == opnames.NEW:
+            initMap[node.push_type] = node.target_type
+    initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(code.class_.name)
+
+
+    blocks = [blockmaker.fromInstruction(parent, iNode, initMap) for iNode in iNodes if iNode.visited]
     blocks = [parent.entryBlock] + blocks + [parent.returnBlock, parent.rethrowBlock]
     blockDict = {b.key:b for b in blocks}
 
@@ -510,8 +535,9 @@ def ssaFromVerified(code, iNodes):
 
         #merge states from inodes to create out
         jsrslots = block.successorStates[target.key, False]
-        # retslots = retblock.successorStates[callop.iNode.returnPoint, False]
-        retslots = retblock.successorStates[block.key, False]
+
+        retslots = retblock.successorStates[callop.iNode.next_instruction, False]
+        del retblock.successorStates[callop.iNode.next_instruction, False]
 
         #Create new variables (will have origin set to callop in registerOuts)
         #Even for skip vars, we temporarily create a variable coming from the ret
@@ -529,10 +555,8 @@ def ssaFromVerified(code, iNodes):
         merged = [(x if i in mask else y) for i,(x,y) in enumerate(zipped)]
         merged_slots = slots_t(monad=newmonad, locals=merged, stack=newstack)
 
-        block.successorStates[callop.iNode.returnPoint, False] = merged_slots
-        del retblock.successorStates[block.key, False]
-        # del retblock.successorStates[callop.iNode.returnPoint, False]
-
+        block.successorStates[callop.iNode.next_instruction, False] = merged_slots
+        
         proc = procs[target.key]
         proc.callops[callop] = block 
         assert(proc.target == target.key and proc.retblock == retblock and proc.retop == retop)

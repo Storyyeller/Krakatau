@@ -2,7 +2,6 @@ import collections
 
 from .. import opnames as vops
 from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
-from ..verifier.inference_verifier import genericStackCodes
 from ssa_types import *
 import ssa_ops, ssa_jumps
 import objtypes #for LDC
@@ -201,10 +200,10 @@ def _invoke(parent, input_, iNode):
     splitInd = len(input_.stack) - argcnt
 
     #If we are an initializer, store a copy of the uninitialized verifier type so the Java decompiler can patch things up later
-    unvt = iNode.stack[-argcnt] if iNode.instruction[0] == 'invokeinit' else None
+    isThisCtor = iNode.isThisCtor if iNode.op == vops.INVOKEINIT else False
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
-    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad, verifier_type=unvt)
+    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad, isThisCtor=isThisCtor)
     newstack = input_.stack[:splitInd] + line.returned
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
@@ -290,12 +289,7 @@ def _new(parent, input_, iNode):
     index = iNode.instruction[1]
     classname = parent.getConstPoolArgs(index)[0]
 
-    #Ugly hack
-    stack, locals_, masks, flags = iNode._getNewState()
-    verifier_type = stack[-1]
-    assert(not verifier_type.isInit)
-
-    line = ssa_ops.New(parent, classname, input_.monad, verifier_type)
+    line = ssa_ops.New(parent, classname, input_.monad)
     newstack = input_.stack + [line.rval]
     return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
 
@@ -338,7 +332,7 @@ def _store(parent, input_, iNode):
     return makeDict(newstack=newstack, newlocals=newlocals)
 
 def _switch(parent, input_, iNode):
-    junk, default, table = iNode.instruction
+    default, table = iNode.instruction[1:3]
     jump = ssa_jumps.Switch(parent, default, table, input_.stack[-1:])
     newstack = input_.stack[:-1]
     return makeDict(jump=jump, newstack=newstack)
@@ -413,6 +407,16 @@ _instructionHandlers = {
                         vops.XOR: _intMath(ssa_ops.IXor, isShift=False),
                         }
 
+def genericStackUpdate(parent, input_, iNode):
+    b = iNode.before.replace('+','')
+    a = iNode.after
+    assert(b and set(b+a) <= set('1234'))
+
+    replace = {c:v for c,v in zip(b, input_.stack[-len(b):])}
+    newstack = input_.stack[:-len(b)]
+    newstack += [replace[c] for c in a]
+    return makeDict(newstack=newstack)
+
 def getOnNoExceptionTarget(parent, iNode):
     vop = iNode.instruction[0]
     if vop == vops.RETURN:
@@ -421,20 +425,20 @@ def getOnNoExceptionTarget(parent, iNode):
         return iNode.successors[0]
     return None
 
-def fromInstruction(parent, iNode):
+def fromInstruction(parent, iNode, initMap):
     assert(iNode.visited)
     instr = iNode.instruction
 
     monad = parent.makeVariable(SSA_MONAD)
-    stack = map(parent.makeVarFromVtype, iNode.stack)
-    locals_ = map(parent.makeVarFromVtype, iNode.locals)
+    stack = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.stack]
+    locals_ = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.locals]
     inslots = slots_t(monad=monad, locals=locals_, stack=stack)
 
-    if instr[0] in genericStackCodes:
-        vals = _genericStackOperation(instr[0], stack)
+    if iNode.before is not None and '1' in iNode.before:
+        func = genericStackUpdate
     else:
         func = _instructionHandlers[instr[0]]
-        vals = func(parent, inslots, iNode)
+    vals = func(parent, inslots, iNode)
 
     line, jump = map(vals.get, ('line','jump'))
     newstack = vals.get('newstack', stack)
@@ -448,9 +452,6 @@ def fromInstruction(parent, iNode):
     #Return iNodes obviously don't have our synethetic return node as a normal successor
     if instr[0] == vops.RETURN:
         successorStates.append(((parent.returnKey, False), outslot_norm))
-    elif instr[0] == vops.RET: #temporarily store these fake successors. Will be fixed later
-        assert(not successorStates)
-        successorStates = [((nodekey, False), outslot_norm) for nodekey in iNode.jsrSources]
 
     if line and line.outException:
         assert(not jump)

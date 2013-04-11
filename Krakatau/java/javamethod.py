@@ -5,6 +5,7 @@ from ..ssa import objtypes
 from .. import graph_util
 from ..namegen import NameGen, LabelGen
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
+from .. import opnames
 
 from . import ast, ast2, preprocess, boolize
 from .reserved import reserved_identifiers
@@ -62,13 +63,13 @@ def convertJExpr(self, op, info):
     elif isinstance(op, ssa_ops.FieldAccess):
         dtype = objtypes.verifierToSynthetic(parseFieldDescriptor(op.desc, unsynthesize=False)[0])
 
-        if 'static' in op.instruction[0]:
+        if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
             tt = op.target, 0
             expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype)
         else:
             expr = ast.FieldAccess(params[0], op.name, dtype)
 
-        if 'put' in op.instruction[0]:
+        if op.instruction[0] in (opnames.PUTFIELD, opnames.PUTSTATIC):
             expr = ast.Assignment(expr, params[-1])
 
     elif isinstance(op, ssa_ops.FNeg):
@@ -78,14 +79,13 @@ def convertJExpr(self, op, info):
         expr = ast.BinaryInfix('instanceof', args, dtype=objtypes.BoolTT)
     elif isinstance(op, ssa_ops.Invoke):            
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
-        vtypes = [vt for vt in vtypes if not (vt.cat2 and vt.top)]
         tt_types = objtypes.verifierToSynthetic_seq(vtypes)
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None 
 
-        if op.instruction[0] == 'invokeinit' and op.uninit_verifier_type.origin is None:
+        if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
             name = 'this' if (op.target == self.method.class_.name) else 'super'
             expr = ast.MethodInvocation(None, name, tt_types, params[1:], op, ret_type)
-        elif op.instruction[0] == 'invokestatic': #TODO - fix this for special super calls
+        elif op.instruction[0] == opnames.INVOKESTATIC: #TODO - fix this for special super calls
             tt = op.target, 0
             expr = ast.MethodInvocation(ast.TypeName(tt), op.name, [None]+tt_types, params, op, ret_type)
         else:

@@ -18,10 +18,12 @@ SSA_MONAD = 'monad',
 
 def verifierToSSAType(vtype):
     vtype_dict = {vtypes.T_INT:SSA_INT, 
-                vtypes.T_LONG[0]:SSA_LONG, 
+                vtypes.T_LONG:SSA_LONG, 
                 vtypes.T_FLOAT:SSA_FLOAT, 
-                vtypes.T_DOUBLE[0]:SSA_DOUBLE}
-    if vtype.isObject:
+                vtypes.T_DOUBLE:SSA_DOUBLE}
+    #These should never be passed in here
+    assert(vtype.tag not in ('.new','.init'))
+    if vtypes.objOrArray(vtype):
         return SSA_OBJECT
     elif vtype in vtype_dict:
         return vtype_dict[vtype]
@@ -34,7 +36,6 @@ class Variable(object):
         self.name = name
         self.const = None 
         self.decltype = None #for objects, the inferred type from the verifier if any
-        self.verifier_type = None
 
     #for debugging
     def __str__(self):

@@ -18,7 +18,7 @@ class Cache(object):
 
     def _cache_info(self, class_):
         assert(class_.name not in self.data)
-        newvals = class_.getSuperclassHierachy(), class_.flags 
+        newvals = class_.getSuperclassHierarchy(), class_.flags 
         self.data[class_.name] = newvals 
         writedata = ';'.join(','.join(x) for x in newvals)
         with open(self.filename, 'ab') as f:
@@ -37,7 +37,7 @@ class Cache(object):
         class_ = self.env.getClass(name)
         if self.shouldCache(name):
             self._cache_info(class_)
-        return class_.getSuperclassHierachy()
+        return class_.getSuperclassHierarchy()
 
     def flags(self, name):
         if name in self.data:

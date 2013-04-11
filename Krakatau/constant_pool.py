@@ -100,6 +100,8 @@ class ConstPool(object):
                     val = decodeStr(val)
                 self.pool.append((t.name, val))
 
+    def size(self): #Number of slots including gaps, not number of entries
+        return len(self.pool)
     def getPoolIter(self):
         return (x for x in self.pool if x[0] is not None)
     def getEnumeratePoolIter(self):
@@ -172,7 +174,8 @@ class ConstPool(object):
         return t.recoverArgs(self, val)
 
     def getArgsCheck(self, typen, index):
-        assert(self.pool[index][0] == typen)
+        if (self.pool[index][0] != typen):
+            raise KeyError('Constant pool index {} has incorrect type {}'.format(index, typen))
         val = self.getArgs(index)
         return val if len(val) > 1 else val[0]
 

@@ -1,7 +1,7 @@
 from ..verifier import verifier_types as vtypes
 
 #types are represented by classname, dimension
-#primative types are <int>, etc since these cannot be valid classnames
+#primative types are .int, etc since these cannot be valid classnames since periods are forbidden
 NullTT = '.null', 0
 ObjectTT = 'java/lang/Object', 0
 StringTT = 'java/lang/String', 0
@@ -58,38 +58,33 @@ def commonSupertype(env, tts):
     return common[-1][0], dim
 
 ######################################################################################################
-_verifierPrims = {vtypes.T_INT:'.int', vtypes.T_FLOAT:'.float', vtypes.T_LONG[0]:'.long',
-        vtypes.T_DOUBLE[0]:'.double', vtypes.T_SHORT:'.short', vtypes.T_CHAR:'.char',
-        vtypes.T_BYTE:'.byte', vtypes.T_BOOL:'.boolean'}
+_verifierConvert = {vtypes.T_INT:IntTT, vtypes.T_FLOAT:FloatTT, vtypes.T_LONG:LongTT,
+        vtypes.T_DOUBLE:DoubleTT, vtypes.T_SHORT:ShortTT, vtypes.T_CHAR:CharTT,
+        vtypes.T_BYTE:ByteTT, vtypes.T_BOOL:BoolTT, vtypes.T_NULL:NullTT, 
+        vtypes.OBJECT_INFO:ObjectTT}
 
 def verifierToSynthetic_seq(vtypes):
-    return [verifierToSynthetic(vtype) for vtype in vtypes if not (vtype.cat2 and vtype.top)]
+    return [verifierToSynthetic(vtype) for vtype in vtypes if not (vtype.tag and vtype.tag.endswith('2'))]
 
 def verifierToSynthetic(vtype):
-    if vtype in _verifierPrims:
-        return _verifierPrims[vtype], 0
-    return verifierToDeclType(vtype)
+    assert(vtype.tag not in (None, '.address', '.double2', '.long2', '.new', '.init'))
 
-def verifierToDeclType(vtype):
-    assert(vtype.isObject)
-    if vtype.isNull:
-        return ('.null', 0)
+    if vtype in _verifierConvert:
+        return _verifierConvert[vtype]
 
-    dim = vtype.dim
-    while vtype.isObject and vtype.dim:
-        vtype = vtype.baset
+    base = vtypes.withNoDimension(vtype)
+    if base in _verifierConvert:
+        return _verifierConvert[base][0], vtype.dim
 
-    basename = _verifierPrims[vtype] if vtype in _verifierPrims else vtype.baset
-    assert(basename.lower)
-    return (basename, dim)
+    return vtype.extra, vtype.dim
 
 #returns supers, exacts
 def declTypeToActual(env, decltype):
     name, dim = decltype 
 
     #Verifier treats bool[]s and byte[]s as interchangeable, so it could really be either
-    if dim and (name == '.boolean' or name == '.byte'):
-        return [], [('.byte', dim), ('.boolean', dim)]
+    if dim and (name == ByteTT[0] or name == BoolTT[0]):
+        return [], [(ByteTT[0], dim), (BoolTT[0], dim)]
     elif name[0] == '.': #primative types can't be subclassed anyway
         return [], [decltype]
     #Verifier doesn't fully verify interfaces so they could be anything

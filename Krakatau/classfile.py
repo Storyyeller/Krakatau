@@ -99,11 +99,11 @@ class ClassFile(object):
             # since it must have been loaded successfully on a previous run 
             if not self.env.isCached(self.supername):
                 self.env.getClass(self.supername, subclasses + (name,))
-            self.hierachy = self.env.getSupers(self.supername) + (self.name,)         
+            self.hierarchy = self.env.getSupers(self.supername) + (self.name,)         
         else:
             assert(name == 'java/lang/Object')
             self.supername = None
-            self.hierachy = (self.name,)
+            self.hierarchy = (self.name,)
 
-    def getSuperclassHierachy(self):
-        return self.hierachy
+    def getSuperclassHierarchy(self):
+        return self.hierarchy

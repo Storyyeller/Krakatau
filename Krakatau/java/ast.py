@@ -15,9 +15,10 @@ class VariableDeclarator(object):
 class JavaStatement(object):
     def getScopes(self): return []
 
-    def addCasts(self, env):
+    def addCastsAndParens(self, env):
         if getattr(self, 'expr', None) is not None:
             self.expr.addCasts(env)
+            self.expr.addParens()
 
 class ExpressionStatement(JavaStatement):
     def __init__(self, expr):
@@ -35,9 +36,10 @@ class LocalDeclarationStatement(JavaStatement):
             return '{} = {};'.format(self.decl.print_(), self.expr.print_())
         return self.decl.print_() + ';'
 
-    def addCasts(self, env):
+    def addCastsAndParens(self, env):
         if self.expr is not None:
             self.expr.addCasts(env)
+            self.expr.addParens()
             if not isJavaAssignable(env, self.expr.dtype, self.decl.typename.tt):
                 self.expr = makeCastExpr(self.decl.typename.tt, self.expr)
 
@@ -48,9 +50,10 @@ class ReturnStatement(JavaStatement):
 
     def print_(self): return 'return {};'.format(self.expr.print_()) if self.expr is not None else 'return;'
 
-    def addCasts(self, env):
+    def addCastsAndParens(self, env):
         if self.expr is not None:
             self.expr.addCasts(env)
+            self.expr.addParens()
             if not isJavaAssignable(env, self.expr.dtype, self.tt):
                 self.expr = makeCastExpr(self.tt, self.expr)
 
@@ -276,7 +279,8 @@ class JavaExpression(object):
     def addParens(self):
         for param in self.subExprs():
             param.addParens()      
-        self.params = list(self.params) #make it easy for children to edit  
+        if hasattr(self, 'params'):
+            self.params = list(self.params) #make it easy for children to edit  
         self.addParens_sub()
 
     def addParens_sub(self): pass
@@ -489,13 +493,14 @@ class MethodInvocation(JavaExpression):
         self.params = newparams
 
     def addParens_sub(self):
-        p0 = self.params[0]
-        if p0.precedence > 0:
-            self.params[0] = Parenthesis(p0)
+        if self.hasLeft:
+            p0 = self.params[0]
+            if p0.precedence > 0:
+                self.params[0] = Parenthesis(p0)
 
 class Parenthesis(JavaExpression):
     def __init__(self, param):
-        self.dtype = param.tt
+        self.dtype = param.dtype
         self.params = param,
         self.fmt = '({})'
 

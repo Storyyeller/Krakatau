@@ -663,11 +663,11 @@ class MethodDecompiler(object):
             newitems.append(item)
         scope.statements = newitems        
 
-    def _addCasts(self, scope):
+    def _addCastsAndParens(self, scope):
         for item in scope.statements:
             for subscope in item.getScopes():
-                self._addCasts(subscope)
-            item.addCasts(self.env)
+                self._addCastsAndParens(subscope)
+            item.addCastsAndParens(self.env)
 
     def _fixObjectCreations(self, scope, copyset_stack=(), copyset={}):
         '''Combines new/invokeinit pairs into Java constructor calls'''
@@ -837,7 +837,7 @@ class MethodDecompiler(object):
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)
             self._fixExprStatements(ast_root)
-            self._addCasts(ast_root)
+            self._addCastsAndParens(ast_root)
             # self._createTernaries(ast_root)
             # self._simplifyBlocks(ast_root)
 

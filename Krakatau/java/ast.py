@@ -91,6 +91,13 @@ class LazyLabelBase(JavaStatement):
 
     def getLabelPrefix(self): return '' if self.label is None else self.label + ': '
 
+    #For debugging
+    def __str__(self):
+        if isinstance(self, StatementBlock):
+            return 'Sb'+str(self.id)
+        return type(self).__name__[:3] + str(self.getScopes()[0].id)
+    __repr__ = __str__
+
 class TryStatement(LazyLabelBase):
     def __init__(self, labelfunc):
         super(TryStatement, self).__init__(labelfunc)
@@ -101,9 +108,6 @@ class TryStatement(LazyLabelBase):
     def print_(self): 
         parts = [x.print_() for x in self.parts]
         return '{}try\n{}\ncatch({})\n{}'.format(self.getLabelPrefix(), *parts)
-
-    # def __str__(self): return 'Try'+str(self.parts[0].id)
-    # __repr__ = __str__
 
 class IfStatement(LazyLabelBase):
     def __init__(self, labelfunc, expr):
@@ -120,9 +124,6 @@ class IfStatement(LazyLabelBase):
         if len(self.scopes) == 1:
             return '{}if({})\n{}'.format(self.getLabelPrefix(), *parts) 
         return '{}if({})\n{}\nelse\n{}'.format(self.getLabelPrefix(), *parts)
-
-    # def __str__(self): return 'If'+str(self.scopes[0].id)
-    # __repr__ = __str__
 
 class SwitchStatement(LazyLabelBase):
     def __init__(self, labelfunc, expr):
@@ -159,16 +160,13 @@ class WhileStatement(LazyLabelBase):
         parts = [x.print_() for x in self.parts]
         return '{}while(true)\n{}'.format(self.getLabelPrefix(), *parts)
 
-    # def __str__(self): return 'Wh'+str(self.parts[0].id)
-    # __repr__ = __str__
-
-# sbcount = itertools.count()
+sbcount = itertools.count()
 class StatementBlock(LazyLabelBase):
     def __init__(self, labelfunc):
         super(StatementBlock, self).__init__(labelfunc)
         self.jump = None
         self.parent = None #should be assigned later
-        # self.id = next(sbcount) #For debugging purposes
+        self.id = next(sbcount) #For debugging purposes
 
     def setBreak(self, val):
         if self.jump is not None:
@@ -197,9 +195,6 @@ class StatementBlock(LazyLabelBase):
             return None
         common = [x for x in zip(*blists) if len(set(x)) == 1]
         return common[-1][0]
-
-    # def __str__(self): return 'Sb'+str(self.id)
-    # __repr__ = __str__
 
 #Temporary hack
 class StringStatement(JavaStatement):

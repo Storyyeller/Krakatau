@@ -221,11 +221,11 @@ class InstructionNode(object):
                 if isinternal: #I don't think this is actually reachable in Hotspot due to earlier checks
                     self.error('Attempt to call internal method')
                 if op == opnames.INVOKESPECIAL:
-                    if classz.extra not in self.class_getSuperclassHierarchy():
+                    if classz.extra not in self.class_.getSuperclassHierarchy():
                         self.error('Illegal use of invokespecial on nonsuperclass')
             if op == opnames.INVOKEINTERFACE:
-                parsed_desc = _loadMethodDesc(self.cpool, ind)
-                if parsed_desc is None or len(parsed_desc) != self.instruction[2]:
+                parsed_desc = _loadMethodDesc(self.cpool, ind)[0]
+                if parsed_desc is None or len(parsed_desc)+1 != self.instruction[2]:
                     self.error('Argument count mismatch in invokeinterface')
             if op in (opnames.INVOKEINTERFACE, opnames.INVOKEDYNAMIC):
                 if self.instruction[3] != 0:
@@ -472,6 +472,8 @@ class InstructionNode(object):
                     if ci and scode[ci-1] == '+':
                         swap[char] = top
                         swap[scode[ci-2]] = stack[si-1]
+                        ci -= 2 #skip + and bottom half
+                        si -= 1
                     else:
                         self.error('Attempting to split double or long on the stack')
                 else:
@@ -480,7 +482,7 @@ class InstructionNode(object):
                         ci -= 1 #skip +
 
         #part3, check objects
-        assert(stack[:si] == self.stack[:si]) #popped may differ due to putfield on uninit's editing of the stack
+        assert(si == 0 or stack[:si] == self.stack[:si]) #popped may differ due to putfield on uninit's editing of the stack
         stack, popped = stack[:si], stack[si:]
 
         if op == opnames.ARRSTORE_OBJ:
@@ -719,7 +721,7 @@ class InstructionNode(object):
 
         if not other.visited:
             other.stack, other.locals, other.masks, other.flags = newstack, newlocals, newmasks, newflags
-            other.visited, other.changed = True, True
+            other.visited = other.changed = True
         else:
             #Merge stack
             oldstack = other.stack
@@ -732,12 +734,18 @@ class InstructionNode(object):
                     other.error('Incompatible types in merged stack')
 
             #Merge locals
+            if len(newlocals) < len(other.locals):
+                other.locals = other.locals[:len(newlocals)]
+
             zipped = list(itertools.izip_longest(newlocals, other.locals, fillvalue=T_INVALID))
             okcount = 0
             for x,y in zipped:
                 if isAssignable(self.env, x, y):
                     okcount += 1
-            if okcount < min(len(other.locals), len(newlocals)):
+                else:
+                    break
+
+            if okcount < len(other.locals):
                 merged = list(other.locals[:okcount])
                 merged += [mergeTypes(self.env, new, old) for new,old in zipped[okcount:]]
                 while merged and merged[-1] == T_INVALID:

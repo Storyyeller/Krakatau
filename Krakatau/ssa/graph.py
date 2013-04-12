@@ -511,12 +511,12 @@ def isTerminal(parent, block):
 def ssaFromVerified(code, iNodes):
     parent = SSA_Graph(code)
 
+    #create map of uninitialized -> initialized types so we can convert them
     initMap = {}
     for node in iNodes:
         if node.op == opnames.NEW:
             initMap[node.push_type] = node.target_type
     initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(code.class_.name)
-
 
     blocks = [blockmaker.fromInstruction(parent, iNode, initMap) for iNode in iNodes if iNode.visited]
     blocks = [parent.entryBlock] + blocks + [parent.returnBlock, parent.rethrowBlock]

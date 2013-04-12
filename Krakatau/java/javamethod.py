@@ -673,55 +673,61 @@ class MethodDecompiler(object):
         '''Combines new/invokeinit pairs into Java constructor calls'''
 
         # There are two main data structures used in this function
+
         # Copyset: dict(var -> tuple(var)) gives the variables that a 
         # given new object has been assigned to. Copysets are copied on
-        # modification, so can freely be shared 
-        # Copyset Stack: tuple(item -> tuple(copyset)) gives for each
-        # scope-containing item, the list of all copysets representing 
-        # paths of execution which jump to after that item. These 
-        # copysets must be intersected to find the copyset following the
-        # item.
+        # modification, so can freely be shared. 
+        # Intersection identity (universe) represented by None
 
-        def join(seqs):
-            return tuple(itertools.chain.from_iterable(seqs))
+        # Copyset Stack: tuple(item -> copyset) gives for each
+        # scope-containing item, the intersection of all copysets 
+        # representing paths of execution which jump to after that item. 
+        # None if no paths jump to that item
 
-        def mergeCopyset(csets1, csets2):
+        def mergeCopysets(csets1, csets2):
+            if csets1 is None:
+                return csets2
+            elif csets2 is None:
+                return csets1
+
             keys = [k for k in csets1 if k in csets2]
             return {k:tuple(x for x in csets1[k] if x in csets2[k]) for k in keys}
+
+        def mergeCopysetList(csets):
+            #Can't just pass None as initializer since reduce treats it as the default value
+            return reduce(mergeCopysets, csets) if csets else None
 
         newitems = []
         for item in scope.statements:
             remove = False
 
             if item.getScopes():
-                newstack = copyset_stack + ((item,()),)
+                newstack = copyset_stack + ((item,None),)
                 items = zip(*newstack)[0]
 
                 #Check if item may not be executed (eg. if with no else)
                 mayskip = isinstance(item, ast.IfStatement) and len(item.getScopes()) < 2
                 mayskip = mayskip or isinstance(item, ast.SwitchStatement) and None not in zip(*item.pairs)[0]
+                oldcopyset = copyset
 
                 #TODO - make sure this works correctly with Switch statements with fallthrough
                 returned_stacks = [self._fixObjectCreations(sub, newstack, copyset) for sub in item.getScopes()]
                 assert(returned_stacks[0])
                 assert(zip(*returned_stacks[0])[0] == items)
 
-                copyset_lists = [zip(*stack)[1] for stack in returned_stacks]
-                copyset_lists = zip(*copyset_lists)
-                joins = map(join, copyset_lists)
+                csetonly_stacks = [zip(*stack)[1] for stack in returned_stacks]
+                copyset_lists = zip(*csetonly_stacks)
+                joins = map(mergeCopysetList, copyset_lists)
                 assert(len(joins) == len(items))
                 merged_stack = zip(items, joins)
 
-                copyset_parts = merged_stack.pop()[1]
-                if mayskip:
-                    copyset_parts += copyset,
+                copyset = merged_stack.pop()[1]
                 copyset_stack = tuple(merged_stack)
-
-                if copyset_parts:
-                    copyset = reduce(mergeCopyset, copyset_parts)
-                else: #In this case, every one of the subscopes breaks, meaning that whatever follows this item is unreachable
+                if mayskip:
+                    copyset = mergeCopysets(copyset, oldcopyset)
+                
+                if copyset is None: #In this case, every one of the subscopes breaks, meaning that whatever follows this item is unreachable
                     assert(item is scope.statements[-1])
-                    copyset = None
 
             #Nothing after this is reachable
             #Todo - add handling for merging across a thrown exception
@@ -779,8 +785,11 @@ class MethodDecompiler(object):
             else:
                 target = scope.jump[0] if not scope.jump[1] else None
 
-            oursets = (copyset,) if copyset is not None else ()
-            copyset_stack = tuple(((t[0],t[1]+oursets) if t[0] is target else t) for t in copyset_stack)
+            if target is not None:
+                keys = zip(*copyset_stack)[0]
+                ind = keys.index(target)
+                new_pair = target, mergeCopysets(copyset_stack[ind][1], copyset)
+                copyset_stack = copyset_stack[:ind] + (new_pair,) + copyset_stack[ind+1:]
             return copyset_stack
 
     def _pruneVoidReturn(self, scope):
@@ -833,6 +842,7 @@ class MethodDecompiler(object):
             self._mergeVariables(ast_root, argsources)
             self._createTernaries(ast_root)
             self._simplifyBlocks(ast_root)
+
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)

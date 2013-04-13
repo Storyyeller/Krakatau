@@ -686,7 +686,9 @@ class InstructionNode(object):
     def _mergeSingleSuccessor(self, other, newstate, iNodes, isException):
         newstack, newlocals, newmasks, newflags = newstate
         if self.op in (opnames.RET, opnames.JSR):
-            #Note: This will cause an error later as INVALID is not allowed on the stack
+            # Note: In most cases, this will cause an error later
+            # as INVALID is not allowed on the stack after merging
+            # but if the stack is never merged afterwards, it's ok 
             newstack = tuple((T_INVALID if x.tag == '.new' else x) for x in newstack)
             newlocals = tuple((T_INVALID if x.tag == '.new' else x) for x in newlocals)
 
@@ -715,10 +717,6 @@ class InstructionNode(object):
             else:
                 return
 
-        assert(T_INVALID not in newstack)
-        if other.op == opnames.THROW:
-            assert(len(newstack)>0)
-
         if not other.visited:
             other.stack, other.locals, other.masks, other.flags = newstack, newlocals, newmasks, newflags
             other.visited = other.changed = True
@@ -736,6 +734,7 @@ class InstructionNode(object):
             #Merge locals
             if len(newlocals) < len(other.locals):
                 other.locals = other.locals[:len(newlocals)]
+                other.changed = True
 
             zipped = list(itertools.izip_longest(newlocals, other.locals, fillvalue=T_INVALID))
             okcount = 0

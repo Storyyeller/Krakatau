@@ -30,6 +30,8 @@ def verifierToSSAType(vtype):
     return None
 
 class Variable(object):
+    __slots__ = 'type','origin','name','const','decltype'
+
     def __init__(self, type_, origin=None, name=""):
         self.type = type_
         self.origin = origin

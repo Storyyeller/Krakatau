@@ -15,6 +15,7 @@ class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3
 
     def __init__(self, code):
+        self._interns = {} #used during initial graph creation to intern variable types
         self.code = code
         self.class_ = code.class_
         self.env = self.class_.env
@@ -475,10 +476,12 @@ class SSA_Graph(object):
         self._conscheck()
     ##########################################################################
 
-    varnum = itertools.count() #assign variable names for debugging
+    #assign variable names for debugging
+    varnum = collections.defaultdict(itertools.count) 
     def makeVariable(self, *args, **kwargs):
         var = Variable(*args, **kwargs)
-        # var.name = args[0][0][0] + str(next(self.varnum))
+        pref = args[0][0][0]
+        # var.name = pref + str(next(self.varnum[pref]))
         return var
 
     def makeVarFromVtype(self, vtype, initMap):
@@ -487,9 +490,21 @@ class SSA_Graph(object):
         if type_ is not None:
             var = self.makeVariable(type_)
             if type_ == SSA_OBJECT:
-                var.decltype = objtypes.verifierToSynthetic(vtype)
+                # Intern the variable object types to save a little memory
+                # in the case of excessively long methods with large numbers
+                # of identical variables, such as sun/util/resources/TimeZoneNames_*
+                tt = objtypes.verifierToSynthetic(vtype)
+                var.decltype = self._interned(tt)
             return var
         return None
+
+    def _interned(self, x):
+        try:
+            return self._interns[x]
+        except KeyError:
+            if len(self._interns) < 256: #arbitrary limit
+                self._interns[x] = x
+            return x 
 
     def getConstPoolArgs(self, index):
         return self.class_.cpool.getArgs(index)
@@ -605,7 +620,8 @@ def ssaFromVerified(code, iNodes):
             if v is not None:
                 v.origin = makePhiFromODict(parent, v, block.sourceStates, (lambda i: i.locals[k]))
                 assert(v.origin.rval is v)
-        # del block.sourceStates, block.inslots
+
+        del block.sourceStates, block.inslots
         phivars = [ins.monad] + ins.stack + ins.locals
         block.phis = [var.origin for var in phivars if var is not None]
 
@@ -637,5 +653,6 @@ def ssaFromVerified(code, iNodes):
         block.jump = block.jump.reduceSuccessors([])
     parent.blocks = blocks
     
+    del parent._interns #no new variables should be created from vtypes after this point. Might as well free it
     parent._conscheck()
     return parent

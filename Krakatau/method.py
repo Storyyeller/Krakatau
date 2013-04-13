@@ -108,3 +108,6 @@ class Method(object):
             code_raw = code_attrs[0][1]
             bytestream = binUnpacker.binUnpacker(code_raw)
             self.code = Code(self, bytestream)
+
+
+

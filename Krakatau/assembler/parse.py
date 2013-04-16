@@ -1,4 +1,3 @@
-from ply import yacc
 import ast, struct
 import itertools
 
@@ -548,4 +547,5 @@ def p_error(p):
         tok = yacc.token()
 
 def makeParser(**kwargs):
+    from ply import yacc
     return yacc.yacc(**kwargs)

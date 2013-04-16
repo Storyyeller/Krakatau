@@ -1,4 +1,3 @@
-from ply import lex
 import ast
 
 from ..classfile import ClassFile
@@ -137,4 +136,5 @@ def t_error(t):
     print t.value[:79]
 
 def makeLexer(**kwargs):
+    from ply import lex
     return lex.lex(**kwargs)

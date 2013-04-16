@@ -135,7 +135,4 @@ def processGraph(graph, iterlimit=5):
             if node.itercount < iterlimit:
                 changed = node.update()
                 if changed:
-                    # print 'Changed uses: ', [use.root for use in node.uses]
                     worklist.extend(use for use in node.uses if use in scc and use not in worklist)
-            else:
-                print 'Warning, iter limit exceeded!'

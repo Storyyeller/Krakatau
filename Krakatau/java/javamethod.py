@@ -390,12 +390,12 @@ class MethodDecompiler(object):
         if len(item.scopes) > 1:
             #if true block is empty, swap it with false so we can remove it
             tblock, fblock = item.scopes
+
             if not tblock.statements and tblock.jump == None:
-            # if not tblock.statements and tblock.jump == (item, False):
                 item.expr = self._reverseBoolExpr(item.expr)
                 item.scopes = fblock, tblock
+
             if not item.scopes[-1].statements and item.scopes[-1].jump == None:
-            # if not item.scopes[-1].statements and item.scopes[-1].jump == (item, False):
                 item.scopes = item.scopes[:-1]
         return item
 
@@ -411,15 +411,18 @@ class MethodDecompiler(object):
                 item = self._pruneIfElse_cb(item)
 
             if isinstance(item, ast.StatementBlock):
-                if item.jump:
+                if item.jump is not None:
+                    #If item jumps to immediately after item, change it to fallthrough
                     if item.jump[0] == item:
+                        assert(not item.jump[1]) #can only happen if item is a while loop
                         item.setBreak(None)
                     elif item is scope.statements[-1] and not item.Sources():
                         assert(scope.jump is None)
                         scope.setBreak(item.jump)
                         item.setBreak(None)
 
-                if not item.jump and not item.Sources():
+                #Inline the block if possible
+                if item.jump is None and not item.Sources():
                     newitems.extend(item.statements)
                     continue
             newitems.append(item)
@@ -579,14 +582,15 @@ class MethodDecompiler(object):
             elif target == other:
                 scope.jump = (None, scope.jump[1])
 
-        for item in scope.statements:
+        for i,item in enumerate(scope.statements):
             newbreak = item if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)) else breakTarget
             newcontinue = item if isinstance(item, ast.WhileStatement) else continueTarget
+            islast = (i == len(scope.statements)-1)
 
             if scope.jump is not None:
                 newft = orig_jump,
             else:
-                newft = fallthroughs if item is scope.statements[-1] else ()
+                newft = fallthroughs if islast else ()
                 if isinstance(item, (ast.TryStatement, ast.IfStatement)):
                     newft += (item, False),
                 elif isinstance(item, ast.WhileStatement):
@@ -775,13 +779,16 @@ class MethodDecompiler(object):
 
                     copyset = dict(kv for kv in copyset.items() if kv not in hits)
                     remove = True
-            if not remove:
+            if  not remove:
                 newitems.append(item)
 
         scope.statements = newitems 
         if copyset_stack: #if it is empty, we are at the root level and can't return anything
             if scope.jump is None:
                 target = copyset_stack[-1][0]
+                #In this case, the fallthrough goes back to the beginning of the loop, not after it
+                if isinstance(target, ast.WhileStatement):
+                    target = None
             else:
                 target = scope.jump[0] if not scope.jump[1] else None
 

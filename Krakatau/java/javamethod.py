@@ -108,7 +108,10 @@ def convertJExpr(self, op, info):
         expr = ast.Assignment(getExpr(op.rval), expr)
     
     if expr is None: #Temporary hack to show what's missing
-        return ast.StringStatement('//' + type(op).__name__)
+        if isinstance(op, ssa_ops.TryReturn):
+            return None #Don't print out anything
+        else:
+            return ast.StringStatement('//' + type(op).__name__)
     return ast.ExpressionStatement(expr)
 
 _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
@@ -220,6 +223,7 @@ class MethodDecompiler(object):
                 lines += phidict[exceptSuccessor]
         #now add back in the possibly throwing statement
         lines += [convertJExpr(self, op, self.varinfo) for op in block.lines[-1:]]
+        lines = [x for x in lines if x is not None]
 
         if isinstance(block.jump, (ssa_jumps.Goto, ssa_jumps.OnException)):
             if block.jump.getNormalSuccessors():            

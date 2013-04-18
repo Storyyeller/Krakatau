@@ -51,13 +51,15 @@ def parseFloat(s):
     s = s[:-1]
     if s.strip('-')[:2].lower() == '0x':
         f = float.fromhex(s)
-    f = float(s)
+    else:
+        f = float(s)
     return struct.unpack('>i', struct.pack('>f', f))[0]
 
 def parseDouble(s):
     if s.strip('-')[:2].lower() == '0x':
         f = float.fromhex(s)
-    f = float(s)
+    else:
+        f = float(s)
     return struct.unpack('>q', struct.pack('>d', f))[0]
 
 def p_floatl(p):

@@ -263,6 +263,15 @@ def disMethodCode(code, add, poolm):
 
     #Generic code attributes
     for name in code_attributes:
+        #We can't disassemble these because Jasmin's format for these attributes
+        #is overly cumbersome and not easy to disassemble into, but we can't just
+        #leave them as binary blobs either as they are verified by the JVM and the
+        #later two contain constant pool references which won't be preserved even
+        #if the bytecode isn't changed. For now, we just ommit them entirely.
+        #TODO - find a better solution
+        if name in ("LineNumberTable","LocalVariableTable","LocalVariableTypeTable"):
+            continue
+
         for name_ind, attr in code_attributes[name]:
             add('.codeattribute {} {!r}'.format(poolm.utfref(name_ind), attr))
 

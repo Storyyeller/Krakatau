@@ -383,33 +383,55 @@ def disMethod(method, add, poolm):
     disMethodCode(method.code, add, poolm)
     add('.end method')
 
-def disElementValue(bytes_, prefix, add, poolm, indent):
-    tag = codes.et_rtags[bytes_.getRaw(1)]
-    if tag == 'annotation':
-        disAnnotation(bytes_, prefix, add, poolm, indent + '\t')
-    else:
-        if tag in ('byte','char','double','int','float','long','short','boolean','string'):
-            val = poolm.ldc(bytes_.get('>H'))
-        elif tag == 'class':
-            val = poolm.utfref(bytes_.get('>H'))        
-        elif tag == 'enum':
-            val = poolm.utfref(bytes_.get('>H')) + ' ' + poolm.utfref(bytes_.get('>H'))        
-        elif tag == 'array':
-            val = ''
+def _disEVorAnnotationSub(bytes_, add, poolm, isAnnot, init_prefix, init_indent):
+    C_ANNOT, C_ANNOT2, C_EV, C_EV2 = range(4)
+    init_callt = C_ANNOT if isAnnot else C_EV
 
-        add(indent + '{} {} {}'.format(prefix, tag, val))
-        if tag == 'array':
+    stack = [(init_callt, init_prefix, init_indent)]
+    while stack:
+        callt, prefix, indent = stack.pop()
+
+        if callt == C_ANNOT:
+            add(indent + prefix + 'annotation ' + poolm.utfref(bytes_.get('>H')))
+            subcalls = []
+
             for _ in range(bytes_.get('>H')):
-                disElementValue(bytes_, '', add, poolm, indent+'\t')
+                key = poolm.utfref(bytes_.get('>H'))
+                subcalls.append((C_EV, key + ' = ', indent+'\t'))
+            subcalls.append((C_ANNOT2, None, indent))
+            stack.extend(reversed(subcalls)) #ones we want to happen last should be first on the stack
+
+        elif callt == C_ANNOT2:
+            add(indent + '.end annotation')
+
+        elif callt == C_EV:
+            tag = codes.et_rtags[bytes_.getRaw(1)]
+            if tag == 'annotation':
+                stack.append((C_ANNOT, prefix, indent + '\t'))
+            else:
+                if tag in ('byte','char','double','int','float','long','short','boolean','string'):
+                    val = poolm.ldc(bytes_.get('>H'))
+                elif tag == 'class':
+                    val = poolm.utfref(bytes_.get('>H'))        
+                elif tag == 'enum':
+                    val = poolm.utfref(bytes_.get('>H')) + ' ' + poolm.utfref(bytes_.get('>H'))        
+                elif tag == 'array':
+                    val = ''
+
+                add(indent + '{} {} {}'.format(prefix, tag, val))
+                if tag == 'array':
+                    for _ in range(bytes_.get('>H')):
+                        stack.append((C_EV, '', indent+'\t'))
+                    stack.append((C_EV2, None, indent))
+
+        elif callt == C_EV2:
             add(indent + '.end array')
 
-def disAnnotation(bytes_, prefix, add, poolm, indent=''):
-    add(indent + prefix + 'annotation ' + poolm.utfref(bytes_.get('>H')))
+def disElementValue(bytes_, prefix, add, poolm, indent):
+    _disEVorAnnotationSub(bytes_, add, poolm, False, prefix, indent)
 
-    for _ in range(bytes_.get('>H')):
-        key = poolm.utfref(bytes_.get('>H'))
-        disElementValue(bytes_, key + ' = ', add, poolm, indent+'\t')
-    add(indent + '.end annotation')
+def disAnnotation(bytes_, prefix, add, poolm, indent):
+    _disEVorAnnotationSub(bytes_, add, poolm, True, prefix, indent)
 
 #Todo - make fields automatically unpack this themselves
 def getConstValue(field):

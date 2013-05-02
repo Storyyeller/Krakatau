@@ -289,29 +289,51 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     assembled_bytes += struct.pack('>H', len(attributes)) + ''.join(attributes)
     return assembled_bytes
 
-def assembleElementValue(val, pool):
-    tag, data = val
-    assert(tag in codes.et_rtags)
+def _assembleEVorAnnotationSub(pool, init_args, isAnnot):
+    #call types
+    C_ANNOT, C_ANNOT2, C_EV = range(3)
+    init_callt = C_ANNOT if isAnnot else C_EV
 
-    if tag in 'BCDFIJSZsc':
-        rest = struct.pack('>H', data[0].toIndex(pool))
-    elif tag == 'e':
-        rest = struct.pack('>HH', data[0].toIndex(pool), data[1].toIndex(pool))
-    elif tag == '@':
-        rest = assembleAnnotation(data[0], pool)
-    elif tag == '[':
-        rest = struct.pack('>H', len(data[1]))
-        rest += ''.join(assembleElementValue(arrval, pool) for arrval in data[1])
-    return tag+rest
+    stack = [(init_callt, init_args)]
+    parts = []
+    add = parts.append
+
+    while stack:
+        callt, args = stack.pop()
+
+        if callt == C_ANNOT:
+            typeref, keylines = args
+            add(struct.pack('>HH', typeref.toIndex(pool), len(keylines)))
+            for pair in reversed(keylines):
+                stack.append((C_ANNOT2, pair))
+
+        elif callt == C_ANNOT2:
+            name, val = args
+            add(struct.pack('>H', name.toIndex(pool)))
+            stack.append((C_EV, val))
+
+        elif callt == C_EV:
+            tag, data = args
+            assert(tag in codes.et_rtags)
+            add(tag)
+
+            if tag in 'BCDFIJSZsc':
+                add(struct.pack('>H', data[0].toIndex(pool)))
+            elif tag == 'e':
+                add(struct.pack('>HH', data[0].toIndex(pool), data[1].toIndex(pool)))
+            elif tag == '@':
+                stack.append((C_ANNOT, data[0]))
+            elif tag == '[':
+                add(struct.pack('>H', len(data[1])))
+                for arrval in reversed(data[1]):
+                    stack.append((C_EV, arrval))
+    return ''.join(parts)
+
+def assembleElementValue(val, pool):
+    return  _assembleEVorAnnotationSub(pool, val, False)
 
 def assembleAnnotation(annotation, pool):
-    typeref, keylines = annotation
-
-    parts = [struct.pack('>HH', typeref.toIndex(pool), len(keylines))]
-    for name, val in keylines:
-        parts.append(struct.pack('>H', name.toIndex(pool)))
-        parts.append(assembleElementValue(val, pool))
-    return ''.join(parts)
+    return  _assembleEVorAnnotationSub(pool, annotation, True)
 
 def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
     mflags, (name, desc) = header
@@ -351,8 +373,8 @@ def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
             attr = struct.pack('>HIB', pool.Utf8("Runtime{}ParameterAnnotations".format(vis)), attrlen, len(parts)) + ''.join(parts)
             method_attributes.append(attr)
 
-    if 'annotationdefault' in directive_dict:
-        val = directive_dict['.annotationdefault']
+    if '.annotationdefault' in directive_dict:
+        val = directive_dict['.annotationdefault'][0]
         data = assembleElementValue(val, pool)
         attr = struct.pack('>HI', pool.Utf8("AnnotationDefault"), len(data)) + data        
         method_attributes.append(attr)

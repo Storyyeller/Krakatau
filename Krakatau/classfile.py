@@ -59,6 +59,11 @@ class ClassFile(object):
                 'SYNTHETIC':0x1000, 
                 'ANNOTATION':0x2000, 
                 'ENUM':0x4000, 
+
+                # These flags are only used for InnerClasses attributes
+                'PRIVATE':0x0002,
+                'PROTECTED':0x0004,
+                'STATIC':0x0008,
                 }
 
     def __init__(self, bytestream):

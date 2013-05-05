@@ -38,6 +38,8 @@ def performTest(temppath, testdata, cpath=class_location):
 
     clearFolder(temppath)
     cpath = [decompile.findJRE(), cpath]
+    if None in cpath:
+        raise RuntimeError('Unable to locate rt.jar')
     decompile.decompileClass(cpath, targets=[target], outpath=temppath)
 
     print 'Attempting to compile'

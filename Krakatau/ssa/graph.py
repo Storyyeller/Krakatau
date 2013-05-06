@@ -649,6 +649,7 @@ def ssaFromVerified(code, iNodes):
             block.unaryConstraints[var] = constraints.fromVariable(parent.env, var)
 
     #Make sure that branch targets are distinct, since this is assumed everywhere
+    #Only necessary for if statements as the other jumps merge targets automatically
     for block in blocks:
         block.jump = block.jump.reduceSuccessors([])
     parent.blocks = blocks

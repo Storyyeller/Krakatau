@@ -139,7 +139,7 @@ class SwitchStatement(LazyLabelBase):
         def printCase(keys):
             if keys is None:
                 return 'default: '
-            return 'case {}: '.format(', '.join(map(str, sorted(keys))))
+            return ''.join(map('case {}: '.format, sorted(keys)))
 
         bodies = [(printCase(keys) + scope.print_()) for keys, scope in self.pairs]
         if self.pairs[-1][0] is None and len(self.pairs[-1][1].statements) == 0:

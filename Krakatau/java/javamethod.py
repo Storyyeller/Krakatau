@@ -1,15 +1,15 @@
-import itertools, collections
+import collections
 
-from ..ssa import ssa_types, ssa_ops, ssa_jumps
+from ..ssa import ssa_types, ssa_ops
 from ..ssa import objtypes
 from .. import graph_util
 from ..namegen import NameGen, LabelGen
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 from .. import opnames
 
-from . import ast, ast2, preprocess, boolize
+from . import ast, ast2, boolize
 from .reserved import reserved_identifiers
-from .setree import createSETree, SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
+from . import graphproxy, structuring, astgen
 
 class DecompilationError(Exception):
     def __init__(self, message, data=None):
@@ -182,180 +182,6 @@ class MethodDecompiler(object):
         self.namegen = NameGen(reserved_identifiers)
         self.labelgen = LabelGen().next
 
-    ###################################################################################################
-    def _getBlockIfExpr(self, block):
-        if isinstance(block.jump, (ssa_jumps.If)):
-            symbols = "== != < >= > <=".split()
-            cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), symbols))
-            cmp_str = cmp_strs[block.jump.cmp]
-            exprs = [self.varinfo[var].expr for var in block.jump.params]
-            return ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
-
-    def _createAST_block(self, block, targets, ftblock, ifSwitchInfo = None):
-        new = ast.StatementBlock(self.labelgen)
-        if ftblock is not None:
-            targets = targets + ((ftblock, (new,False)),)
-        gotoMap = dict(targets) #more recent keys override, as desired
-
-        #Create lists of phi assignments necessary for each successor
-        phidict = collections.defaultdict(list)
-        for child in block.jump.getSuccessors():
-            assert(child not in phidict) #we assume that parallel edges were removed earlier
-            assignments = phidict[child]
-            for phi in child.phis:
-                oldvar = phi.odict.get((block,False)) or phi.odict.get((block,True)) #if first is none, get second
-                newvar = phi.rval
-
-                if oldvar.type == ssa_types.SSA_MONAD or (oldvar.origin and oldvar == oldvar.origin.outException):
-                    continue
-                oldvar, newvar = self.varinfo[oldvar].expr, self.varinfo[newvar].expr
-                assign = ast.Assignment(newvar, oldvar)
-                assignments.append(ast.ExpressionStatement(assign))
-
-        # lines = [ast.StringStatement('//' + str(block))]
-        lines = [convertJExpr(self, op, self.varinfo) for op in block.lines[:-1]]
-        if isinstance(block.jump, ssa_jumps.OnException):
-            #For this case, phi assignments needed by exceptional successors must be placed before the last op line
-            #(Which is the one that might throw). Phi assignments for the normal successor come after the last line
-            #as normal
-            assert(block.jump.params[0].origin == block.lines[-1])
-            for exceptSuccessor in block.jump.getExceptSuccessors():
-                lines += phidict[exceptSuccessor]
-        #now add back in the possibly throwing statement
-        lines += [convertJExpr(self, op, self.varinfo) for op in block.lines[-1:]]
-        lines = [x for x in lines if x is not None]
-
-        if isinstance(block.jump, (ssa_jumps.Goto, ssa_jumps.OnException)):
-            if block.jump.getNormalSuccessors():            
-                fallthrough = block.jump.getNormalSuccessors()[0]         
-                lines += phidict[fallthrough]
-                new.setBreak(gotoMap[fallthrough])
-
-        elif isinstance(block.jump, (ssa_jumps.If)):
-            expr = self._getBlockIfExpr(block)
-            newif = ast.IfStatement(self.labelgen, expr)
-            if ftblock is not None:
-                targets = targets + ((ftblock, (newif,False)),)
-            gotoMap = dict(targets)
-
-            if ifSwitchInfo is None:
-                ifSwitchInfo = {}
-            sebodies = ifSwitchInfo
-            bodies = {}
-            for successor in block.jump.getSuccessors():
-                if successor not in sebodies:
-                    temp = bodies[successor] = ast.StatementBlock(self.labelgen)
-                    temp.statements = []
-                    temp.setBreak(gotoMap[successor])
-                else:
-                    bodies[successor] = self._createAST(sebodies[successor], targets, ftblock, forceUnlabled=True)
-
-            for k,v in bodies.items():
-                v.statements = phidict[k] + v.statements
-            falsebody, truebody = map(bodies.get, block.jump.getSuccessors())
-            newif.scopes = truebody, falsebody
-            lines.append(newif)
-
-        elif isinstance(block.jump, (ssa_jumps.Switch)):
-            var = block.jump.params[0]
-            expr = self.varinfo[var].expr
-            newswitch = ast.SwitchStatement(self.labelgen, expr)
-            if ftblock is not None:
-                targets = targets + ((ftblock, (newswitch,False)),)
-            gotoMap = dict(targets)
-
-            #Order the blocks in a manner consistent with the fallthroughs. In case of tie, prefer
-            #the original order except with default last
-            if ifSwitchInfo is None:
-                ifSwitchInfo = {}, [], ()
-            sebodies, orders, critical = ifSwitchInfo
-
-            for successor in block.jump.getSuccessors():
-                if successor not in sebodies:
-                    orders.append([successor])
-            tiebreak = block.jump.getSuccessors()[1:] + block.jump.getSuccessors()[:1]
-            orders = sorted(orders, key=lambda slist:tiebreak.index(slist[0]))
-            successors = list(itertools.chain(*orders))
-            assert(len(set(successors)) == len(successors))
-
-            bodies = {}
-            subft = ftblock
-            for successor in reversed(successors):
-                if successor not in sebodies:
-                    temp = bodies[successor] = ast.StatementBlock(self.labelgen)
-                    temp.statements = []
-                    temp.setBreak(gotoMap[successor])
-                    subft = None
-                else:
-                    bodies[successor] = self._createAST(sebodies[successor], targets, subft, forceUnlabled=True)
-                    subft = sebodies[successor].entryBlock()
-
-            for k,v in bodies.items():
-                if k in critical:
-                    lines += phidict[k]
-                else:
-                    v.statements = phidict[k] + v.statements
-
-            pairs = [(block.jump.reverse.get(child), bodies[child]) for child in successors]
-            newswitch.pairs = pairs
-            lines.append(newswitch)
-
-        elif isinstance(block.jump, ssa_jumps.Rethrow):
-            param = self.varinfo[block.jump.params[-1]].expr
-            lines.append(ast.ThrowStatement(param))
-        else:
-            assert(isinstance(block.jump, ssa_jumps.Return))
-            if len(block.jump.params)>1: #even void returns have a monad param
-                returnTypes = parseMethodDescriptor(self.method.descriptor, unsynthesize=False)[1]
-                ret_tt = objtypes.verifierToSynthetic(returnTypes[0])
-                param = self.varinfo[block.jump.params[-1]].expr
-                lines.append(ast.ReturnStatement(param, ret_tt))
-            else:
-                lines.append(ast.ReturnStatement())
-        
-        new.statements = lines
-        assert(all(isinstance(s, ast.JavaStatement) for s in new.statements))
-        return new        
-    
-    def _createAST(self, current, targets, ftblock, forceUnlabled=False):
-        if isinstance(current, SEScope):
-            new = ast.StatementBlock(self.labelgen)
-            if not forceUnlabled and ftblock is not None:
-                targets = targets + ((ftblock, (new,False)),)
-
-            #todo - is sorting required here?
-            last = ftblock
-            contents = []
-            for item in reversed(current.items):
-                contents.append(self._createAST(item, targets, last))
-                last = item.entryBlock()
-
-            new.statements = list(reversed(contents))
-            new.jump = None
-            assert(all(isinstance(s, ast.JavaStatement) for s in new.statements))
-        elif isinstance(current, SEWhile):
-            new = ast.WhileStatement(self.labelgen)
-            targets = targets + ((current.entryBlock(), (new,True)),)
-            if ftblock is not None:
-                targets = targets + ((ftblock, (new,False)),)
-            new.parts = self._createAST(current.body, targets, None),
-        elif isinstance(current, SETry):
-            new = ast.TryStatement(self.labelgen)
-            if ftblock is not None:
-                targets = targets + ((ftblock, (new,False)),)
-            parts = [self._createAST(scope, targets, None) for scope in current.getScopes()]
-            new.parts = parts[0], current.decl, parts[1]
-        elif isinstance(current, SEIf):
-            parts = {scope.entryBlock():scope for scope in current.getScopes()}
-            new = self._createAST_block(current.head.block, targets, ftblock, parts)
-        elif isinstance(current, SESwitch):
-            parts = {scope.entryBlock():scope for scope in current.getScopes()}
-            switchInfo = parts, current.orders, current.critical
-            new = self._createAST_block(current.head.block, targets, ftblock, switchInfo)
-        elif isinstance(current, SEBlockItem):
-            new = self._createAST_block(current.block, targets, ftblock)
-        return new
-    ###################################################################################################
     def _pruneRethrow_cb(self, item):
         catchb = item.getScopes()[-1]
         lines = catchb.statements
@@ -577,9 +403,11 @@ class MethodDecompiler(object):
         '''Make breaks and continues unlabeled or remove them where possible. Must be called after all code motion and scope pruning'''
         fallthroughs = fallthroughs + ((scope, False),)
         orig_jump = scope.jump
+
         if scope.jump is not None:
             target = scope.jump[0]
             other = continueTarget if scope.jump[1] else breakTarget
+
             #at this point, assign to jump directly rather than use setBreak
             if scope.jump in fallthroughs:
                 scope.jump = None
@@ -592,7 +420,7 @@ class MethodDecompiler(object):
             islast = (i == len(scope.statements)-1)
 
             if scope.jump is not None:
-                newft = orig_jump,
+                newft = (orig_jump,) if islast else ()
             else:
                 newft = fallthroughs if islast else ()
                 if isinstance(item, (ast.TryStatement, ast.IfStatement)):
@@ -718,8 +546,13 @@ class MethodDecompiler(object):
                 mayskip = mayskip or isinstance(item, ast.SwitchStatement) and None not in zip(*item.pairs)[0]
                 oldcopyset = copyset
 
-                #TODO - make sure this works correctly with Switch statements with fallthrough
-                returned_stacks = [self._fixObjectCreations(sub, newstack, copyset) for sub in item.getScopes()]
+                returned_stacks = []
+                passed_cset = copyset
+                for sub in item.getScopes():
+                    returned_stack, fallthrough_cset = self._fixObjectCreations(sub, newstack, passed_cset)
+                    returned_stacks.append(returned_stack)
+                    passed_cset = mergeCopysets(passed_cset, fallthrough_cset)
+
                 assert(returned_stacks[0])
                 assert(zip(*returned_stacks[0])[0] == items)
 
@@ -788,11 +621,19 @@ class MethodDecompiler(object):
 
         scope.statements = newitems 
         if copyset_stack: #if it is empty, we are at the root level and can't return anything
+            fallthrough_cset = None
+
             if scope.jump is None:
                 target = copyset_stack[-1][0]
+                assert(scope in target.getScopes())
+
                 #In this case, the fallthrough goes back to the beginning of the loop, not after it
                 if isinstance(target, ast.WhileStatement):
                     target = None
+                #Switch fallthrough case
+                elif isinstance(target, ast.SwitchStatement) and scope is not target.getScopes()[-1]:
+                    target = None
+                    fallthrough_cset = copyset
             else:
                 target = scope.jump[0] if not scope.jump[1] else None
 
@@ -801,7 +642,7 @@ class MethodDecompiler(object):
                 ind = keys.index(target)
                 new_pair = target, mergeCopysets(copyset_stack[ind][1], copyset)
                 copyset_stack = copyset_stack[:ind] + (new_pair,) + copyset_stack[ind+1:]
-            return copyset_stack
+            return copyset_stack, fallthrough_cset
 
     def _pruneVoidReturn(self, scope):
         if scope.statements:
@@ -816,33 +657,23 @@ class MethodDecompiler(object):
         tts = objtypes.verifierToSynthetic_seq(inputTypes) 
 
         if self.graph is not None:
-            blocks, argvars = preprocess.makeGraphCopy(self.env, self.graph)
-            blocks, entryBlock, handlerInfos = preprocess.structureCFG(blocks, blocks[0])
-
+            entryNode, nodes = graphproxy.createGraphProxy(self.graph)
             if not method.static:
-                argvars[0].name = 'this'
-            self.varinfo = preprocess.addDecInfo(self.env, blocks)
-            for var, info in self.varinfo.items():
-                if var.type != ssa_types.SSA_MONAD:
-                    info.expr = ssavarToExpr(var, info.atype, self.namegen)
+                entryNode.invars[0].name = 'this'
 
-            temp = set(self.varinfo)
-            for block in blocks:
-                for line in block.lines:
-                    assert(temp.issuperset(line.params))
-                assert(temp.issuperset(block.jump.params))
+            setree = structuring.structure(entryNode, nodes)
+            ast_root, varinfo = astgen.createAST(method, self.graph, setree)
 
-            argsources = [self.varinfo[var].expr for var in argvars]
+            argsources = [varinfo.var(entryNode, var) for var in entryNode.invars]
             disp_args = argsources if method.static else argsources[1:] 
             for expr, tt in zip(disp_args, tts):
                 expr.dtype = tt
 
             decls = [ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in disp_args]
-            ##############################################################################################
-            root = createSETree(self, blocks, entryBlock, handlerInfos)
-            ast_root = self._createAST(root, (), None)
-            ast_root.bases = (ast_root,)
+            ################################################################################################
+            ast_root.bases = (ast_root,) #needed for our setScopeParents later
 
+            # print ast_root.print_()
             self._fixObjectCreations(ast_root)
             self._simplifyBlocks(ast_root)
             self._setScopeParents(ast_root)

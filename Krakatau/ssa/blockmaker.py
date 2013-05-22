@@ -145,7 +145,7 @@ def _field_access(parent, input_, iNode):
     
     argcnt = cat if 'put' in iNode.instruction[0] else 0
     if not 'static' in iNode.instruction[0]:
-            argcnt += 1
+        argcnt += 1
     splitInd = len(input_.stack) - argcnt
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
@@ -196,7 +196,7 @@ def _invoke(parent, input_, iNode):
 
     argcnt = len(parseMethodDescriptor(desc)[0])
     if not 'static' in iNode.instruction[0]:
-            argcnt += 1
+        argcnt += 1
     splitInd = len(input_.stack) - argcnt
 
     #If we are an initializer, store a copy of the uninitialized verifier type so the Java decompiler can patch things up later

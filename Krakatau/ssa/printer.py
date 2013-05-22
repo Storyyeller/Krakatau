@@ -183,7 +183,8 @@ class SSAPrinter(object):
         elif isinstance(jump, ssa_jumps.OnException):
             lines.append('OnException({})'.format(params[0]))
             for handler, cset in jump.cs.sets.items():
-                lines.append('\t{}: {}'.format(cset.getSingleTType()[0], self.printLabel(handler)))
+                catchtypes = zip(*cset.getTopTTs())[0]
+                lines.append('\t{}: {}'.format(' | '.join(catchtypes), self.printLabel(handler)))
             if fallthrough is not None and fallthrough != nextBlock:
                 lines.append('Goto ' + self.printLabel(fallthrough))
         elif isinstance(jump, (ssa_jumps.Return, ssa_jumps.Rethrow)):

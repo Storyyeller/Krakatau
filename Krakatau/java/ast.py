@@ -90,12 +90,15 @@ class LazyLabelBase(JavaStatement):
         return self.label
 
     def getLabelPrefix(self): return '' if self.label is None else self.label + ': '
+    # def getLabelPrefix(self): 
+    #     return '{} //{}\n'.format(self._getLabelPrefix(), self)
 
     #For debugging
     def __str__(self):
         if isinstance(self, StatementBlock):
             return 'Sb'+str(self.id)
-        return type(self).__name__[:3] + str(self.getScopes()[0].id)
+        return type(self).__name__[:3]
+        # return type(self).__name__[:3] + str(self.getScopes()[0].id)
     __repr__ = __str__
 
 class TryStatement(LazyLabelBase):
@@ -119,7 +122,7 @@ class IfStatement(LazyLabelBase):
     def getScopes(self): return self.scopes
 
     def print_(self): 
-        parts = (self.expr,) + self.scopes
+        parts = (self.expr,) + tuple(self.scopes)
         parts = [x.print_() for x in parts]
         if len(self.scopes) == 1:
             return '{}if({})\n{}'.format(self.getLabelPrefix(), *parts) 
@@ -166,6 +169,7 @@ class StatementBlock(LazyLabelBase):
         super(StatementBlock, self).__init__(labelfunc)
         self.jump = None
         self.parent = None #should be assigned later
+        #self.statements
         self.id = next(sbcount) #For debugging purposes
 
     def setBreak(self, val):
@@ -524,9 +528,19 @@ class TypeName(JavaExpression):
         s = name + '[]'*dim
         if s.rpartition('.')[0] == 'java.lang':
             s = s.rpartition('.')[2]
-        self.fmt, self.params = s, ()
+        self.str = s
 
+    def print_(self): return self.str
     def complexity(self): return -1 #exprs which have this as a param won't be bumped up to 1 uncessarily
+
+class CatchTypeNames(JavaExpression): #Used for caught exceptions, which can have multiple types specified
+    def __init__(self, env, tts):
+        assert(tts and not any(zip(*tts)[1])) #at least one type, no array types
+        self.tnames = map(TypeName, tts)
+        self.dtype = objtypes.commonSupertype(env, tts)
+
+    def print_(self):
+        return ' | '.join(tn.print_() for tn in self.tnames)
 
 class UnaryPrefix(JavaExpression):
     precedence = 5

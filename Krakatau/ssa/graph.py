@@ -632,6 +632,15 @@ def ssaFromVerified(code, iNodes):
             types = [var.type for var in phi.odict.values()]
             assert(not types or set(types) == set([phi.rval.type]))
 
+    #Important to intern constraints to save memory on aforementioned excessively long methods
+    def makeConstraint(var, _cache={}):
+        key = var.type, var.const, var.decltype
+        try:
+            return _cache[key]
+        except KeyError:
+            _cache[key] = temp = constraints.fromVariable(parent.env, var)
+            return temp
+
     #create unary constraints for each variable
     for block in blocks:
         bvars = list(block.tempvars)
@@ -644,9 +653,8 @@ def ssaFromVerified(code, iNodes):
             bvars += op.getOutputs()
         bvars += block.jump.params
 
-        #possibly inefficient, but hey, it's only done once
         for var in bvars:
-            block.unaryConstraints[var] = constraints.fromVariable(parent.env, var)
+            block.unaryConstraints[var] = makeConstraint(var)
 
     #Make sure that branch targets are distinct, since this is assumed everywhere
     #Only necessary for if statements as the other jumps merge targets automatically

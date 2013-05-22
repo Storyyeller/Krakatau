@@ -30,6 +30,7 @@ class OnException(BaseJump):
     def reduceSuccessors(self, pairsToRemove):
         for (child, t) in pairsToRemove:
             if t:
+                self.cs.mask -= self.cs.sets[child]
                 del self.cs.sets[child]
             else:
                 self.replaceNormalTarget(child, None)

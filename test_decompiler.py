@@ -51,6 +51,7 @@ def performTest(temppath, testdata, cpath=class_location):
     for args, expected in cases:
         result = execute(['java', target] + list(args), cwd=temppath)
         if result != expected:
+            print 'input', args
             print 'expected', expected
             print 'actual', result
             return False

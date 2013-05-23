@@ -26,6 +26,7 @@ class BaseNode(object):
         else:
             inputs = [x for x in inputs if x is not None]
             new = self.process(*inputs)
+            assert(len(self.output)==len(new))
             new = [(None if newv is None else join(oldv, newv)) for oldv, newv in zip(self.output, new)]
 
         if new != self.output:

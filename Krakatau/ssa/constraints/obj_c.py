@@ -1,6 +1,11 @@
 import itertools
 from ..mixin import ValueType
+from .int_c import IntConstraint
 from .. import objtypes
+
+#Possible array lengths
+nonnegative = IntConstraint(32, 0, (1<<31)-1)
+array_supers = 'java/lang/Object','java/lang/Cloneable','java/io/Serializable'
 
 def isAnySubtype(env, x, seq):
     return any(objtypes.isSubtype(env,x,y) for y in seq)
@@ -88,22 +93,30 @@ class TypeConstraint(ValueType):
         return TypeConstraint.reduce(cons[0].env, supers, exact)
 
 class ObjectConstraint(ValueType):
-    def __init__(self, null, types):
+    def __init__(self, null, types, arrlen):
         self.null, self.types = null, types
-        self.isBot = null and types.isBot
+        self.arrlen = arrlen
+        self.isBot = null and types.isBot and arrlen == nonnegative
 
     @staticmethod
     def constNull(env):
-        return ObjectConstraint(True, TypeConstraint(env, [], []))
+        return ObjectConstraint(True, TypeConstraint(env, [], []), None)
 
     @staticmethod
-    def fromTops(env, supers, exact, nonnull=False):
+    def fromTops(env, supers, exact, nonnull=False, arrlen=0): #can't use None as default since it may be passed
         types = TypeConstraint(env, supers, exact)
         if nonnull and not types:
             return None
-        return ObjectConstraint(not nonnull, types)
+        isarray = any((t,0) in supers for t in array_supers)
+        isarray = isarray or (supers and any(zip(*supers)[1]))
+        isarray = isarray or (exact and any(zip(*exact)[1]))
+        if arrlen == 0:
+            arrlen = nonnegative if isarray else None
+        else:
+            assert(arrlen is None or isarray)
+        return ObjectConstraint(not nonnull, types, arrlen)
 
-    def _key(self): return self.null, self.types
+    def _key(self): return self.null, self.types, self.arrlen
 
     def print_(self, varstr):
         s = ''
@@ -123,12 +136,16 @@ class ObjectConstraint(ValueType):
     def join(*cons):
         null = all(c.null for c in cons)
         types = TypeConstraint.join(*(c.types for c in cons))
-
         if not null and not types:
             return None
-        return  ObjectConstraint(null, types)
+
+        arrlens = [c.arrlen for c in cons]
+        arrlen = None if None in arrlens else IntConstraint.join(*arrlens)
+        return  ObjectConstraint(null, types, arrlen)
 
     def meet(*cons):
         null = any(c.null for c in cons)
         types = TypeConstraint.meet(*(c.types for c in cons))
-        return  ObjectConstraint(null, types)
+        arrlens = [c.arrlen for c in cons if c.arrlen is not None]
+        arrlen = IntConstraint.meet(*arrlens) if arrlens else None
+        return  ObjectConstraint(null, types, arrlen)

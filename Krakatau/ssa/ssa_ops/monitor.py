@@ -1,5 +1,6 @@
 from .base import BaseOp
 from .. import excepttypes
+from ..ssa_types import SSA_MONAD
 from ..constraints import ObjectConstraint, DUMMY
 
 class Monitor(BaseOp):
@@ -7,6 +8,7 @@ class Monitor(BaseOp):
         BaseOp.__init__(self, parent, [monad]+args, makeException=True)
         self.exit = isExit
         self.env = parent.env
+        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
     def propagateConstraints(self, m, x):
         etypes = ()

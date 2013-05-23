@@ -273,7 +273,7 @@ class SSA_Graph(object):
 
                 if block.jump is None:
                     #This block has no valid successors, meaning it must be unreachable
-                    #It should be removed automatically in the call to condenseBlocks()
+                    #It _should_ be removed automatically in the call to condenseBlocks()
                     continue
 
                 newEdges = block.jump.getSuccessorPairs()
@@ -283,7 +283,7 @@ class SSA_Graph(object):
                         for phi in child.phis:
                             phi.removeKey((block,t))
 
-        #Unreachable blocks may not automatically be removed bby jump.constraintJumps
+        #Unreachable blocks may not automatically be removed by jump.constrainJumps
         #Because it only looks at its own params
         badblocks = set(block for block in self.blocks if block.jump is None)
         newbad = set()

@@ -1,5 +1,5 @@
 from .base import BaseOp
-from ..ssa_types import SSA_INT
+from ..ssa_types import SSA_INT, SSA_MONAD
 
 from .. import excepttypes
 from ..constraints import IntConstraint, FloatConstraint, ObjectConstraint, DUMMY
@@ -18,10 +18,12 @@ class ArrLoad(BaseOp):
             if a.isConstNull():
                 return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), m
 
-        etypes += (excepttypes.ArrayOOB,)
-        if i.max < 0:
+        if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
+            etypes += (excepttypes.ArrayOOB,)
             eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
             return None, eout, m
+        elif (i.max >= a.arrlen.min) or i.min < 0:
+            etypes += (excepttypes.ArrayOOB,)
 
         if self.ssatype[0] == 'int':
             rout = IntConstraint.bot(self.ssatype[1])
@@ -33,12 +35,13 @@ class ArrLoad(BaseOp):
             rout = ObjectConstraint.fromTops(a.types.env, supers, exact)
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return rout, eout, DUMMY
+        return rout, eout
 
 class ArrStore(BaseOp):
     def __init__(self, parent, args, monad):
         super(ArrStore, self).__init__(parent, [monad]+args, makeException=True)
         self.env = parent.env
+        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
     def propagateConstraints(self, m, a, i, x):
         etypes = ()
@@ -47,10 +50,12 @@ class ArrStore(BaseOp):
             if a.isConstNull():
                 return ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), m
 
-        etypes += (excepttypes.ArrayOOB,)
-        if i.max < 0:
+        if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
+            etypes += (excepttypes.ArrayOOB,)
             eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
             return eout, m
+        elif (i.max >= a.arrlen.min) or i.min < 0:
+            etypes += (excepttypes.ArrayOOB,)
 
         if isinstance(x, ObjectConstraint):
             exact = [(base,dim-1) for base,dim in a.types.exact]
@@ -76,5 +81,4 @@ class ArrLength(BaseOp):
                 return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
 
         excons = eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        rvalcons = IntConstraint.range(32, 0, 1<<31)
-        return rvalcons, excons
+        return x.arrlen, excons

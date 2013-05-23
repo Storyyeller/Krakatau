@@ -12,8 +12,8 @@ _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
             objtypes.FloatTT:'f', objtypes.DoubleTT:'d',
             objtypes.BoolTT:'b', objtypes.StringTT:'s'}
 
-_ssaToTT = {ssa_types.SSA_INT:'.int', ssa_types.SSA_LONG:'.long',
-            ssa_types.SSA_FLOAT:'.float', ssa_types.SSA_DOUBLE:'.double'}
+_ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT,
+            ssa_types.SSA_FLOAT:objtypes.FloatTT, ssa_types.SSA_DOUBLE:objtypes.DoubleTT}
 class VarInfo(object):
     def __init__(self, method, blocks):
         self.env = method.class_.env
@@ -36,7 +36,7 @@ class VarInfo(object):
                     if tt[1] == objtypes.ObjectTT[1] and uc.types.isBoolOrByteArray():
                         tt = '.bexpr', tt[1]+1
                 else:
-                    tt = _ssaToTT[var.type], 0
+                    tt = _ssaToTT[var.type]
                 self._tts[var] = tt
 
     def _nameCallback(self, expr):

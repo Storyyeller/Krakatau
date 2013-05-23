@@ -65,7 +65,7 @@ def _anewarray(parent, input_, iNode):
     tt = parseArrOrClassName(name)
     line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _arrlen(parent, input_, iNode):
     line = ssa_ops.ArrLength(parent, input_.stack[-1:])
@@ -151,7 +151,7 @@ def _field_access(parent, input_, iNode):
     args = [x for x in input_.stack[splitInd:] if x is not None]
     line = ssa_ops.FieldAccess(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad)
     newstack = input_.stack[:splitInd] + line.returned
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _if_a(parent, input_, iNode):
     null = makeConstVar(parent, SSA_OBJECT, 'null')
@@ -205,7 +205,7 @@ def _invoke(parent, input_, iNode):
     args = [x for x in input_.stack[splitInd:] if x is not None]
     line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad, isThisCtor=isThisCtor)
     newstack = input_.stack[:splitInd] + line.returned
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _jsr(parent, input_, iNode):
     newstack = input_.stack + [None]
@@ -260,7 +260,7 @@ def _monitor(parent, input_, iNode):
     isExit = 'exit' in iNode.instruction[0]
     line = ssa_ops.Monitor(parent, input_.stack[-1:], input_.monad, isExit)
     newstack = input_.stack[:-1]
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _multinewarray(parent, input_, iNode):
     op, index, dim = iNode.instruction
@@ -270,7 +270,7 @@ def _multinewarray(parent, input_, iNode):
 
     line = ssa_ops.MultiNewArray(parent, input_.stack[-dim:], tt, input_.monad)
     newstack = input_.stack[:-dim] + [line.rval]
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _neg(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
@@ -291,7 +291,7 @@ def _new(parent, input_, iNode):
 
     line = ssa_ops.New(parent, classname, input_.monad)
     newstack = input_.stack + [line.rval]
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _newarray(parent, input_, iNode):
     vtypes = parseFieldDescriptor(iNode.instruction[1], unsynthesize=False)
@@ -299,7 +299,7 @@ def _newarray(parent, input_, iNode):
 
     line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack, newmonad=line.outMonad)
+    return makeDict(line=line, newstack=newstack)
 
 def _nop(parent, input_, iNode):
     return makeDict()

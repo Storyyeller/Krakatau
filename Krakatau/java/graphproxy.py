@@ -4,6 +4,11 @@ ddict = collections.defaultdict
 from ..ssa import ssa_types
 def unique(seq): return len(set(seq)) == len(seq)
 
+# This module provides a view of the ssa graph that can be modified without
+# touching the underlying graph. This proxy is tailored towards the need of 
+# cfg structuring, so it allows easy duplication and indirection of nodes, 
+# but assumes that the underlying variables and statements are immutable
+
 class BlockProxy(object):
     def __init__(self, key, counter, block=None):
         self.bkey = key

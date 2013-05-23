@@ -8,6 +8,27 @@ from ..ssa import ssa_jumps
 from ..ssa.exceptionset import ExceptionSet
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 
+# This module is responsible for transforming an arbitrary control flow graph into a tree
+# of nested structures corresponding to Java control flow statements. This occurs in 
+# several main steps
+#
+# Preprocessing - create graph view and ensure that there are no self loops and every node
+#   has only one incoming edge type
+# Structure loops - ensure every loop has a single entry point. This may result in 
+#   exponential code duplication in pathological cases
+# Structure exceptions - create dummy nodes for every throw exception type for every node
+# Structure conditionals - order switch targets consistent with fallthrough and create
+#   dummy nodes where necessary
+# Create constraints - sets up the constraints used to represent nested statements
+# Merge exceptions - try to merge as any try constraints as possible. This is done by
+#   extending one until it covers the cases that another one handles, allowing the second
+#   to be removed
+# Parallelize exceptions - freeze try constraints and turn them into multicatch blocks
+#   where possible (not implemented yet)
+# Complete scopes - expand scopes to try to reduce the number of successors
+# Add break scopes - add extra scope statements so extra successors can be represented as
+#   labeled breaks
+
 #########################################################################################
 class DominatorInfo(object):
     def __init__(self, root):

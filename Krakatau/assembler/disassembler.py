@@ -384,7 +384,7 @@ def disMethod(method, add, poolm):
     add('.end method')
 
 def _disEVorAnnotationSub(bytes_, add, poolm, isAnnot, init_prefix, init_indent):
-    C_ANNOT, C_ANNOT2, C_EV, C_EV2 = range(4)
+    C_ANNOT, C_ANNOT2, C_ANNOT3, C_EV, C_EV2 = range(5)
     init_callt = C_ANNOT if isAnnot else C_EV
 
     stack = [(init_callt, init_prefix, init_indent)]
@@ -393,15 +393,15 @@ def _disEVorAnnotationSub(bytes_, add, poolm, isAnnot, init_prefix, init_indent)
 
         if callt == C_ANNOT:
             add(indent + prefix + 'annotation ' + poolm.utfref(bytes_.get('>H')))
-            subcalls = []
-
-            for _ in range(bytes_.get('>H')):
-                key = poolm.utfref(bytes_.get('>H'))
-                subcalls.append((C_EV, key + ' = ', indent+'\t'))
-            subcalls.append((C_ANNOT2, None, indent))
-            stack.extend(reversed(subcalls)) #ones we want to happen last should be first on the stack
+            #ones we want to happen last should be first on the stack. Annot3 is the final call which ends the annotation
+            stack.append((C_ANNOT3, None, indent))
+            stack.extend([(C_ANNOT2, None, indent)] * bytes_.get('>H'))
 
         elif callt == C_ANNOT2:
+            key = poolm.utfref(bytes_.get('>H'))
+            stack.append((C_EV, key + ' = ', indent+'\t'))    
+
+        elif callt == C_ANNOT3:
             add(indent + '.end annotation')
 
         elif callt == C_EV:
@@ -462,7 +462,6 @@ def disInnerClassesAttribute(name_ind, length, bytes_, add, poolm):
 
     if not count:
         add('.attribute InnerClasses "\\0\\0"')
-
 
 def disOtherClassAttribute(name_ind, name, bytes_, add, poolm):
     assert(name != 'InnerClasses')

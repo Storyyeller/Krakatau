@@ -341,7 +341,7 @@ def disCFMAttribute(name_ind, name, bytes_, add, poolm):
         if name == 'Runtime{}Annotations'.format(vis):        
             count = bytes_.get('>H')
             for _ in range(count):
-                disAnnotation(bytes_, '.runtime{} '.format(vis.lower()), add, poolm)
+                disAnnotation(bytes_, '.runtime{} '.format(vis.lower()), add, poolm, '')
             if count: #otherwise we'll create an empty generic attribute
                 return
 
@@ -368,7 +368,7 @@ def disMethodAttribute(name_ind, name, bytes_, add, poolm):
         if name == 'Runtime{}ParameterAnnotations'.format(vis):        
             for i in range(bytes_.get('>B')):
                 for _ in range(bytes_.get('>H')):
-                    disAnnotation(bytes_, '.runtime{} parameter {} '.format(vis.lower(), i), add, poolm)
+                    disAnnotation(bytes_, '.runtime{} parameter {} '.format(vis.lower(), i), add, poolm, '')
             return #generic fallback on empty list not yet supported
 
     disCFMAttribute(name_ind, name, bytes_, add, poolm)

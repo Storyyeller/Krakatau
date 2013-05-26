@@ -84,10 +84,10 @@ def duplicateNodes(reachable, scc_set):
         for p in old.predecessors[:]:
             if p in S:
                 old.predecessors.remove(p)
-                new.predecessors.add(p)
+                new.predecessors.append(p)
         new.replaceSuccessors(dupmap)
         for c in new.successors:
-            c.predecessors.add(new)
+            c.predecessors.append(new)
 
     return zip(*dups)[1]
 

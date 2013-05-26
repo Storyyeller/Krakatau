@@ -140,7 +140,7 @@ class SSA_Graph(object):
         replace = {}
         removed = set()
 
-        # #Make sure that all single jsr procs are inlined first
+        # Make sure that all single jsr procs are inlined first
         self.inlineSubprocs(onlySingle=True)
 
         sources = self._getSources()
@@ -393,6 +393,8 @@ class SSA_Graph(object):
                 if regions[x] < regions[y]:
                     parents[x].append(y)
             self.procs = graph_util.topologicalSort(self.procs, parents.get)
+            if any(parents.values()):
+                print 'Warning, nesting subprocedures detected! This method may take forever to decompile.'
 
         #now inline the procs
         for proc in reversed(self.procs):

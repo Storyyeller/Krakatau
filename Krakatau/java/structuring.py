@@ -143,6 +143,7 @@ def structureLoops(nodes):
                 newnodes = graphproxy.duplicateNodes(reachable, scc_set)
                 newtodo += newnodes
                 nodes += newnodes
+                print 'Warning, multiple entry point loop detected. Generated code may be extremely large'
 
             newtodo.extend(scc)
             newtodo.remove(head)
@@ -533,6 +534,7 @@ def mergeExceptions(dom, children, constraints, nodes):
 
     topoorder = graph_util.topologicalSort(constraints, lambda cn:([parents[cn]] if cn in parents else []))
     trycons = [con for con in constraints if con.tag == 'try']
+    # print 'Merging exceptions ({1}/{0}) trys'.format(len(constraints), len(trycons))
     trycons = sorted(trycons, key=topoorder.index)
     #note that the tree may be changed while iterating, but constraints should only move up 
 
@@ -566,6 +568,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                 assert(con2.forceddown.issubset(con.forceddown | okdiff))
                 assert(con2.forcedup.issubset(con.forcedup | okdiff))
                 assert(not (con2.cset - con.cset))
+        # print '{}/{} merged'.format(len(good), len(candidates2))
 
         #Now find which ones can be removed
         for con2 in candidates2:
@@ -616,6 +619,8 @@ def mergeExceptions(dom, children, constraints, nodes):
         tryscope = con.scopes[0]
         tryscope.lbound = con.lbound.copy()
         tryscope.ubound = con.ubound.copy()
+    # print 'Merging done'
+    # print dict(collections.Counter(con.tag for con in constraints))
 
     #Now fix up the nodes. This is a little tricky
     nodes = [n for n in nodes if n not in removed_nodes]
@@ -714,7 +719,8 @@ def completeScopes(dom, croot, children):
 
         #The problem is that when processing one child, we may want to extend it to include another child
         #We solve this by freezing already processed children and ordering them heuristically
-        revorder = sorted(children[parent], key=lambda cnode:(nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
+        # TODO - find a better way to handle this
+        revorder = sorted(children[parent], reverse=True, key=lambda cnode:(nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
         frozen_nodes = set()
 
         while revorder:
@@ -737,11 +743,11 @@ def completeScopes(dom, croot, children):
 
             #Be careful to make sure the order is deterministic
             temp = set(body)
-            parts = [n.successors_nl for n in sorted(body, key=nodeorder.get)]
+            parts = [n.norm_suc_nl for n in sorted(body, key=nodeorder.get)]
             startnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]            
 
             temp = set(ubound)
-            parts = [n.successors_nl for n in sorted(ubound, key=nodeorder.get)]
+            parts = [n.norm_suc_nl for n in sorted(ubound, key=nodeorder.get)]
             endnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]
 
             #Now use Edmonds-Karp, modified to find min vertex cut
@@ -766,7 +772,7 @@ def completeScopes(dom, croot, children):
                             pos2 = backedge[pos]
                             queue.append((pos2, False, path+(pos2,)))
                         if not lastfw and pos not in endset: #last edge was backwards, so we're allowed to go forwards
-                            for pos2 in pos.successors_nl:
+                            for pos2 in pos.norm_suc_nl:
                                 if pos2 not in path: #avoid cycles to avoid cluttering up the queue
                                     queue.append((pos2, True, path+(pos2,)))
                     else:
@@ -775,12 +781,12 @@ def completeScopes(dom, croot, children):
                             augmenting_path = path
                             break
                         else:
-                            for pos2 in pos.successors_nl:
+                            for pos2 in pos.norm_suc_nl:
                                 if pos2 not in path: #avoid cycles to avoid cluttering up the queue
                                     queue.append((pos2, True, path+(pos2,)))
                 else: #queue is empty but we didn't find anything
                     assert(augmenting_path is None)   
-                    lastseen = seen
+                    lastseen = seen | (startset & used)
                     break
 
                 path = augmenting_path
@@ -788,7 +794,7 @@ def completeScopes(dom, croot, children):
 
                 last = None
                 for pos in path:
-                    if last in pos.successors_nl:
+                    if last in pos.norm_suc_nl:
                         assert(pos in used)
                         assert(backedge[pos] != last)
                     else:
@@ -799,7 +805,7 @@ def completeScopes(dom, croot, children):
 
             #Now we have the max flow, try to find the min cut
             #Just use the set of nodes visited during the final BFS
-            interior = [x for x in (lastseen & ubound) if lastseen.issuperset(x.successors_nl)]
+            interior = [x for x in (lastseen & ubound) if lastseen.issuperset(x.norm_suc_nl)]
             cutsize = len(lastseen)-len(interior)
             assert(cutsize <= min(len(startset), len(used)))
 
@@ -811,6 +817,8 @@ def completeScopes(dom, croot, children):
             newchildren = []
             for child in revorder:
                 if child.lbound & body:
+                    # if not child.lbound <= body:
+                    #     print 'Extending by', len(child.lbound-body)
                     body |= child.lbound
                     newchildren.append(child)
 
@@ -971,8 +979,8 @@ def constraintsToSETree(dom, croot, children, nodes):
             new = sescopes[0]
 
         assert(new.nodes == frozenset(cnode.lbound))
-        assert(new.entryBlock() not in seitems)
-        seitems[new.entryBlock()] = new
+        assert(new.entryBlock not in seitems)
+        seitems[new.entryBlock] = new
 
     assert(len(seitems) == 1)
     assert(isinstance(seitems.values()[0], SEScope))
@@ -1036,9 +1044,9 @@ def structure(entryNode, nodes):
         for n2 in n.predecessors_nl:
             assert(n in n2.successors_nl)
 
+
     _checkNested(ctree_children)
     completeScopes(dom, croot, ctree_children)
-
 
     _checkNested(ctree_children)
     addBreakScopes(dom, croot, constraints, ctree_children)

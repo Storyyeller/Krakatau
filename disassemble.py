@@ -18,7 +18,7 @@ def disassembleClass(readTarget, targets=None, outpath=None):
 
     # targets = targets[::-1]
     start_time = time.time()
-    # random.shuffle(targets)
+    # __import__('random').shuffle(targets)
     for i,target in enumerate(targets):
         print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
 

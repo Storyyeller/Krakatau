@@ -218,101 +218,129 @@ def _createASTBlock(info, node, breakmap):
     assert(None not in statements)
     return new
 
-def _createASTSub(info, current, targets, ftblock, forceUnlabled=False):
-    if isinstance(current, SEScope):
-        new = ast.StatementBlock(info.labelgen)
-        if not forceUnlabled and ftblock is not None:
-            targets = targets + ((ftblock, (new,False)),)
+def _createASTSub(info, seroot):
+    # The basic pattern is to create a node, recurse of the children, collect the results,
+    # assign them back to the parent AST node, and return. The first boolean in each stack
+    # value indicates whether it is before or after recursing
 
-        #todo - is sorting required here?
-        last = ftblock
-        contents = []
-        for item in reversed(current.items):
-            contents.append(_createASTSub(info, item, targets, last))
-            last = item.entryBlock()
+    result = []
+    stack = [(True, (seroot, (), None, True, result.append))]
+    while stack:
+        before, data = stack.pop()
+        if before:
+            current, targets, ftblock, forceUnlabled, ret_cb = data
+            contents = []
 
-        new.statements = list(reversed(contents))
-        new.jump = None
-        assert(all(isinstance(s, ast.JavaStatement) for s in new.statements))
-    elif isinstance(current, SEWhile):
-        new = ast.WhileStatement(info.labelgen)
-        targets = targets + ((current.entryBlock(), (new,True)),)
-        if ftblock is not None:
-            targets = targets + ((ftblock, (new,False)),)
-        new.parts = _createASTSub(info, current.body, targets, None),
-    elif isinstance(current, SETry):
-        new = ast.TryStatement(info.labelgen)
-        if ftblock is not None:
-            targets = targets + ((ftblock, (new,False)),)
-        parts = [_createASTSub(info, scope, targets, None) for scope in current.getScopes()]
-        catchnode = current.getScopes()[-1].entryBlock()
+            calls = []
+            def recurse(item, targets, ftblock=None, forceUnlabled=False):
+                calls.append((True, (item, targets, ftblock, forceUnlabled, contents.append)))
 
-        declt = ast.CatchTypeNames(info.env, current.toptts)
-        if current.catchvar is None: #exception is ignored and hence not referred to by the graph, so we need to make our own
-            catchvar = info.customVar(declt, 'ignoredException')
-        else:
-            catchvar = info.var(catchnode, current.catchvar)
+            new = None #catch error if we forget to assign it in one case
+            if isinstance(current, SEScope):
+                new = ast.StatementBlock(info.labelgen)
+                if not forceUnlabled and ftblock is not None:
+                    targets = targets + ((ftblock, (new,False)),)
 
-        decl = ast.VariableDeclarator(declt, catchvar)
-        new.parts = parts[0], decl, parts[1]
+                fallthroughs = [item.entryBlock for item in current.items[1:]] + [ftblock]
+                for item, ft in zip(current.items, fallthroughs):
+                    recurse(item, targets, ft)
 
-    elif isinstance(current, SEIf):
-        node = current.head.node
-        headscope = _createASTBlock(info, node, None) #pass none as breakmap so an error occurs if it is used
-        jump = node.block.jump
+            elif isinstance(current, SEWhile):
+                new = ast.WhileStatement(info.labelgen)
+                targets = targets + ((current.entryBlock, (new,True)),)
+                if ftblock is not None:
+                    targets = targets + ((ftblock, (new,False)),)
+                recurse(current.body, targets)
 
-        symbols = "== != < >= > <=".split()
-        cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), symbols))
-        cmp_str = cmp_strs[jump.cmp]
-        exprs = [info.var(node, var) for var in jump.params]
-        ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
+            elif isinstance(current, SETry):
+                new = ast.TryStatement(info.labelgen)
+                if ftblock is not None:
+                    targets = targets + ((ftblock, (new,False)),)
+                for scope in current.getScopes():
+                    recurse(scope, targets)
 
-        newif = ast.IfStatement(info.labelgen, ifexpr)
-        if ftblock is not None:
-            targets = targets + ((ftblock, (newif,False)),)
+            elif isinstance(current, SEIf):
+                node = current.head.node
+                jump = node.block.jump
 
-        scopes = [_createASTSub(info, scope, targets, ftblock, forceUnlabled=True) for scope in current.getScopes()]
-        newif.scopes = scopes
+                cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split()))
+                cmp_str = cmp_strs[jump.cmp]
+                exprs = [info.var(node, var) for var in jump.params]
+                ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
 
-        #bundle head and if together so we can return as single statement
-        new = ast.StatementBlock(info.labelgen)
-        new.statements = headscope, newif
-        
-    elif isinstance(current, SESwitch):
-        node = current.head.node
-        headscope = _createASTBlock(info, node, None) #pass none as breakmap so an error occurs if it is used
-        jump = node.block.jump
+                new = ast.IfStatement(info.labelgen, ifexpr)
+                if ftblock is not None:
+                    targets = targets + ((ftblock, (new,False)),)
 
-        exprs = [info.var(node, var) for var in jump.params]
-        newswitch = ast.SwitchStatement(info.labelgen, exprs[0])
-        if ftblock is not None:
-            targets = targets + ((ftblock, (newswitch,False)),)
+                for scope in current.getScopes():
+                    recurse(scope, targets, ftblock, True)
+                
+            elif isinstance(current, SESwitch):
+                node = current.head.node
+                jump = node.block.jump
+                expr = info.var(node, jump.params[0])
+                new = ast.SwitchStatement(info.labelgen, expr)
+                if ftblock is not None:
+                    targets = targets + ((ftblock, (new,False)),)
 
-        keysets = {node.blockdict[b.key,False]:jump.reverse.get(b) for b in jump.getNormalSuccessors()}
-        assert(keysets.values().count(None) == 1)
+                fallthroughs = [item.entryBlock for item in current.ordered[1:]] + [ftblock]
+                for item, ft in zip(current.ordered, fallthroughs):
+                    recurse(item, targets, ft, True)
 
-        pairs = []
-        newft = ftblock
-        for scope in reversed(current.ordered):
-            temp = _createASTSub(info, scope, targets, newft, forceUnlabled=True)
-            newft = scope.entryBlock()
-            pairs.append((keysets[scope.entryBlock()], temp))
-            del keysets[scope.entryBlock()]
-        assert(not keysets)
+            elif isinstance(current, SEBlockItem):
+                if ftblock is not None:
+                    targets = targets + ((ftblock, None),)
 
-        newswitch.pairs = list(reversed(pairs))
-        new = ast.StatementBlock(info.labelgen)
-        new.statements = headscope, newswitch
+                gotoMap = dict(targets) #more recent keys override, as desired
+                new = _createASTBlock(info, current.node, gotoMap)
 
-    elif isinstance(current, SEBlockItem):
-        if ftblock is not None:
-            targets = targets + ((ftblock, None),)
-        gotoMap = dict(targets) #more recent keys override, as desired
+            assert(new is not None)
+            #stuff to be done after recursive calls return
+            stack.append((False, (current, new, contents, ret_cb)))
+            stack.extend(calls)
+        else: #after recursion
+            current, new, contents, ret_cb = data
+            contents = list(reversed(contents)) #the results of recursive calls. Has to be reversed since stacks are FILO
 
-        new = _createASTBlock(info, current.node, gotoMap)
-    return new
+
+            if isinstance(current, SEScope):
+                new.statements = contents
+                new.jump = None
+                assert(all(isinstance(s, ast.JavaStatement) for s in new.statements))
+            elif isinstance(current, SEWhile):
+                new.parts = contents
+            elif isinstance(current, SETry):
+                parts = contents
+                catchnode = current.getScopes()[-1].entryBlock
+                declt = ast.CatchTypeNames(info.env, current.toptts)
+
+                if current.catchvar is None: #exception is ignored and hence not referred to by the graph, so we need to make our own
+                    catchvar = info.customVar(declt, 'ignoredException')
+                else:
+                    catchvar = info.var(catchnode, current.catchvar)
+                decl = ast.VariableDeclarator(declt, catchvar)
+                new.parts = parts[0], decl, parts[1]
+            elif isinstance(current, SEIf):
+                headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
+                new.scopes = contents
+
+                #bundle head and if together so we can return as single statement
+                new2 = ast.StatementBlock(info.labelgen)
+                new2.statements = headscope, new
+                new = new2
+            elif isinstance(current, SESwitch):
+                headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
+                new.pairs = zip(current.ordered_keysets, contents)
+                new2 = ast.StatementBlock(info.labelgen)
+                new2.statements = headscope, new
+                new = new2
+            elif isinstance(current, SEBlockItem):
+                pass
+
+            ret_cb(new) # 'return' from recursive call
+    return result[0]
 
 def createAST(method, ssagraph, seroot):
     info = VarInfo(method, ssagraph.blocks)
-    astroot = _createASTSub(info, seroot, (), None)
+    astroot = _createASTSub(info, seroot)
     return astroot, info

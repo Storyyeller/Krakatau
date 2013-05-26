@@ -1,6 +1,7 @@
 import itertools
 
 def update(self, items):
+    self.entryBlock = items[0].entryBlock
     self.nodes = frozenset.union(*(i.nodes for i in items))
     temp = set(self.nodes)
     siter = itertools.chain.from_iterable(i.successors for i in items) 
@@ -11,9 +12,9 @@ class SEBlockItem(object):
         self.successors = node.norm_suc_nl #don't include backedges or exceptional edges
         self.node = node 
         self.nodes = frozenset([node])
+        self.entryBlock = node
     
     def getScopes(self): return ()    
-    def entryBlock(self): return self.node
 
 class SEScope(object):
     def __init__(self, items):
@@ -21,16 +22,13 @@ class SEScope(object):
         update(self, items)
 
     def getScopes(self): return ()    
-    def entryBlock(self): return self.items[0].entryBlock()
 
 class SEWhile(object):
     def __init__(self, scope):
         self.body = scope
-        self.nodes = scope.nodes
-        self.successors = scope.successors
+        update(self, [scope])
 
     def getScopes(self): return self.body,    
-    def entryBlock(self): return self.body.entryBlock()
 
 class SETry(object):
     def __init__(self, tryscope, catchscope, toptts, catchvar):
@@ -40,7 +38,6 @@ class SETry(object):
         update(self, self.scopes)
 
     def getScopes(self): return self.scopes
-    def entryBlock(self): return self.scopes[0].entryBlock()
 
 class SEIf(object):
     def __init__(self, head, newscopes):
@@ -50,7 +47,6 @@ class SEIf(object):
         update(self, [head] + newscopes)
 
     def getScopes(self): return self.scopes
-    def entryBlock(self): return self.head.entryBlock()
 
 class SESwitch(object):
     def __init__(self, head, newscopes):
@@ -59,5 +55,9 @@ class SESwitch(object):
         self.ordered = newscopes
         update(self, [head] + newscopes)
 
+        jump = head.node.block.jump
+        keysets = {head.node.blockdict[b.key,False]:jump.reverse.get(b) for b in jump.getNormalSuccessors()}
+        assert(keysets.values().count(None) == 1)
+        self.ordered_keysets = [keysets[item.entryBlock] for item in newscopes]
+
     def getScopes(self): return self.scopes
-    def entryBlock(self): return self.head.entryBlock()

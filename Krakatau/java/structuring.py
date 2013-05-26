@@ -319,6 +319,8 @@ def orderConstraints(dom, constraints, nodes):
     children = ddict(list)
     frozen = set()
 
+    dset = frozenset(dom._doms)
+
     node_set = set(nodes)
     for item in constraints:
         assert(item.lbound <= node_set)
@@ -347,8 +349,11 @@ def orderConstraints(dom, constraints, nodes):
             queue += [i2 for i2 in item.forceddown if not i2 in iset and not iset.add(i2)]
 
             if not item.lbound.issubset(nset):
+                assert(nset <= dset)
                 nset |= item.lbound
+                assert(nset <= dset)
                 nset = dom.extend(nset)
+                assert(nset <= dset)
                 hits = [i2 for i2 in constraints if nset & i2.lbound]
                 queue += [i2 for i2 in hits if not i2 in iset and not iset.add(i2)]
 
@@ -720,7 +725,7 @@ def completeScopes(dom, croot, children):
         #The problem is that when processing one child, we may want to extend it to include another child
         #We solve this by freezing already processed children and ordering them heuristically
         # TODO - find a better way to handle this
-        revorder = sorted(children[parent], reverse=True, key=lambda cnode:(nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
+        revorder = sorted(children[parent], key=lambda cnode:(nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
         frozen_nodes = set()
 
         while revorder:
@@ -1044,10 +1049,11 @@ def structure(entryNode, nodes):
         for n2 in n.predecessors_nl:
             assert(n in n2.successors_nl)
 
-
+    # print 'completing scopes'
     _checkNested(ctree_children)
     completeScopes(dom, croot, ctree_children)
 
+    # print 'adding breaks'
     _checkNested(ctree_children)
     addBreakScopes(dom, croot, constraints, ctree_children)
     _checkNested(ctree_children)

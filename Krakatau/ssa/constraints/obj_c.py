@@ -103,14 +103,14 @@ class ObjectConstraint(ValueType):
         return ObjectConstraint(True, TypeConstraint(env, [], []), None)
 
     @staticmethod
-    def fromTops(env, supers, exact, nonnull=False, arrlen=0): #can't use None as default since it may be passed
+    def fromTops(env, supers, exact, nonnull=False, arrlen=Ellipsis): #can't use None as default since it may be passed
         types = TypeConstraint(env, supers, exact)
         if nonnull and not types:
             return None
         isarray = any((t,0) in supers for t in array_supers)
         isarray = isarray or (supers and any(zip(*supers)[1]))
         isarray = isarray or (exact and any(zip(*exact)[1]))
-        if arrlen == 0:
+        if arrlen is Ellipsis:
             arrlen = nonnegative if isarray else None
         else:
             assert(arrlen is None or isarray)

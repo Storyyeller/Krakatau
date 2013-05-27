@@ -145,6 +145,7 @@ def structureLoops(nodes):
                 newtodo += newnodes
                 nodes += newnodes
                 print 'Warning, multiple entry point loop detected. Generated code may be extremely large'
+                print '{} entry points, {} blocks'.format(len(entries)+1, len(scc))
 
             newtodo.extend(scc)
             newtodo.remove(head)

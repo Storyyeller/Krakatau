@@ -1,8 +1,9 @@
 from .base import BaseOp
 from ...verifier.descriptors import parseMethodDescriptor
-from ..ssa_types import verifierToSSAType, SSA_MONAD
+from ..ssa_types import verifierToSSAType, SSA_OBJECT, SSA_MONAD
 
 from .. import objtypes, constraints
+from ..constraints import ObjectConstraint
 
 class Invoke(BaseOp):
     def __init__(self, parent, instr, info, args, monad, isThisCtor):
@@ -11,11 +12,12 @@ class Invoke(BaseOp):
         self.instruction = instr
         self.target, self.name, self.desc = info
         self.isThisCtor = isThisCtor #whether this is a ctor call for the current class
-
         vtypes = parseMethodDescriptor(self.desc)[1]
 
+        dtype = None
         if vtypes:
             stype = verifierToSSAType(vtypes[0])
+            dtype = objtypes.verifierToSynthetic(vtypes[0])
             cat = len(vtypes)
 
             self.rval = parent.makeVariable(stype, origin=self)
@@ -29,9 +31,13 @@ class Invoke(BaseOp):
         env = parent.env
 
         self.mout = constraints.DUMMY
-        self.eout = constraints.ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
+        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
         if self.rval is not None:
-            self.rout = constraints.fromVariable(env, self.rval)
+            if self.rval.type == SSA_OBJECT:
+                supers, exact = objtypes.declTypeToActual(env, dtype)
+                self.rout = ObjectConstraint.fromTops(env, supers, exact)
+            else:
+                self.rout = constraints.fromVariable(env, self.rval)
 
     def propagateConstraints(self, *incons):
         if self.rval is None:

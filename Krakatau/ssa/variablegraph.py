@@ -35,9 +35,6 @@ class BaseNode(object):
             return True
         return False
 
-    # def mark(self):
-    #     return str(self.root).startswith('i')
-
 def registerUses(use, sources):
     for node,index in sources:
         node.uses.append(use)

@@ -44,6 +44,7 @@ class BlockProxy(object):
     def newDuplicate(self): #for use by duplicateNodes
         new = BlockProxy(self.bkey, self.counter, self.block)
         new.invars = self.invars
+        new.outvars = self.outvars.copy()
         new.blockdict = self.blockdict
         new.successors = self.successors[:]
         return new

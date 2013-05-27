@@ -16,12 +16,12 @@ class ArrLoad(BaseOp):
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), m
+                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
 
         if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
             etypes += (excepttypes.ArrayOOB,)
             eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-            return None, eout, m
+            return None, eout
         elif (i.max >= a.arrlen.min) or i.min < 0:
             etypes += (excepttypes.ArrayOOB,)
 

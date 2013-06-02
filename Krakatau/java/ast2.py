@@ -76,5 +76,5 @@ class ClassDef(object):
         if self.interfaces:
             header += ' implements ' + ', '.join(x.print_() for x in self.interfaces)
 
-        lines = [header + '{'] + indented + ['}']
+        lines = [header + ' {'] + indented + ['}']
         return '\n'.join(lines)

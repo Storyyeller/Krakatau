@@ -104,6 +104,7 @@ def TryCon(trynode, target, cset, catchvar):
     trybound = set([trynode])
     tryscope = ScopeConstraint(trybound, trybound.copy())
 
+    #Catch scopes are added later, once all the merging is finished
     new = CompoundConstraint('try', None, [tryscope])
     new.forcedup = set()
     new.forceddown = set()
@@ -326,9 +327,8 @@ def orderConstraints(dom, constraints, nodes):
     children = ddict(list)
     frozen = set()
 
-    dset = frozenset(dom._doms)
-
     node_set = set(nodes)
+    assert(set(dom._doms) == node_set)
     for item in constraints:
         assert(item.lbound <= node_set)
         assert(item.ubound <= node_set)
@@ -356,14 +356,11 @@ def orderConstraints(dom, constraints, nodes):
             queue += [i2 for i2 in item.forceddown if not i2 in iset and not iset.add(i2)]
 
             if not item.lbound.issubset(nset):
-                assert(nset <= dset)
                 nset |= item.lbound
-                assert(nset <= dset)
                 nset = dom.extend(nset)
-                assert(nset <= dset)
                 hits = [i2 for i2 in constraints if nset & i2.lbound]
                 queue += [i2 for i2 in hits if not i2 in iset and not iset.add(i2)]
-
+        assert(nset <= node_set)
         assert(nset and nset == dom.extend(nset))
         #items is now a connected component
         candidates = [i for i in items if i.ubound.issuperset(nset)]
@@ -427,12 +424,37 @@ def orderConstraints(dom, constraints, nodes):
     return croot, children
 
 def mergeExceptions(dom, children, constraints, nodes):
-    parents = {}
+    parents = {} # con -> parent, parentscope
     for k, cs in children.items():
         for child in cs:
-            assert(child not in parents)
-            parents[child] = k
+            scopes = [s for s in k.scopes if s.lbound & child.lbound]
+            assert(child not in parents and len(scopes) == 1)
+            parents[child] = k, scopes[0]
     assert(set(parents) == set(constraints))
+
+    def removeFromTree(con):
+        parent, pscope = parents[con]
+        children[parent] += children[con]
+        for x in children[con]:
+            scopes = [s for s in con.scopes if s.lbound & x.lbound]
+            parents[x] = parent, scopes[0]
+        children[parent].remove(con)
+        del children[con]
+        del parents[con]
+
+    def insertInTree(con, parent):
+        scopes = [s for s in parent.scopes if s.lbound & con.lbound]
+        parents[con] = parent, scopes[0]
+        children[con] = []
+
+        for scope in con.scopes:
+            hits = [c for c in children[parent] if c.lbound & scope.lbound]
+            for child in hits:
+                assert(parents[child][0] == parent)
+                parents[child] = con, scope
+                children[con].append(child)
+                children[parent].remove(child)
+        children[parent].append(con)
 
     def unforbid(forbidden, newdown):
         for n in newdown.lbound:
@@ -443,9 +465,8 @@ def mergeExceptions(dom, children, constraints, nodes):
 
     def tryExtend(con, con2, removed):
         #Attempt to extend con to cover con2
-        #If not successful, rollback the changes
-        #though we may leave ubound smaller to help
-        #fail earlier in the future
+        #If not successful, rollback the changes 
+
         assert(con.tag == con2.tag == 'try')
         assert(con.orig_target == con2.orig_target)
         forcedup = con.forcedup | con2.forcedup
@@ -455,29 +476,24 @@ def mergeExceptions(dom, children, constraints, nodes):
         if forcedup & forceddown:
             return False
 
-        body = con.lbound | con2.lbound
-        for lower in forceddown:
-            body |= lower.lbound
-        body = dom.extend(body)
+        body = dom.extend(con.lbound | con2.lbound)
+        ubound = set(con.ubound)
+        for tcon in forcedup:
+            ubound &= tcon.lbound
 
-        oldparent = parent = parents[con]
-        while not body.issubset(parent.lbound):
+        parent, pscope = parents[con]
+        while not body <= pscope.lbound:
             body |= parent.lbound
-            if not body.issubset(con.ubound):
-                con.ubound &= parent.lbound
+            if parent in forcedup or not body <= ubound:
                 return False
-            parent = parents[parent]
+            parent, pscope = parents[parent]
 
         for child in children[parent]:
-            if not child.lbound.isdisjoint(body):
+            if child.lbound & body:
                 body |= child.lbound
 
-        assert(body == dom.extend(body))
-        if not body.issubset(con.ubound):
+        if not body <= ubound:
             return False
-        for upper in forcedup: #Not ideal, but we do this for now to ensure the tree remains orderable
-            if not body.issubset(upper.lbound):
-                return False
 
         cset = con.cset | con2.cset
         forbidden = con.forbidden.copy()
@@ -490,11 +506,11 @@ def mergeExceptions(dom, children, constraints, nodes):
                 #The current cset is not compatible with the current partial order
                 #Try to find some cons to force down in order to fix this
                 bad = cset & forbidden[node]
-
                 candidates = [c for c in trycons if c not in removed]
                 candidates = [c for c in candidates if node in c.lbound and c.lbound.issubset(body)]
                 candidates = [c for c in candidates if (c.cset & bad)]
                 candidates = [c for c in candidates if c not in forcedup and c is not con]
+
                 for topnd in candidates:
                     if topnd in forceddown:
                         continue
@@ -514,6 +530,8 @@ def mergeExceptions(dom, children, constraints, nodes):
                     return False
         assert(forceddown.isdisjoint(forcedup))
         assert(all(forbidden.values()))
+        for tcon in forceddown:
+            assert(tcon.lbound <= body)
 
         #At this point, everything should be all right, so we need to update con and the tree
         con.lbound = body
@@ -522,40 +540,29 @@ def mergeExceptions(dom, children, constraints, nodes):
         con.forcedup = forcedup
         con.forceddown = forceddown
 
+        #These copies aren't necessary, but it's easier to just keep all the mutable sets seperate
+        con.scopes[0].lbound = body.copy()
+        con.scopes[0].ubound = ubound.copy()
+
         for new in con.forceddown:
             new.forcedup.add(con)
             new.forcedup |= forcedup
 
         for new in con.forcedup:
             unforbid(new.forbidden, con)
-            for new2 in forceddown - new.forceddown - removed:
+            for new2 in forceddown - new.forceddown:
                 unforbid(new.forbidden, new2)
             new.forceddown.add(con) 
             new.forceddown |= forceddown
 
-        for child in children[con]:
-            children[oldparent].append(child)
-            assert(parents[child] == con)
-            parents[child] = oldparent
-        children[oldparent].remove(con)
-        children[parent].append(con)
-        parents[con] = parent
-
-        newchildren = [c for c in children[parent] if c is not con and c.lbound.issubset(body)]
-        for child in newchildren:
-            children[parent].remove(child)
-            assert(parents[child] == parent)
-            parents[child] = con     
-        children[con] = newchildren     
-
-        for k,v in parents.items():
-            assert(k != v)
-            assert(k in children[v])
+        #Move con into it's new position in the tree
+        removeFromTree(con)
+        insertInTree(con, parent)
         return True
 
-    topoorder = graph_util.topologicalSort(constraints, lambda cn:([parents[cn]] if cn in parents else []))
     trycons = [con for con in constraints if con.tag == 'try']
     # print 'Merging exceptions ({1}/{0}) trys'.format(len(constraints), len(trycons))
+    topoorder = graph_util.topologicalSort(constraints, lambda cn:([parents[cn]] if cn in parents else []))
     trycons = sorted(trycons, key=topoorder.index)
     #note that the tree may be changed while iterating, but constraints should only move up 
 
@@ -577,28 +584,28 @@ def mergeExceptions(dom, children, constraints, nodes):
         candidates2 = [c for c in candidates1 if c.lbound.issubset(con.ubound)]
         candidates2.remove(con)
 
-        good = set()
+        success = {}
         for con2 in candidates2:
-            success = tryExtend(con, con2, removed)
-            if success:
-                good.add(con2)
-                okdiff = set([con,con2])
-        # print '{}/{} merged'.format(len(good), len(candidates2))
+            success[con2] = tryExtend(con, con2, removed)
 
         #Now find which ones can be removed
-        for con2 in candidates2:
+        def removeable(con2):
             okdiff = set([con,con2])
-            if not con2.lbound.issubset(con.lbound):
-                continue
-            if not con2.forceddown.issubset(con.forceddown | okdiff):
-                continue
-            if not con2.forcedup.issubset(con.forcedup | okdiff):
-                continue
-            if con2.cset - con.cset:
-                continue
-            assert(con2 in good)
+            if con2.lbound <= (con.lbound):
+                if con2.forceddown <= (con.forceddown | okdiff):
+                    if con2.forcedup <= (con.forcedup | okdiff):
+                        if not con2.cset - con.cset:
+                            return True
+            return False
 
-            #now remove it
+        for con2 in candidates2:
+            #Note that since our tryExtend is somewhat conservative, in rare cases we
+            #may find that we can remove a constraint even if tryExtend failed on it
+            #but the reverse should obviously never happen
+            if not removeable(con2):
+                assert(not success[con2])
+                continue
+
             removed.add(con2)
             for tcon in trycons:
                 if tcon not in removed and tcon is not con:
@@ -607,15 +614,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                 tcon.forcedup.discard(con2)
                 tcon.forceddown.discard(con2)
             assert(con not in removed)
-
-            parent = parents[con2]
-            children[parent] += children[con2]
-            for x in children[con2]:
-                parents[x] = parent
-            children[parent].remove(con2)
-            del children[con2]
-            del parents[con2]
-        assert(good <= removed)
+            removeFromTree(con2)
 
     #Cleanup
     removed_nodes = frozenset(c.target for c in removed)

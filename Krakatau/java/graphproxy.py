@@ -36,7 +36,7 @@ class BlockProxy(object):
         new = BlockProxy(self.bkey, self.counter)
         new.invars = self.invars
         new.outvars = {self:new.invars}
-
+        new.blockdict = None
         new.successors = [self]
         self.predecessors.append(new)
         return new      

@@ -544,6 +544,7 @@ def p_error(p):
     print 'Current stack:', cvars['symstack']
 
     #Discard the rest of the input so that Ply doesn't attempt error recovery
+    from ply import yacc
     tok = yacc.token()
     while tok is not None:
         tok = yacc.token()

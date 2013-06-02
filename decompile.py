@@ -6,7 +6,6 @@ import Krakatau.ssa
 from Krakatau.environment import Environment
 from Krakatau.java import javaclass
 from Krakatau.verifier.inference_verifier import verifyBytecode
-
 from Krakatau import script_util
 
 def findJRE():
@@ -28,6 +27,10 @@ def _stats(s):
     vc = sum(len(b.unaryConstraints) for b in s.blocks)
     return '{} blocks, {} variables'.format(bc,vc)
 
+def _print(s):
+    from Krakatau.ssa.printer import SSAPrinter
+    return SSAPrinter(s).print_()
+
 def makeGraph(m):
     v = verifyBytecode(m.code)
     s = Krakatau.ssa.ssaFromVerified(m.code, v)
@@ -36,14 +39,17 @@ def makeGraph(m):
         s.removeUnusedVariables()
         s.inlineSubprocs()
 
+    # print _stats(s)
     s.condenseBlocks()
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
+    # print _stats(s)
     s.pessimisticPropagation() #WARNING - currently does not work if any output variables have been pruned already
     s.disconnectConstantVariables()
     s.simplifyJumps()
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
+    # print _stats(s)
     return s
 
 def decompileClass(path=[], targets=None, outpath=None):

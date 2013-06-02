@@ -71,7 +71,7 @@ class ClassFile(object):
         assert(magic == 0xCAFEBABE)
         self.version = major,minor
 
-        self.const_pool_raw = get_cp_raw(bytestream)
+        const_pool_raw = get_cp_raw(bytestream)
         flags, self.this, self.super = bytestream.get('>HHH')
 
         interface_count = bytestream.get('>H')
@@ -80,21 +80,16 @@ class ClassFile(object):
         self.fields_raw = get_fields_raw(bytestream)
         self.methods_raw = get_methods_raw(bytestream)
 
-        ic_indices = [i for i,x in enumerate(self.const_pool_raw) if x == (1, ("InnerClasses",))]
+        ic_indices = [i for i,x in enumerate(const_pool_raw) if x == (1, ("InnerClasses",))]
         self.attributes_raw = get_attributes_raw(bytestream, ic_indices)
         assert(bytestream.size() == 0)
 
         self.flags = set(name for name,mask in ClassFile.flagVals.items() if (mask & flags))
-
-        #convert raw data
-        self.cpool = cpool = constant_pool.ConstPool(self.const_pool_raw)
+        self.cpool = constant_pool.ConstPool(const_pool_raw)
         self.name = self.cpool.getArgsCheck('Class', self.this)
-        
-        self.fields = [field.Field(m, self) for m in self.fields_raw]    
-        self.methods = [method.Method(m, self) for m in self.methods_raw]
-        self.attributes = fixAttributeNames(self.attributes_raw, cpool)
+        self.elementsLoaded = False
 
-    def load(self, env, name, subclasses):
+    def loadSupers(self, env, name, subclasses):
         self.env = env
         assert(self.name == name)
 
@@ -103,12 +98,24 @@ class ClassFile(object):
             # if superclass is cached, we can assume it is free from circular inheritance
             # since it must have been loaded successfully on a previous run 
             if not self.env.isCached(self.supername):
-                self.env.getClass(self.supername, subclasses + (name,))
+                self.env.getClass(self.supername, subclasses + (name,), partial=True)
             self.hierarchy = self.env.getSupers(self.supername) + (self.name,)         
         else:
             assert(name == 'java/lang/Object')
             self.supername = None
             self.hierarchy = (self.name,)
+
+    def loadElements(self, keepRaw=False):
+        if self.elementsLoaded:
+            return
+        self.fields = [field.Field(m, self, keepRaw) for m in self.fields_raw]    
+        self.methods = [method.Method(m, self, keepRaw) for m in self.methods_raw]
+        self.attributes = fixAttributeNames(self.attributes_raw, self.cpool)
+        del self.fields_raw
+        del self.methods_raw
+        if not keepRaw:
+            del self.attributes_raw
+        self.elementsLoaded = True
 
     def getSuperclassHierarchy(self):
         return self.hierarchy

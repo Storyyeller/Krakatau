@@ -16,14 +16,16 @@ class Environment(object):
     def addToPath(self, path):
         self.path.append(path)
 
-    def getClass(self, name, subclasses = tuple()):
+    def getClass(self, name, subclasses=tuple(), partial=False):
         if name in subclasses:
             raise ClassLoaderError('ClassCircularityError', (name, subclasses))
         try:
-            return self.classes[name]
+            result = self.classes[name]
         except KeyError:
-            self._loadClass(name, subclasses)
-            return self.classes[name]     
+            result = self._loadClass(name, subclasses)
+        if not partial:
+            result.loadElements()
+        return result
 
     def isSubclass(self, name1, name2):
         return name1 == name2 or (name2 in self.cache.superClasses(name1))
@@ -58,5 +60,6 @@ class Environment(object):
         
         stream = binUnpacker.binUnpacker(data=data)
         new = ClassFile(stream)
-        new.load(self, name, subclasses)
-        self.classes[name] = new  
+        new.loadSupers(self, name, subclasses)
+        self.classes[name] = new
+        return new

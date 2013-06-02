@@ -34,7 +34,7 @@ class Cache(object):
         if name in self.data:
             return self.data[name][0]
 
-        class_ = self.env.getClass(name)
+        class_ = self.env.getClass(name, partial=True)
         if self.shouldCache(name):
             self._cache_info(class_)
         return class_.getSuperclassHierarchy()
@@ -43,8 +43,7 @@ class Cache(object):
         if name in self.data:
             return self.data[name][1]
 
-        class_ = self.env.getClass(name)
+        class_ = self.env.getClass(name, partial=True)
         if self.shouldCache(name):
             self._cache_info(class_)
         return class_.flags
-

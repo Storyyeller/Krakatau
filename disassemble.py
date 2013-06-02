@@ -25,6 +25,7 @@ def disassembleClass(readTarget, targets=None, outpath=None):
         data = readTarget(target)
         stream = Krakatau.binUnpacker.binUnpacker(data=data)
         class_ = ClassFile(stream)
+        class_.loadElements(keepRaw=True)
 
         source = Krakatau.assembler.disassembler.disassemble(class_)
         filename = script_util.writeFile(outpath, class_.name, '.j', source)

@@ -307,7 +307,6 @@ class ArrayAccess(JavaExpression):
         if p0.precedence > 0 or isinstance(p0, ArrayCreation):
             self.params[0] = Parenthesis(p0)
 
-
 class ArrayCreation(JavaExpression):
     def __init__(self, tt, *sizeargs):
         base, dim = tt
@@ -328,7 +327,6 @@ class Assignment(JavaExpression):
         if not isJavaAssignable(env, right.dtype, left.dtype):
             expr = makeCastExpr(left.dtype, right)
             self.params = left, expr
-
 
 _binary_ptable = ['* / %', '+ -', '<< >> >>>', 
     '< > <= >= instanceof', '== !=', 
@@ -368,7 +366,6 @@ class Cast(JavaExpression):
         p1 = self.params[1]
         if p1.precedence > 5 or (isinstance(p1, UnaryPrefix) and p1.opstr[0] in '-+'):
             self.params[1] = Parenthesis(p1)
-
 
 class ClassInstanceCreation(JavaExpression):
     def __init__(self, typename, tts, arguments):
@@ -451,6 +448,9 @@ Literal.N_ONE = Literal(objtypes.IntTT, -1)
 Literal.ZERO = Literal(objtypes.IntTT, 0)
 Literal.ONE = Literal(objtypes.IntTT, 1)
 
+Literal.FZERO = Literal(objtypes.FloatTT, 0.0)
+Literal.DZERO = Literal(objtypes.DoubleTT, 0.0)
+Literal.NULL = Literal(objtypes.NullTT, None)
 
 class Local(JavaExpression):
     def __init__(self, vartype, namefunc):

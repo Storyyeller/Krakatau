@@ -248,9 +248,18 @@ class MethodDecompiler(object):
         newvars = [var for var in info if isinstance(var, ast.Local) and info[var].declScope is None]
         remaining = set(newvars)
 
+        #The compiler treats statements as if they can throw any exception at any time, so
+        #it may think variables are not definitely assigned even when they really are. 
+        #Therefore, we give an unused initial value to every variable declaration
+        #TODO - find a better way to handle this
+        _init_d = {objtypes.BoolTT: ast.Literal.FALSE,
+                objtypes.IntTT: ast.Literal.ZERO,
+                objtypes.FloatTT: ast.Literal.FZERO,
+                objtypes.DoubleTT: ast.Literal.DZERO}
         def mdVisitVarUse(var):
             decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
-            localdefs[info[var].scope].append( ast.LocalDeclarationStatement(decl) )
+            right = _init_d.get(var.dtype, ast.Literal.NULL)
+            localdefs[info[var].scope].append( ast.LocalDeclarationStatement(decl, right) )
             remaining.remove(var)
 
         def mdVisitScope(scope):
@@ -557,14 +566,13 @@ class MethodDecompiler(object):
             self._fixObjectCreations(ast_root)
             self._simplifyBlocks(ast_root)
             self._setScopeParents(ast_root)
-            self._inlineTryBeginning(ast_root)
+            # self._inlineTryBeginning(ast_root)
             boolize.boolizeVars(ast_root, argsources)
 
             self._setScopeParents(ast_root)
             self._mergeVariables(ast_root, argsources)
             self._createTernaries(ast_root)
             self._simplifyBlocks(ast_root)
-
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)

@@ -10,30 +10,49 @@ class BaseNode(object):
         self.sources = []
         self.uses = []
         self.process = processfunc
-        self.itercount = 0
+        self.iters = self.upIters = 0
         self.propagateInvalid = not isphi
-        #self.output to be filled in
+        self.upInvalid = False
+        #self.output, self.upOutput to be filled in
 
         self.root = None #for debugging purposes, store the SSA object this node corresponds to
 
-    def update(self):
-        if not self.sources:
-            return False
-
-        inputs = [node.output[key] for node,key in self.sources]
+    def _propagate(self, inputs):
         if self.propagateInvalid and None in inputs:
-            new = [None]*len(self.output)
+            new = (None,)*len(self.output)
         else:
             inputs = [x for x in inputs if x is not None]
             new = self.process(*inputs)
             assert(len(self.output)==len(new))
-            new = [(None if newv is None else join(oldv, newv)) for oldv, newv in zip(self.output, new)]
+            new = tuple(join(oldv, newv) for oldv, newv in zip(self.output, new))
+        return new
 
-        if new != self.output:
-            self.output = new
-            self.itercount += 1
-            return True
-        return False
+    def update(self, iterlimit):
+        if not self.sources:
+            assert(self.output == self.upOutput)
+            return False
+
+        changed = False
+        if self.iters < iterlimit:
+            new = self._propagate([node.output[key] for node,key in self.sources])
+            if new != self.output:
+                self.output = new
+                self.iters += 1
+                changed = True        
+
+        if self.upIters < iterlimit:
+            self.upInvalid = False
+            new = self._propagate([node.upOutput[key] for node,key in self.sources])
+            if new != self.upOutput:
+                self.upOutput = new
+                #don't increase upiters if changed was possibly due to change in lower bound
+                self.upIters += 1 if not changed else 0 
+                changed = True
+
+                for node in self.uses:
+                    node.upInvalid = True
+
+        return changed
 
 def registerUses(use, sources):
     for node,index in sources:
@@ -51,7 +70,8 @@ def getJumpNode(pair, source, outvar, getVarNode, jumplookup):
     n.sources = [(getVarNode(var),0) for var in jump.params]
     registerUses(n, n.sources)
 
-    n.output = [t[0].output[0] for t in n.sources]
+    n.output = tuple(t[0].output[0] for t in n.sources)
+    n.upOutput = (None,) * len(n.sources)
     n.root = jump
 
     for i,var in enumerate(jump.params):
@@ -73,9 +93,9 @@ def makeGraph(env, blocks):
     for var, curUC in variables:
         n = BaseNode(varlamb, False)
         #sources and uses will be reassigned upon opnode creation
-        n.output = [curUC]
+        n.output = (curUC,)
         lookup[var] = n
-        # n.root = var
+        n.root = var
 
     for phi in phis:
         n = BaseNode(philamb, True)
@@ -90,7 +110,8 @@ def makeGraph(env, blocks):
         registerUses(n, n.sources)
 
         outnode = lookup[phi.rval]
-        n.output = [outnode.output[0]]
+        n.output = (outnode.output[0],)
+        n.upOutput = (None,)
         outnode.sources = [(n,0)]
         n.uses.append(outnode)
         n.root = phi
@@ -103,16 +124,22 @@ def makeGraph(env, blocks):
         else:
             #Quick hack - if no processing function is defined, just leave sources empty so it will never be updated
             n = BaseNode(42, False)
-        n.output = []
+        output = []
         for i,var in enumerate(op.getOutputs()):
             vnode = lookup[var]
-            n.output.append(vnode.output[0])
+            output.append(vnode.output[0])
             n.uses.append(vnode)
             vnode.sources = [(n,i)]
+        n.output = tuple(output)
+        n.upOutput = (None,)*len(output) if n.sources else n.output
         n.root = op
 
-    #sanity check
+    
     vnodes = lookup.values() 
+    for node in vnodes:
+        node.upOutput = node.output if not node.sources else (None,)*len(node.output)
+
+    #sanity check
     for node in vnodes:
         if node.sources:
             for source in zip(*node.sources)[0]:
@@ -130,7 +157,12 @@ def processGraph(graph, iterlimit=5):
         worklist = list(scc)
         while worklist:
             node = worklist.pop(0)
-            if node.itercount < iterlimit:
-                changed = node.update()
-                if changed:
-                    worklist.extend(use for use in node.uses if use in scc and use not in worklist)
+            changed = node.update(iterlimit)
+            if changed:
+                worklist.extend(use for use in node.uses if use in scc and use not in worklist)
+
+        #check if optimistic upperbounds converged
+        converged = all((not node.upInvalid or node.output == node.upOutput) for node in scc)
+        if converged:
+            for node in scc:
+                node.output = node.upOutput

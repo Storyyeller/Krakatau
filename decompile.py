@@ -78,7 +78,7 @@ def decompileClass(path=[], targets=None, outpath=None):
         print time.time() - start_time, ' seconds elapsed'
 
 if __name__== "__main__":
-    print 'Krakatau  Copyright (C) 2012-13  Robert Grosse'
+    print script_util.copyright
 
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')

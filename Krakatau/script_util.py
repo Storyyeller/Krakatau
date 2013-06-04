@@ -1,5 +1,10 @@
 import os.path, zipfile
 
+copyright = '''Krakatau  Copyright (C) 2012-13  Robert Grosse
+This program is provided as open source under the GNU General Public License. 
+See LICENSE.TXT for more details.
+'''
+
 def findFiles(target, recursive, prefix):
     if target.endswith('.jar'):
         with zipfile.ZipFile(target, 'r') as archive:

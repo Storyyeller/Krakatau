@@ -15,7 +15,7 @@ def assembleClass(filename, makeLineNumbers, jasmode, debug=0):
     return parse_trees and [assembler.assemble(tree, makeLineNumbers, jasmode, basename) for tree in parse_trees]
 
 if __name__== "__main__":
-    print 'Krakatau  Copyright (C) 2012-13  Robert Grosse'
+    print script_util.copyright
 
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau bytecode assembler')

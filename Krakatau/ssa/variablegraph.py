@@ -166,3 +166,6 @@ def processGraph(graph, iterlimit=5):
         if converged:
             for node in scc:
                 node.output = node.upOutput
+        else:
+            for node in scc: #Have to fix upOutput as child sccs may use it
+                node.upOutput = node.output

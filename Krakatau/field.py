@@ -16,10 +16,10 @@ class Field(object):
         self.class_ = classFile
         cpool = self.class_.cpool
         
-        flags, self.name_id, self.desc_id, attributes_raw = data
+        flags, name_id, desc_id, attributes_raw = data
 
-        self.name = cpool.getArgsCheck('Utf8', self.name_id)
-        self.descriptor = cpool.getArgsCheck('Utf8', self.desc_id)
+        self.name = cpool.getArgsCheck('Utf8', name_id)
+        self.descriptor = cpool.getArgsCheck('Utf8', desc_id)
         # print 'Loading field ', self.name, self.descriptor
         self.attributes = fixAttributeNames(attributes_raw, cpool)
 
@@ -27,6 +27,7 @@ class Field(object):
         self.static = 'STATIC' in self.flags
         if keepRaw:
             self.attributes_raw = attributes_raw
+            self.name_id, self.desc_id = name_id, desc_id
         
     def __str__(self):
         parts = map(str.lower, self.flags)

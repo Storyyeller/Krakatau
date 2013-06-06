@@ -74,10 +74,10 @@ class Method(object):
         self.class_ = classFile
         cpool = self.class_.cpool
         
-        flags, self.name_id, self.desc_id, attributes_raw = data
+        flags, name_id, desc_id, attributes_raw = data
 
-        self.name = cpool.getArgsCheck('Utf8', self.name_id)
-        self.descriptor = cpool.getArgsCheck('Utf8', self.desc_id)
+        self.name = cpool.getArgsCheck('Utf8', name_id)
+        self.descriptor = cpool.getArgsCheck('Utf8', desc_id)
         # print 'Loading method ', self.name, self.descriptor
         self.attributes = fixAttributeNames(attributes_raw, cpool)
 
@@ -94,6 +94,7 @@ class Method(object):
         self._loadCode(keepRaw)
         if keepRaw:
             self.attributes_raw = attributes_raw
+            self.name_id, self.desc_id = name_id, desc_id
 
     def _checkFlags(self):
         assert(len(self.flags & set(('PRIVATE','PROTECTED','PUBLIC'))) <= 1)

@@ -52,6 +52,18 @@ def makeGraph(m):
     # print _stats(s)
     return s
 
+def deleteUnusued(cls):
+    #Delete attributes we aren't going to use
+    #pretty hackish, but it does help when decompiling large jars
+    for e in cls.fields + cls.methods:
+        del e.class_, e.attributes, e.static
+    for m in cls.methods:
+        del m.native, m.abstract, m.isConstructor
+        del m.code
+    del cls.version, cls.this, cls.super, cls.env
+    del cls.interfaces_raw, cls.cpool
+    del cls.attributes
+
 def decompileClass(path=[], targets=None, outpath=None):
     if outpath is None:
         outpath = os.getcwd()
@@ -76,6 +88,7 @@ def decompileClass(path=[], targets=None, outpath=None):
         filename = script_util.writeFile(outpath, c.name, '.java', source)
         print 'Class written to', filename
         print time.time() - start_time, ' seconds elapsed'
+        deleteUnusued(c)
 
 if __name__== "__main__":
     print script_util.copyright

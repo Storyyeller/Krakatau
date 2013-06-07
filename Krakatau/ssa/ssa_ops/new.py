@@ -1,16 +1,15 @@
 from .base import BaseOp
-from ..ssa_types import SSA_OBJECT, SSA_MONAD
+from ..ssa_types import SSA_OBJECT
 
 from .. import excepttypes
 from ..constraints import ObjectConstraint, IntConstraint, DUMMY
 
 class New(BaseOp):
     def __init__(self, parent, name, monad):
-        super(New, self).__init__(parent, [monad], makeException=True)
+        super(New, self).__init__(parent, [monad], makeException=True, makeMonad=True)
         self.tt = name,0
         self.rval = parent.makeVariable(SSA_OBJECT, origin=self)
         self.env = parent.env
-        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
     def propagateConstraints(self, m):
         eout = ObjectConstraint.fromTops(self.env, [], (excepttypes.OOM,), nonnull=True)
@@ -19,10 +18,9 @@ class New(BaseOp):
 
 class NewArray(BaseOp):
     def __init__(self, parent, param, baset, monad):
-        super(NewArray, self).__init__(parent, [monad, param], makeException=True)
+        super(NewArray, self).__init__(parent, [monad, param], makeException=True, makeMonad=True)
         self.baset = baset
         self.rval = parent.makeVariable(SSA_OBJECT, origin=self)
-        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
         base, dim = baset
         self.tt = base, dim+1
@@ -44,10 +42,9 @@ class NewArray(BaseOp):
 
 class MultiNewArray(BaseOp):
     def __init__(self, parent, params, type_, monad):
-        super(MultiNewArray, self).__init__(parent, [monad] + params, makeException=True)
+        super(MultiNewArray, self).__init__(parent, [monad] + params, makeException=True, makeMonad=True)
         self.tt = type_
         self.rval = parent.makeVariable(SSA_OBJECT, origin=self)
-        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
         self.env = parent.env
 
     def propagateConstraints(self, m, *dims):

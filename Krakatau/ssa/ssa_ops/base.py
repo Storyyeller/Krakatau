@@ -1,8 +1,8 @@
 from ..functionbase import SSAFunctionBase
-from ..ssa_types import SSA_OBJECT
+from ..ssa_types import SSA_OBJECT, SSA_MONAD
 
 class BaseOp(SSAFunctionBase):
-    def __init__(self, parent, arguments, makeException=False):
+    def __init__(self, parent, arguments, makeException=False, makeMonad=False):
         super(BaseOp, self).__init__(parent,arguments)
 
         self.rval = None
@@ -12,6 +12,8 @@ class BaseOp(SSAFunctionBase):
         if makeException:
             self.outException = parent.makeVariable(SSA_OBJECT, origin=self)
             self.errorState = set([False, True])
+        if makeMonad:
+            self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
     def getOutputs(self):
         outs = self.rval, self.outException, self.outMonad

@@ -1,5 +1,5 @@
 from .base import BaseOp
-from ..ssa_types import SSA_INT, SSA_MONAD
+from ..ssa_types import SSA_INT
 
 from .. import excepttypes
 from ..constraints import IntConstraint, FloatConstraint, ObjectConstraint, DUMMY
@@ -39,9 +39,8 @@ class ArrLoad(BaseOp):
 
 class ArrStore(BaseOp):
     def __init__(self, parent, args, monad):
-        super(ArrStore, self).__init__(parent, [monad]+args, makeException=True)
+        super(ArrStore, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
         self.env = parent.env
-        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
     def propagateConstraints(self, m, a, i, x):
         etypes = ()

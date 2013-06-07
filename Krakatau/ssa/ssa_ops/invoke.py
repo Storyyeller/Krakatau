@@ -1,13 +1,13 @@
 from .base import BaseOp
 from ...verifier.descriptors import parseMethodDescriptor
-from ..ssa_types import verifierToSSAType, SSA_OBJECT, SSA_MONAD
+from ..ssa_types import verifierToSSAType, SSA_OBJECT
 
 from .. import objtypes, constraints
 from ..constraints import ObjectConstraint
 
 class Invoke(BaseOp):
     def __init__(self, parent, instr, info, args, monad, isThisCtor):
-        super(Invoke, self).__init__(parent, [monad]+args, makeException=True)
+        super(Invoke, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
 
         self.instruction = instr
         self.target, self.name, self.desc = info
@@ -24,7 +24,6 @@ class Invoke(BaseOp):
             self.returned = [self.rval] + [None]*(cat-1)
         else:
             self.rval, self.returned = None, []
-        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
         # just use a fixed constraint until we can do interprocedural analysis
         # output order is rval, exception, monad, defined by BaseOp.getOutputs

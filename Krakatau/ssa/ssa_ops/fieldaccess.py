@@ -1,6 +1,6 @@
 from .base import BaseOp
 from ...verifier.descriptors import parseFieldDescriptor
-from ..ssa_types import verifierToSSAType, SSA_MONAD, SSA_OBJECT, SSA_INT
+from ..ssa_types import verifierToSSAType, SSA_OBJECT, SSA_INT
 
 from .. import objtypes, constraints
 from ..constraints import IntConstraint, ObjectConstraint
@@ -17,7 +17,7 @@ _short_constraints[objtypes.BoolTT] = _short_constraints[objtypes.ByteTT]
 
 class FieldAccess(BaseOp):
     def __init__(self, parent, instr, info, args, monad):
-        super(FieldAccess, self).__init__(parent, [monad]+args, makeException=True)
+        super(FieldAccess, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
 
         self.instruction = instr
         self.target, self.name, self.desc = info
@@ -33,8 +33,6 @@ class FieldAccess(BaseOp):
             self.returned = [self.rval] + [None]*(cat-1)
         else:
             self.returned = []
-
-        self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
         #just use a fixed cosntraint until we can do interprocedural analysis
         #output order is rval, exception, monad, defined by BaseOp.getOutputs

@@ -38,16 +38,15 @@ def graphCutVars(root, arg_vars, visit_cb):
         edges.append((key1, key2))
 
     def visitExpr(expr):
-        if hasattr(expr, 'params'):
-            for param in expr.params:
-                visitExpr(param)
-            visit_cb(expr, arg_vars, addedge, contract)
+        for param in expr.params:
+            visitExpr(param)
+        visit_cb(expr, arg_vars, addedge, contract)
 
     def visitScope(scope):
         for item in scope.statements:
             for sub in item.getScopes():
                 visitScope(sub)
-            if getattr(item, 'expr', None) is not None:
+            if item.expr is not None:
                 visitExpr(item.expr)
 
     visitScope(root)

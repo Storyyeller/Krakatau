@@ -13,10 +13,11 @@ class VariableDeclarator(object):
 #############################################################################################################################################
 
 class JavaStatement(object):
+    expr = None #provide default for subclasses that don't have an expression
     def getScopes(self): return []
 
     def addCastsAndParens(self, env):
-        if getattr(self, 'expr', None) is not None:
+        if self.expr is not None:
             self.expr.addCasts(env)
             self.expr.addParens()
 
@@ -250,13 +251,12 @@ def makeCastExpr(newtt, expr):
 
 class JavaExpression(object):
     precedence = 0 #Default precedence
+    params = () #for subclasses that don't have params
 
-    #all subexpressions should be stored in self.params if possible
-    def subExprs(self): return getattr(self, 'params', [])
-    def complexity(self): return 1 + max(e.complexity() for e in self.subExprs()) if self.subExprs() else 0
+    def complexity(self): return 1 + max(e.complexity() for e in self.params) if self.params else 0
 
     def postFlatIter(self):
-        return itertools.chain([self], *[expr.postFlatIter() for expr in self.subExprs()])
+        return itertools.chain([self], *[expr.postFlatIter() for expr in self.params])
 
     def print_(self): 
         return self.fmt.format(*[expr.print_() for expr in self.params])
@@ -264,22 +264,20 @@ class JavaExpression(object):
     def replaceSubExprs(self, rdict):
         if self in rdict:
             return rdict[self]
-        if hasattr(self, 'params'):
-            self.params = [param.replaceSubExprs(rdict) for param in self.params]
+        self.params = [param.replaceSubExprs(rdict) for param in self.params]
         return self
 
     def addCasts(self, env):
-        for param in self.subExprs():
+        for param in self.params:
             param.addCasts(env)
         self.addCasts_sub(env)
 
     def addCasts_sub(self, env): pass
 
     def addParens(self):
-        for param in self.subExprs():
+        for param in self.params:
             param.addParens()      
-        if hasattr(self, 'params'):
-            self.params = list(self.params) #make it easy for children to edit  
+        self.params = list(self.params) #make it easy for children to edit  
         self.addParens_sub()
 
     def addParens_sub(self): pass

@@ -29,9 +29,9 @@ def findVarDeclInfo(root, predeclared):
             #this would be so much nicer if we had Ordered defaultdicts
             info.setdefault(expr, DeclInfo())
             info[expr].scope = ast.StatementBlock.join(info[expr].scope, scope)
-        elif hasattr(expr, 'params'): #temp hack
-            for param in expr.params:
-                visit(scope, param)
+
+        for param in expr.params:
+            visit(scope, param)
 
     def visitDeclExpr(scope, expr): 
         info.setdefault(expr, DeclInfo())
@@ -49,7 +49,7 @@ def findVarDeclInfo(root, predeclared):
         else:
             stack.extend((subscope,subscope) for subscope in stmt.getScopes())
             #temp hack
-            if getattr(stmt, 'expr', None) is not None:
+            if stmt.expr is not None:
                 visit(scope, stmt.expr)
             if isinstance(stmt, ast.TryStatement):
                 visitDeclExpr(stmt.parts[2], stmt.parts[1].local)
@@ -382,7 +382,7 @@ class MethodDecompiler(object):
                                 new = ast.LocalDeclarationStatement(decl, right)
                                 scope.statements[i] = new
                                 remaining.remove(var)
-                    if getattr(stmt,'expr', None) is not None:
+                    if stmt.expr is not None:
                         top = stmt.expr
                         for expr in top.postFlatIter():
                             if expr in remaining:
@@ -399,9 +399,7 @@ class MethodDecompiler(object):
 
     def _simplifyExpressions(self, expr):
         truefalse = (ast.Literal.TRUE, ast.Literal.FALSE)
-
-        if hasattr(expr, 'params'):
-            expr.params = map(self._simplifyExpressions, expr.params)
+        expr.params = map(self._simplifyExpressions, expr.params)
 
         if isinstance(expr, ast.Ternary):
             cond, val1, val2 = expr.params
@@ -439,7 +437,7 @@ class MethodDecompiler(object):
                 tern = ast.Ternary(item.expr, *rights)
                 item = ast.ExpressionStatement(ast.Assignment(left, tern))
 
-        if getattr(item, 'expr', None) is not None:
+        if item.expr is not None:
             item.expr = self._simplifyExpressions(item.expr)
         return [item]
 

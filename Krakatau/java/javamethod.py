@@ -109,290 +109,16 @@ class MethodDecompiler(object):
                 item.scopes = item.scopes[:-1]
         return item
 
-    def _simplifyBlocks(self, scope):
+    def _preorder(self, scope, func):
         newitems = []
         for item in scope.statements:
             for sub in item.getScopes():
-                self._simplifyBlocks(sub)
+                self._preorder(sub, func)
 
-            if isinstance(item, ast.TryStatement):
-                item = self._pruneRethrow_cb(item)            
-            elif isinstance(item, ast.IfStatement):
-                item = self._pruneIfElse_cb(item)
-
-            if isinstance(item, ast.StatementBlock):
-                if item.jump is not None:
-                    #If item jumps to immediately after item, change it to fallthrough
-                    if item.jump[0] == item:
-                        assert(not item.jump[1]) #can only happen if item is a while loop
-                        item.setBreak(None)
-                    elif item is scope.statements[-1] and not item.Sources():
-                        assert(scope.jump is None)
-                        scope.setBreak(item.jump)
-                        item.setBreak(None)
-
-                #Inline the block if possible
-                if item.jump is None and not item.Sources():
-                    newitems.extend(item.statements)
-                    continue
-            newitems.append(item)
-        scope.statements = newitems        
-
-    def _inlineTryBeginning(self, root):
-        '''Inline simple assignments at the beginning of a tryblock into the surrounding scope.
-        This is a workaround for the problem of definite assignment inside try blocks'''
-        info = findVarDeclInfo(root, [])
-
-        def inlineLeaf(tryscope):
-            inline_cnt = 0
-            for i, stmt in enumerate(tryscope.statements):
-                if isinstance(stmt, ast.ExpressionStatement):
-                    if isinstance(stmt.expr, ast.Assignment):
-                        left, right = stmt.expr.params
-                        if isinstance(right, (ast.Local, ast.Literal)):
-                            if isinstance(left, ast.Local) and info[left].scope != tryscope:
-                                inline_cnt += 1
-                                continue 
-                break 
-
-            newitems = tryscope.statements[:inline_cnt]
-            tryscope.statements = tryscope.statements[inline_cnt:]
-            return newitems
-
-        def inlineSub(scope):
-            newitems = []
-            for item in scope.statements:
-                for sub in item.getScopes():
-                    inlineSub(sub)
-
-                if isinstance(item, ast.TryStatement):
-                    tryscope = item.getScopes()[0]
-                    newitems.extend(inlineLeaf(tryscope))
-                newitems.append(item)
-            scope.statements = newitems    
-        inlineSub(root)
-    
-    def _setScopeParents(self, scope):
-        for item in scope.statements:
-            for sub in item.getScopes():
-                sub.bases = scope.bases + (sub,)
-                self._setScopeParents(sub)
-
-    def _replaceExpressions(self, scope, rdict):
-        #Must be done before local declarations are created since it doesn't touch/remove them
-        newcontents = []
-        for item in scope.statements:
-            remove = False
-            for subscope in item.getScopes():
-                self._replaceExpressions(subscope, rdict)
-
-            try:
-                expr = item.expr 
-            except AttributeError:
-                pass
-            else:
-                if expr is not None:
-                    item.expr = expr.replaceSubExprs(rdict)
-
-            #remove redundant assignments i.e. x=x;
-            if isinstance(item, ast.ExpressionStatement) and isinstance(item.expr, ast.Assignment):
-                left, right = item.expr.params 
-                remove = (left == right)
-
-            if not remove:
-                newcontents.append(item) 
-        scope.statements = newcontents
-
-    def _mergeVariables(self, root, predeclared):
-        info = findVarDeclInfo(root, predeclared)
-
-        lvars = [expr for expr in info if isinstance(expr, ast.Local)]
-        forbidden = set()
-        #If var has any defs which aren't a literal or local, mark it as a leaf node (it can't be merged into something)
-        for var in lvars:
-            if not all(isinstance(expr, (ast.Local, ast.Literal)) for expr in info[var].defs):
-                forbidden.add(var)
-            elif info[var].declScope is not None:
-                forbidden.add(var)
-
-        sccs = graph_util.tarjanSCC(lvars, lambda var:([] if var in forbidden else info[var].defs))
-        #the sccs will be in topolgical order
-        varmap = {} 
-        for scc in sccs:
-            if forbidden.isdisjoint(scc):
-                alldefs = []
-                for expr in scc:
-                    for def_ in info[expr].defs:
-                        if def_ not in scc:
-                            alldefs.append(varmap[def_])
-                if len(set(alldefs)) == 1:
-                    target = alldefs[0]
-                    if all(var.dtype == target.dtype for var in scc):
-                        scope = ast.StatementBlock.join(*(info[var].scope for var in scc))
-                        scope = ast.StatementBlock.join(scope, info[target].declScope) #scope is unchanged if declScope is none like usual
-                        if info[target].declScope is None or info[target].declScope == scope:
-                            for var in scc:
-                                varmap[var] = target
-                            info[target].scope = ast.StatementBlock.join(scope, info[target].scope)
-                            continue 
-            #fallthrough if merging is impossible
-            for var in scc:
-                varmap[var] = var
-                if len(info[var].defs) > 1:
-                    forbidden.add(var)
-        self._replaceExpressions(root, varmap)
-
-    def _createDeclarations(self, root, predeclared):
-        info = findVarDeclInfo(root, predeclared)
-        localdefs = collections.defaultdict(list)
-        newvars = [var for var in info if isinstance(var, ast.Local) and info[var].declScope is None]
-        remaining = set(newvars)
-
-        #The compiler treats statements as if they can throw any exception at any time, so
-        #it may think variables are not definitely assigned even when they really are. 
-        #Therefore, we give an unused initial value to every variable declaration
-        #TODO - find a better way to handle this
-        _init_d = {objtypes.BoolTT: ast.Literal.FALSE,
-                objtypes.IntTT: ast.Literal.ZERO,
-                objtypes.FloatTT: ast.Literal.FZERO,
-                objtypes.DoubleTT: ast.Literal.DZERO}
-        def mdVisitVarUse(var):
-            decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
-            right = _init_d.get(var.dtype, ast.Literal.NULL)
-            localdefs[info[var].scope].append( ast.LocalDeclarationStatement(decl, right) )
-            remaining.remove(var)
-
-        def mdVisitScope(scope):
-            if isinstance(scope, ast.StatementBlock):
-                for i,stmt in enumerate(scope.statements):
-                    if isinstance(stmt, ast.ExpressionStatement):
-                        if isinstance(stmt.expr, ast.Assignment):
-                            var, right = stmt.expr.params
-                            if var in remaining and scope == info[var].scope:
-                                decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
-                                new = ast.LocalDeclarationStatement(decl, right)
-                                scope.statements[i] = new
-                                remaining.remove(var)
-                    if getattr(stmt,'expr', None) is not None:
-                        top = stmt.expr
-                        for expr in top.postFlatIter():
-                            if expr in remaining:
-                                mdVisitVarUse(expr)   
-                    for sub in stmt.getScopes():
-                        mdVisitScope(sub)
-
-        mdVisitScope(root)
-        # print remaining
-        assert(not remaining)
-        assert(None not in localdefs)
-        for scope, ldefs in localdefs.items():
-            scope.statements = ldefs + scope.statements
-
-    def _jumpReduction(self, scope, breakTarget, continueTarget, fallthroughs):
-        '''Make breaks and continues unlabeled or remove them where possible. Must be called after all code motion and scope pruning'''
-        fallthroughs = fallthroughs + ((scope, False),)
-        orig_jump = scope.jump
-
-        if scope.jump is not None:
-            target = scope.jump[0]
-            other = continueTarget if scope.jump[1] else breakTarget
-
-            #at this point, assign to jump directly rather than use setBreak
-            if scope.jump in fallthroughs:
-                scope.jump = None
-            elif target == other:
-                scope.jump = (None, scope.jump[1])
-
-        for i,item in enumerate(scope.statements):
-            newbreak = item if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)) else breakTarget
-            newcontinue = item if isinstance(item, ast.WhileStatement) else continueTarget
-            islast = (i == len(scope.statements)-1)
-
-            if scope.jump is not None:
-                newft = (orig_jump,) if islast else ()
-            else:
-                newft = fallthroughs if islast else ()
-                if isinstance(item, (ast.TryStatement, ast.IfStatement)):
-                    newft += (item, False),
-                elif isinstance(item, ast.WhileStatement):
-                    newft += (item, True),
-
-            for subscope in item.getScopes():
-                self._jumpReduction(subscope, newbreak, newcontinue, newft)
-
-    def _fixExprStatements(self, scope):
-        newitems = []
-        for item in scope.statements:
-            for sub in item.getScopes():
-                self._fixExprStatements(sub)
-
-            if isinstance(item, ast.ExpressionStatement):
-                if not isinstance(item.expr, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation, ast.Dummy)):
-                    right = item.expr 
-                    left = ast.Local(right.dtype, lambda expr:self.namegen.getPrefix('dummy'))
-                    decl = ast.VariableDeclarator(ast.TypeName(left.dtype), left)
-                    item = ast.LocalDeclarationStatement(decl, right)
-            newitems.append(item)
-        scope.statements = newitems        
-
-    def _simplifyExpressions(self, expr):
-        truefalse = (ast.Literal.TRUE, ast.Literal.FALSE)
-
-        if hasattr(expr, 'params'):
-            expr.params = map(self._simplifyExpressions, expr.params)
-
-        if isinstance(expr, ast.Ternary):
-            cond, val1, val2 = expr.params
-            if (val1, val2) == truefalse:
-                expr = cond 
-            elif (val2, val1) == truefalse:
-                expr = self._reverseBoolExpr(cond)
-
-        if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==', '!='):
-            v1, v2 = expr.params
-            if v1 in truefalse:
-                v2, v1 = v1, v2
-            if v2 in truefalse:
-                match = (v2 == ast.Literal.TRUE) == (expr.opstr == '==')
-                expr = v1 if match else self._reverseBoolExpr(v1)
-        return expr
-
-    def _createTernaries(self, scope):
-        newitems = []
-        for item in scope.statements:
-            for sub in item.getScopes():
-                self._createTernaries(sub)
-          
-            if isinstance(item, ast.IfStatement):
-                assigns = []
-                for block in item.getScopes():
-                    if block.jump != None and block.jump != (item,False):
-                        continue
-                    if len(block.statements) != 1:
-                        continue                     
-                    s = block.statements[0]
-                    if isinstance(s, ast.ExpressionStatement):
-                        if isinstance(s.expr, ast.Assignment):
-                            left, right = s.expr.params
-                            if isinstance(left, ast.Local) and right.complexity() <= 1:
-                                assigns.append((left, right))
-                if len(assigns) == 2 and len(set(zip(*assigns)[0])) == 1:
-                    left = zip(*assigns)[0][0]
-                    rights = zip(*assigns)[1]
-                    tern = ast.Ternary(item.expr, *rights)
-                    item = ast.ExpressionStatement(ast.Assignment(left, tern))
-
-            if getattr(item, 'expr', None) is not None:
-                item.expr = self._simplifyExpressions(item.expr)
-
-            newitems.append(item)
-        scope.statements = newitems        
-
-    def _addCastsAndParens(self, scope):
-        for item in scope.statements:
-            for subscope in item.getScopes():
-                self._addCastsAndParens(subscope)
-            item.addCastsAndParens(self.env)
+            val = func(scope, item)
+            vals = [item] if val is None else val
+            newitems.extend(vals)
+        scope.statements = newitems
 
     def _fixObjectCreations(self, scope, copyset_stack=(), copyset={}):
         '''Combines new/invokeinit pairs into Java constructor calls'''
@@ -533,6 +259,234 @@ class MethodDecompiler(object):
                 copyset_stack = copyset_stack[:ind] + (new_pair,) + copyset_stack[ind+1:]
             return copyset_stack, fallthrough_cset
 
+    def _simplifyBlocks(self, scope, item):
+        if isinstance(item, ast.TryStatement):
+            item = self._pruneRethrow_cb(item)            
+        elif isinstance(item, ast.IfStatement):
+            item = self._pruneIfElse_cb(item)
+
+        if isinstance(item, ast.StatementBlock):
+            if item.jump is not None:
+                #If item jumps to immediately after item, change it to fallthrough
+                if item.jump[0] == item:
+                    assert(not item.jump[1]) #can only happen if item is a while loop
+                    item.setBreak(None)
+                elif item is scope.statements[-1] and not item.Sources():
+                    assert(scope.jump is None)
+                    scope.setBreak(item.jump)
+                    item.setBreak(None)
+
+            #Inline the block if possible
+            if item.jump is None and not item.Sources():
+                return item.statements
+        return [item]
+    
+    def _setScopeParents(self, scope):
+        for item in scope.statements:
+            for sub in item.getScopes():
+                sub.bases = scope.bases + (sub,)
+                self._setScopeParents(sub)
+
+    def _replaceExpressions(self, scope, rdict):
+        #Must be done before local declarations are created since it doesn't touch/remove them
+        newcontents = []
+        for item in scope.statements:
+            remove = False
+            for subscope in item.getScopes():
+                self._replaceExpressions(subscope, rdict)
+
+            try:
+                expr = item.expr 
+            except AttributeError:
+                pass
+            else:
+                if expr is not None:
+                    item.expr = expr.replaceSubExprs(rdict)
+
+            #remove redundant assignments i.e. x=x;
+            if isinstance(item, ast.ExpressionStatement) and isinstance(item.expr, ast.Assignment):
+                left, right = item.expr.params 
+                remove = (left == right)
+
+            if not remove:
+                newcontents.append(item) 
+        scope.statements = newcontents
+
+    def _mergeVariables(self, root, predeclared):
+        info = findVarDeclInfo(root, predeclared)
+
+        lvars = [expr for expr in info if isinstance(expr, ast.Local)]
+        forbidden = set()
+        #If var has any defs which aren't a literal or local, mark it as a leaf node (it can't be merged into something)
+        for var in lvars:
+            if not all(isinstance(expr, (ast.Local, ast.Literal)) for expr in info[var].defs):
+                forbidden.add(var)
+            elif info[var].declScope is not None:
+                forbidden.add(var)
+
+        sccs = graph_util.tarjanSCC(lvars, lambda var:([] if var in forbidden else info[var].defs))
+        #the sccs will be in topolgical order
+        varmap = {} 
+        for scc in sccs:
+            if forbidden.isdisjoint(scc):
+                alldefs = []
+                for expr in scc:
+                    for def_ in info[expr].defs:
+                        if def_ not in scc:
+                            alldefs.append(varmap[def_])
+                if len(set(alldefs)) == 1:
+                    target = alldefs[0]
+                    if all(var.dtype == target.dtype for var in scc):
+                        scope = ast.StatementBlock.join(*(info[var].scope for var in scc))
+                        scope = ast.StatementBlock.join(scope, info[target].declScope) #scope is unchanged if declScope is none like usual
+                        if info[target].declScope is None or info[target].declScope == scope:
+                            for var in scc:
+                                varmap[var] = target
+                            info[target].scope = ast.StatementBlock.join(scope, info[target].scope)
+                            continue 
+            #fallthrough if merging is impossible
+            for var in scc:
+                varmap[var] = var
+                if len(info[var].defs) > 1:
+                    forbidden.add(var)
+        self._replaceExpressions(root, varmap)
+
+    def _createDeclarations(self, root, predeclared):
+        info = findVarDeclInfo(root, predeclared)
+        localdefs = collections.defaultdict(list)
+        newvars = [var for var in info if isinstance(var, ast.Local) and info[var].declScope is None]
+        remaining = set(newvars)
+
+        #The compiler treats statements as if they can throw any exception at any time, so
+        #it may think variables are not definitely assigned even when they really are. 
+        #Therefore, we give an unused initial value to every variable declaration
+        #TODO - find a better way to handle this
+        _init_d = {objtypes.BoolTT: ast.Literal.FALSE,
+                objtypes.IntTT: ast.Literal.ZERO,
+                objtypes.FloatTT: ast.Literal.FZERO,
+                objtypes.DoubleTT: ast.Literal.DZERO}
+        def mdVisitVarUse(var):
+            decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
+            right = _init_d.get(var.dtype, ast.Literal.NULL)
+            localdefs[info[var].scope].append( ast.LocalDeclarationStatement(decl, right) )
+            remaining.remove(var)
+
+        def mdVisitScope(scope):
+            if isinstance(scope, ast.StatementBlock):
+                for i,stmt in enumerate(scope.statements):
+                    if isinstance(stmt, ast.ExpressionStatement):
+                        if isinstance(stmt.expr, ast.Assignment):
+                            var, right = stmt.expr.params
+                            if var in remaining and scope == info[var].scope:
+                                decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
+                                new = ast.LocalDeclarationStatement(decl, right)
+                                scope.statements[i] = new
+                                remaining.remove(var)
+                    if getattr(stmt,'expr', None) is not None:
+                        top = stmt.expr
+                        for expr in top.postFlatIter():
+                            if expr in remaining:
+                                mdVisitVarUse(expr)   
+                    for sub in stmt.getScopes():
+                        mdVisitScope(sub)
+
+        mdVisitScope(root)
+        # print remaining
+        assert(not remaining)
+        assert(None not in localdefs)
+        for scope, ldefs in localdefs.items():
+            scope.statements = ldefs + scope.statements
+
+    def _simplifyExpressions(self, expr):
+        truefalse = (ast.Literal.TRUE, ast.Literal.FALSE)
+
+        if hasattr(expr, 'params'):
+            expr.params = map(self._simplifyExpressions, expr.params)
+
+        if isinstance(expr, ast.Ternary):
+            cond, val1, val2 = expr.params
+            if (val1, val2) == truefalse:
+                expr = cond 
+            elif (val2, val1) == truefalse:
+                expr = self._reverseBoolExpr(cond)
+
+        if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==', '!='):
+            v1, v2 = expr.params
+            if v1 in truefalse:
+                v2, v1 = v1, v2
+            if v2 in truefalse:
+                match = (v2 == ast.Literal.TRUE) == (expr.opstr == '==')
+                expr = v1 if match else self._reverseBoolExpr(v1)
+        return expr
+
+    def _createTernaries(self, scope, item):
+        if isinstance(item, ast.IfStatement):
+            assigns = []
+            for block in item.getScopes():
+                if block.jump != None and block.jump != (item, False):
+                    continue
+                if len(block.statements) != 1:
+                    continue                     
+                s = block.statements[0]
+                if isinstance(s, ast.ExpressionStatement):
+                    if isinstance(s.expr, ast.Assignment):
+                        left, right = s.expr.params
+                        if isinstance(left, ast.Local) and right.complexity() <= 1:
+                            assigns.append((left, right))
+            if len(assigns) == 2 and len(set(zip(*assigns)[0])) == 1:
+                left = zip(*assigns)[0][0]
+                rights = zip(*assigns)[1]
+                tern = ast.Ternary(item.expr, *rights)
+                item = ast.ExpressionStatement(ast.Assignment(left, tern))
+
+        if getattr(item, 'expr', None) is not None:
+            item.expr = self._simplifyExpressions(item.expr)
+        return [item]
+
+    def _fixExprStatements(self, scope, item):
+        if isinstance(item, ast.ExpressionStatement):
+            if not isinstance(item.expr, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation, ast.Dummy)):
+                right = item.expr 
+                left = ast.Local(right.dtype, lambda expr:self.namegen.getPrefix('dummy'))
+                decl = ast.VariableDeclarator(ast.TypeName(left.dtype), left)
+                item = ast.LocalDeclarationStatement(decl, right)
+        return [item]
+
+    def _addCastsAndParens(self, scope, item):
+        item.addCastsAndParens(self.env)
+
+    def _jumpReduction(self, scope, breakTarget, continueTarget, fallthroughs):
+        '''Make breaks and continues unlabeled or remove them where possible. Must be called after all code motion and scope pruning'''
+        fallthroughs = fallthroughs + ((scope, False),)
+        orig_jump = scope.jump
+
+        if scope.jump is not None:
+            target = scope.jump[0]
+            other = continueTarget if scope.jump[1] else breakTarget
+
+            #at this point, assign to jump directly rather than use setBreak
+            if scope.jump in fallthroughs:
+                scope.jump = None
+            elif target == other:
+                scope.jump = (None, scope.jump[1])
+
+        for i,item in enumerate(scope.statements):
+            newbreak = item if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)) else breakTarget
+            newcontinue = item if isinstance(item, ast.WhileStatement) else continueTarget
+            islast = (i == len(scope.statements)-1)
+
+            if scope.jump is not None:
+                newft = (orig_jump,) if islast else ()
+            else:
+                newft = fallthroughs if islast else ()
+                if isinstance(item, (ast.TryStatement, ast.IfStatement)):
+                    newft += (item, False),
+                elif isinstance(item, ast.WhileStatement):
+                    newft += (item, True),
+
+            for subscope in item.getScopes():
+                self._jumpReduction(subscope, newbreak, newcontinue, newft)
+
     def _pruneVoidReturn(self, scope):
         if scope.statements:
             last = scope.statements[-1]
@@ -564,22 +518,19 @@ class MethodDecompiler(object):
 
             # print ast_root.print_()
             self._fixObjectCreations(ast_root)
-            self._simplifyBlocks(ast_root)
+            self._preorder(ast_root, self._simplifyBlocks)
             self._setScopeParents(ast_root)
-            # self._inlineTryBeginning(ast_root)
             boolize.boolizeVars(ast_root, argsources)
 
             self._setScopeParents(ast_root)
             self._mergeVariables(ast_root, argsources)
-            self._createTernaries(ast_root)
-            self._simplifyBlocks(ast_root)
+            self._preorder(ast_root, self._createTernaries)
+            self._preorder(ast_root, self._simplifyBlocks)
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)
-            self._fixExprStatements(ast_root)
-            self._addCastsAndParens(ast_root)
-            # self._createTernaries(ast_root)
-            # self._simplifyBlocks(ast_root)
+            self._preorder(ast_root, self._fixExprStatements)
+            self._preorder(ast_root, self._addCastsAndParens)
 
             self._jumpReduction(ast_root, None, None, ())
             self._pruneVoidReturn(ast_root)

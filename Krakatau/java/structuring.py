@@ -760,6 +760,8 @@ def completeScopes(dom, croot, children):
             for other in revorder:
                 if not ubound.issuperset(other.lbound):
                     ubound -= other.lbound
+            # Avoid inlining return block so that it's always at the end
+            ubound = set(n for n in ubound if n.block is None or not isinstance(n.block.jump, ssa_jumps.Return))
 
             assert(ubound.issuperset(cnode.lbound))
             ubound = _dominatorUBoundClosure(dom, cnode.lbound, ubound)
@@ -1101,9 +1103,6 @@ def structure(entryNode, nodes):
 
     #After freezing the try constraints we need to regenerate the tree
     croot, ctree_children = orderConstraints(dom, constraints, nodes)
-
-    # for n in nodes:
-    #     print n, [x for x in n.successors if x in n.outvars], [x for x in n.successors if x not in n.outvars]
 
     #now that no more nodes will be changed, create lists of backedge free edges
     for n in nodes:

@@ -49,7 +49,7 @@ class FieldDef(object):
 class ClassDef(object):
     def __init__(self, flags, isInterface, name, superc, interfaces, fields, methods):
         self.flagstr = flags + ' ' if flags else ''
-        self.defname = 'interface' if isInterface else 'class'
+        self.isInterface = isInterface
         self.name = ast.TypeName((name,0))
         self.super = ast.TypeName((superc,0)) if superc is not None else None
         self.interfaces = [ast.TypeName((iname,0)) for iname in interfaces]
@@ -69,12 +69,17 @@ class ClassDef(object):
 
         indented = ['    '+line for line in contents.splitlines()]
         name = self.name.print_().rpartition('.')[-1]
-        header = '{}{} {}'.format(self.flagstr, self.defname, name)
+        defname = 'interface' if self.isInterface else 'class'
+        header = '{}{} {}'.format(self.flagstr, defname, name)
 
         if self.super:
             header += ' extends ' + self.super.print_()
         if self.interfaces:
-            header += ' implements ' + ', '.join(x.print_() for x in self.interfaces)
+            if self.isInterface:
+                assert(self.super is None)
+                header += ' extends ' + ', '.join(x.print_() for x in self.interfaces)
+            else:
+                header += ' implements ' + ', '.join(x.print_() for x in self.interfaces)
 
         lines = [header + ' {'] + indented + ['}']
         return '\n'.join(lines)

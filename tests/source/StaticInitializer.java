@@ -1,5 +1,5 @@
 public class StaticInitializer {
-	public static boolean b = true;
+	public static final boolean b = true;
 
 	static {
 		for(char c = 66; c < 70; ++c){

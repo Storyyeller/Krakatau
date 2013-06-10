@@ -39,7 +39,7 @@ class FieldDef(object):
         self.flagstr = flags + ' ' if flags else ''
         self.type_ = type_
         self.name = name
-        self.expr = expr
+        self.expr = None if expr is None else ast.makeCastExpr(type_.tt, expr) 
 
     def print_(self):
         if self.expr is not None:

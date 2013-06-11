@@ -63,9 +63,6 @@ def graphCutVars(root, arg_vars, visit_cb):
         items = node.weights.items()
         node.weights = collections.OrderedDict(sorted(items, key=lambda (n,w):nodelist.index(n)))
 
-    # print '\n'.join(map('{0[0]} <-> {0[1]}'.format, edges))
-    # import pdb;pdb.set_trace()
-
     #Greedy algorithm - todo: Edumund Karps
     set1 = set()
     stack = [get(False)]

@@ -5,6 +5,7 @@ from ..verifier.descriptors import parseFieldDescriptor
 
 from . import ast, ast2
 from .javamethod import MethodDecompiler
+from .reserved import reserved_identifiers
 
 IGNORE_EXCEPTIONS = 0
 
@@ -24,6 +25,11 @@ class ClassDecompiler(object):
         self.class_ = class_
         self.cb = cb
         self.methods = class_.methods if method is None else [class_.methods[method]]
+
+        fi = set(reserved_identifiers)
+        for field in class_.fields:
+            fi.add(field.name)
+        self.forbidden_identifiers = frozenset(fi)
 
     def _getField(self, field):
         flags = [x.lower() for x in sorted(field.flags) if x not in ('SYNTHETIC','ENUM')]
@@ -45,7 +51,7 @@ class ClassDecompiler(object):
         try:
             graph = self.cb(method) if method.code is not None else None
             print 'Decompiling method', method.name, method.descriptor
-            code_ast = MethodDecompiler(method, graph).generateAST()
+            code_ast = MethodDecompiler(method, graph, self.forbidden_identifiers).generateAST()
             return code_ast
         except Exception as e:
             if not IGNORE_EXCEPTIONS:
@@ -54,7 +60,7 @@ class ClassDecompiler(object):
                 print 'Unable to decompile ' + self.class_.name
             else:
                 print 'Decompiling {} failed!'.format(self.class_.name)
-            code_ast = MethodDecompiler(method, None).generateAST()
+            code_ast = MethodDecompiler(method, None, self.forbidden_identifiers).generateAST()
             code_ast.comment = ' {0!r}: {0!s}'.format(e) 
             return code_ast
 

@@ -7,7 +7,6 @@ from ..namegen import NameGen, LabelGen
 from ..verifier.descriptors import parseMethodDescriptor
 
 from . import ast, ast2, boolize
-from .reserved import reserved_identifiers
 from . import graphproxy, structuring, astgen
 
 class DeclInfo(object):
@@ -56,10 +55,10 @@ def findVarDeclInfo(root, predeclared):
     return info
 
 class MethodDecompiler(object):
-    def __init__(self, method, graph):
+    def __init__(self, method, graph, forbidden_identifiers):
         self.env = method.class_.env
         self.method, self.graph = method, graph
-        self.namegen = NameGen(reserved_identifiers)
+        self.namegen = NameGen(forbidden_identifiers)
         self.labelgen = LabelGen().next
 
     def _pruneRethrow_cb(self, item):
@@ -503,7 +502,7 @@ class MethodDecompiler(object):
                 entryNode.invars[0].name = 'this'
 
             setree = structuring.structure(entryNode, nodes)
-            ast_root, varinfo = astgen.createAST(method, self.graph, setree)
+            ast_root, varinfo = astgen.createAST(method, self.graph, setree, self.namegen)
 
             argsources = [varinfo.var(entryNode, var) for var in entryNode.invars]
             disp_args = argsources if method.static else argsources[1:] 

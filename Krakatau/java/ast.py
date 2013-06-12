@@ -381,10 +381,10 @@ class ClassInstanceCreation(JavaExpression):
         self.params = newparams
 
 class FieldAccess(JavaExpression):
-    def __init__(self, primary, name, dtype):
+    def __init__(self, primary, name, dtype, printLeft=True):
         self.dtype = dtype
         self.params, self.name = [primary], name
-        self.fmt = '{}.' + name
+        self.fmt = ('{}.' if printLeft else '') + name
 
     def addParens_sub(self):
         p0 = self.params[0]

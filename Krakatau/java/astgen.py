@@ -2,8 +2,7 @@ from . import ast
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 from ..ssa import ssa_types, ssa_ops, ssa_jumps
 from ..ssa import objtypes
-from ..namegen import NameGen, LabelGen
-from .reserved import reserved_identifiers
+from ..namegen import LabelGen
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 from .. import opnames
 
@@ -15,15 +14,15 @@ _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
 _ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT,
             ssa_types.SSA_FLOAT:objtypes.FloatTT, ssa_types.SSA_DOUBLE:objtypes.DoubleTT}
 class VarInfo(object):
-    def __init__(self, method, blocks):
+    def __init__(self, method, blocks, namegen):
         self.env = method.class_.env
         self.labelgen = LabelGen().next
 
         returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)[-1]
         self.return_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
         self.clsname = method.class_.name
+        self._namegen = namegen
 
-        self._namegen = NameGen(reserved_identifiers)
         self._vars = {}
         self._tts = {}
         for block in blocks:
@@ -114,8 +113,9 @@ def _convertJExpr(op, getExpr, clsname):
         dtype = objtypes.verifierToSynthetic(parseFieldDescriptor(op.desc, unsynthesize=False)[0])
 
         if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
+            printLeft = (op.target != clsname) #Don't print classname if it is a static field in current class
             tt = op.target, 0
-            expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype)
+            expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, printLeft=printLeft)
         else:
             expr = ast.FieldAccess(params[0], op.name, dtype)
 
@@ -340,7 +340,7 @@ def _createASTSub(info, seroot):
             ret_cb(new) # 'return' from recursive call
     return result[0]
 
-def createAST(method, ssagraph, seroot):
-    info = VarInfo(method, ssagraph.blocks)
+def createAST(method, ssagraph, seroot, namegen):
+    info = VarInfo(method, ssagraph.blocks, namegen)
     astroot = _createASTSub(info, seroot)
     return astroot, info

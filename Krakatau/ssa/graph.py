@@ -263,6 +263,22 @@ class SSA_Graph(object):
 
     def simplifyJumps(self):
         self._conscheck()
+
+        # Also remove blocks which use a variable detected as unreachable
+        def usesInvalidVar(block):
+            for op in block.lines:
+                for param in op.params:
+                    if param not in block.unaryConstraints:
+                        return True
+            return False
+
+        for block in self.blocks:
+            if usesInvalidVar(block):
+                for (child,t) in block.jump.getSuccessorPairs():
+                    for phi in child.phis:
+                        phi.removeKey((block,t))                
+                block.jump = None
+
         #Determine if any jumps are impossible based on known constraints of params: if(0 == 0) etc
         for block in self.blocks:
             if hasattr(block.jump, 'constrainJumps'):

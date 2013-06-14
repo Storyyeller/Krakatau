@@ -360,6 +360,15 @@ class Cast(JavaExpression):
         self.params = params
         self.fmt = '({}){}'
 
+    def addCasts_sub(self, env):
+        tt, expr = self.dtype, self.params[1]
+        # "Impossible" casts are a compile error in Java. 
+        # This can be fixed with an intermediate cast to Object
+        if not isJavaAssignable(env, tt, expr.dtype):
+            if not isJavaAssignable(env, expr.dtype, tt):
+                expr = makeCastExpr(objtypes.ObjectTT, expr)
+                self.params = self.params[0], expr
+
     def addParens_sub(self):
         p1 = self.params[1]
         if p1.precedence > 5 or (isinstance(p1, UnaryPrefix) and p1.opstr[0] in '-+'):

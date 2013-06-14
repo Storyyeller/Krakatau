@@ -15,6 +15,19 @@ public final strictfp class OddsAndEnds {
 	}
 
     public static void main(String args[]){
+
+    	if (args != null) {
+    		Object x = args;
+    		try {
+    			java.util.List<String> y;
+    			System.out.println(y = (java.util.ArrayList)x);
+    			args = y.toArray(new String[0]);
+    		} 
+    		catch (final ClassCastException e) {
+    			args = true?args:null;
+    		}
+    	}
+
         test(42.24f, args);	
 		test(4.224f, Long.valueOf(args[0]));	
 		

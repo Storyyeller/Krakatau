@@ -12,6 +12,7 @@ class Environment(object):
         self.path = []
         #Cache inheritance hierchies of standard lib classes so we don't have to load them to do subclass testing
         self.cache = stdcache.Cache(self, 'cache.txt')
+        self._open = {}
 
     def addToPath(self, path):
         self.path.append(path)
@@ -35,20 +36,20 @@ class Environment(object):
 
     def _searchForFile(self, name):
         name += '.class'
-
         for place in self.path:
-            if place[-4:] in ('.jar','.zip'):
-                try:
-                    with zipfile.ZipFile(place, 'r') as archive:
-                        return archive.read(name)
-                except KeyError:
-                    pass
-            else: #plain folder
+            try:
+                archive = self._open[place]
+            except KeyError: #plain folder
                 try:
                     path = os.path.join(place, name)
                     with open(path, 'rb') as file_:
                         return file_.read()
                 except IOError:
+                    pass
+            else: #zip archive
+                try:
+                    return archive.read(name)
+                except KeyError:
                     pass
 
     def _loadClass(self, name, subclasses):
@@ -63,3 +64,17 @@ class Environment(object):
         new.loadSupers(self, name, subclasses)
         self.classes[name] = new
         return new
+
+    #Context Manager methods to manager our zipfiles
+    def __enter__(self): 
+        assert(not self._open)
+        for place in self.path:
+            if place.endswith('.jar') or place.endswith('.zip'):
+                self._open[place] = zipfile.ZipFile(place, 'r').__enter__()
+        return self
+
+    def __exit__(self, type_, value, traceback):
+        for place in reversed(self.path):
+            if place in self._open:
+                self._open[place].__exit__(type_, value, traceback)
+                del self._open[place]

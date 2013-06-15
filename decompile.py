@@ -74,21 +74,22 @@ def decompileClass(path=[], targets=None, outpath=None):
 
     start_time = time.time()
     # random.shuffle(targets)
-    for i,target in enumerate(targets):
-        print 'processing target {}, {} remaining'.format(target, len(targets)-i)
-        c = e.getClass(target)
+    with e: #keep jars open
+        for i,target in enumerate(targets):
+            print 'processing target {}, {} remaining'.format(target, len(targets)-i)
+            c = e.getClass(target)
 
-        deco = javaclass.ClassDecompiler(c, makeGraph)
-        source = deco.generateSource()
-        #The single class decompiler doesn't add package declaration currently so we add it here
-        if '/' in target:
-            package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
-            source = package + source
+            deco = javaclass.ClassDecompiler(c, makeGraph)
+            source = deco.generateSource()
+            #The single class decompiler doesn't add package declaration currently so we add it here
+            if '/' in target:
+                package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
+                source = package + source
 
-        filename = script_util.writeFile(outpath, c.name, '.java', source)
-        print 'Class written to', filename
-        print time.time() - start_time, ' seconds elapsed'
-        deleteUnusued(c)
+            filename = script_util.writeFile(outpath, c.name, '.java', source)
+            print 'Class written to', filename
+            print time.time() - start_time, ' seconds elapsed'
+            deleteUnusued(c)
 
 if __name__== "__main__":
     print script_util.copyright

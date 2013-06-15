@@ -406,6 +406,8 @@ class MethodDecompiler(object):
                 expr = cond 
             elif (val2, val1) == truefalse:
                 expr = self._reverseBoolExpr(cond)
+            elif isinstance(cond, ast.UnaryPrefix): # (!x)?y:z -> x?z:y
+                expr.params = self._reverseBoolExpr(cond), val2, val1
 
         if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==', '!='):
             v1, v2 = expr.params

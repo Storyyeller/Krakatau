@@ -238,7 +238,9 @@ class SSA_Graph(object):
             for callop in proc.callops:
                 assert(set(proc.retop.input) == set(callop.out))
 
-    def pessimisticPropagation(self):
+    def constraintPropagation(self):
+        #Propagates unary constraints (range, type, etc.) pessimistically and optimistically
+        #Assumes there are no subprocedues and this has not been called yet
         assert(not self.procs)
 
         graph = variablegraph.makeGraph(self.env, self.blocks)

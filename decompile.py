@@ -44,7 +44,7 @@ def makeGraph(m):
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
     # print _stats(s)
-    s.pessimisticPropagation() #WARNING - currently does not work if any output variables have been pruned already
+    s.constraintPropagation() #WARNING - currently does not work if any output variables have been pruned already
     s.disconnectConstantVariables()
     s.simplifyJumps()
     s.mergeSingleSuccessorBlocks()

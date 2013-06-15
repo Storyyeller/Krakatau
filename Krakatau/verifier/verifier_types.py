@@ -1,4 +1,4 @@
-import collections, itertools
+import collections
 
 #Define types for Inference
 nt = collections.namedtuple

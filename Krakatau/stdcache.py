@@ -1,3 +1,6 @@
+def shouldCache(name):
+    return name.startswith('java/') or name.startswith('javax/')
+
 class Cache(object):
     def __init__(self, env, filename):
         self.env = env
@@ -25,9 +28,6 @@ class Cache(object):
             f.write(writedata + '\n')
         print class_.name, 'cached'
 
-    def shouldCache(self, name):
-        return name.startswith('java/') or name.startswith('javax/')
-
     def isCached(self, name): return name in self.data
 
     def superClasses(self, name):
@@ -35,7 +35,7 @@ class Cache(object):
             return self.data[name][0]
 
         class_ = self.env.getClass(name, partial=True)
-        if self.shouldCache(name):
+        if shouldCache(name):
             self._cache_info(class_)
         return class_.getSuperclassHierarchy()
 
@@ -44,6 +44,6 @@ class Cache(object):
             return self.data[name][1]
 
         class_ = self.env.getClass(name, partial=True)
-        if self.shouldCache(name):
+        if shouldCache(name):
             self._cache_info(class_)
         return class_.flags

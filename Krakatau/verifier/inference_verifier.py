@@ -864,7 +864,7 @@ def verifyBytecode(code):
             typen = class_.cpool.getArgsCheck('Class', rawdata.type_ind)
         else:
             typen = 'java/lang/Throwable'
-        t = T_OBJECT(typen);
+        t = T_OBJECT(typen)
         if not (isAssignable(env, t, T_OBJECT('java/lang/Throwable'))):
             error_types.VerificationError('Invalid exception handler type: ' + typen)
         return (rawdata.start, rawdata.end), (iNodeLookup[rawdata.handler], (t,))

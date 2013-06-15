@@ -295,7 +295,7 @@ def getStackMapTable(code_attributes, poolm, getLbl):
         count = bytes_.get('>H')
         getVT = lambda: getVerificationType(bytes_, poolm, getLbl)
 
-        for frame_num in range(count):
+        for _ in range(count):
             tag = bytes_.get('>B')
             header, contents = None, []
 

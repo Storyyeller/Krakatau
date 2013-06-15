@@ -1,6 +1,5 @@
 import collections
 
-from ..ssa import ssa_types, ssa_ops
 from ..ssa import objtypes
 from .. import graph_util
 from ..namegen import NameGen, LabelGen
@@ -54,59 +53,27 @@ def findVarDeclInfo(root, predeclared):
                 visitDeclExpr(stmt.parts[2], stmt.parts[1].local)
     return info
 
+def reverseBoolExpr(expr):
+    assert(expr.dtype == objtypes.BoolTT)
+    if isinstance(expr, ast.BinaryInfix):
+        symbols = "== != < >= > <=".split()
+        floatts = (objtypes.FloatTT, objtypes.DoubleTT)
+        if expr.opstr in symbols:
+            sym2 = symbols[symbols.index(expr.opstr) ^ 1]
+            left, right = expr.params
+            #be sure not to reverse floating point comparisons since it's not equivalent for NaN
+            if expr.opstr in symbols[:2] or (left.dtype not in floatts and right.dtype not in floatts):
+                return ast.BinaryInfix(sym2, (left,right), objtypes.BoolTT)
+    elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
+        return expr.params[0]
+    return ast.UnaryPrefix('!', expr)
+
 class MethodDecompiler(object):
     def __init__(self, method, graph, forbidden_identifiers):
         self.env = method.class_.env
         self.method, self.graph = method, graph
         self.namegen = NameGen(forbidden_identifiers)
         self.labelgen = LabelGen().next
-
-    def _pruneRethrow_cb(self, item):
-        catchb = item.getScopes()[-1]
-        lines = catchb.statements
-        if len(lines) == 1:
-            line = lines[0]
-            caught = item.parts[1].local 
-            if isinstance(line, ast.ThrowStatement) and line.expr == caught:
-                new = item.getScopes()[0]
-                assert(not new.Sources())
-
-                for x in item.Sources():
-                    x.setBreak((new,x.jump[1]))
-                assert(not item.Sources())
-                return new
-        return item    
-
-    def _reverseBoolExpr(self, expr):
-        assert(expr.dtype == objtypes.BoolTT)
-        if isinstance(expr, ast.BinaryInfix):
-            symbols = "== != < >= > <=".split()
-            floatts = (objtypes.FloatTT, objtypes.DoubleTT)
-            if expr.opstr in symbols:
-                sym2 = symbols[symbols.index(expr.opstr) ^ 1]
-                left, right = expr.params
-                #be sure not to reverse floating point comparisons since it's not equivalent for NaN
-                if expr.opstr in symbols[:2] or (left.dtype not in floatts and right.dtype not in floatts):
-                    return ast.BinaryInfix(sym2, (left,right), objtypes.BoolTT)
-        elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
-            return expr.params[0]
-        return ast.UnaryPrefix('!', expr)
-
-    def _pruneIfElse_cb(self, item):
-        for block in item.getScopes():
-            if block.jump == (item, False):
-                block.setBreak(None)
-        if len(item.scopes) > 1:
-            #if true block is empty, swap it with false so we can remove it
-            tblock, fblock = item.scopes
-
-            if not tblock.statements and tblock.jump == None:
-                item.expr = self._reverseBoolExpr(item.expr)
-                item.scopes = fblock, tblock
-
-            if not item.scopes[-1].statements and item.scopes[-1].jump == None:
-                item.scopes = item.scopes[:-1]
-        return item
 
     def _preorder(self, scope, func):
         newitems = []
@@ -258,6 +225,38 @@ class MethodDecompiler(object):
                 copyset_stack = copyset_stack[:ind] + (new_pair,) + copyset_stack[ind+1:]
             return copyset_stack, fallthrough_cset
 
+    def _pruneRethrow_cb(self, item):
+        catchb = item.getScopes()[-1]
+        lines = catchb.statements
+        if len(lines) == 1:
+            line = lines[0]
+            caught = item.parts[1].local 
+            if isinstance(line, ast.ThrowStatement) and line.expr == caught:
+                new = item.getScopes()[0]
+                assert(not new.Sources())
+
+                for x in item.Sources():
+                    x.setBreak((new,x.jump[1]))
+                assert(not item.Sources())
+                return new
+        return item    
+
+    def _pruneIfElse_cb(self, item):
+        for block in item.getScopes():
+            if block.jump == (item, False):
+                block.setBreak(None)
+        if len(item.scopes) > 1:
+            #if true block is empty, swap it with false so we can remove it
+            tblock, fblock = item.scopes
+
+            if not tblock.statements and tblock.jump == None:
+                item.expr = reverseBoolExpr(item.expr)
+                item.scopes = fblock, tblock
+
+            if not item.scopes[-1].statements and item.scopes[-1].jump == None:
+                item.scopes = item.scopes[:-1]
+        return item
+
     def _simplifyBlocks(self, scope, item):
         if isinstance(item, ast.TryStatement):
             item = self._pruneRethrow_cb(item)            
@@ -405,9 +404,9 @@ class MethodDecompiler(object):
             if (val1, val2) == truefalse:
                 expr = cond 
             elif (val2, val1) == truefalse:
-                expr = self._reverseBoolExpr(cond)
+                expr = reverseBoolExpr(cond)
             elif isinstance(cond, ast.UnaryPrefix): # (!x)?y:z -> x?z:y
-                expr.params = self._reverseBoolExpr(cond), val2, val1
+                expr.params = reverseBoolExpr(cond), val2, val1
 
         if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==', '!='):
             v1, v2 = expr.params
@@ -415,7 +414,7 @@ class MethodDecompiler(object):
                 v2, v1 = v1, v2
             if v2 in truefalse:
                 match = (v2 == ast.Literal.TRUE) == (expr.opstr == '==')
-                expr = v1 if match else self._reverseBoolExpr(v1)
+                expr = v1 if match else reverseBoolExpr(v1)
         return expr
 
     def _createTernaries(self, scope, item):

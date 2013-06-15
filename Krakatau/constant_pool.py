@@ -86,7 +86,7 @@ name2Type = {t.name:t for t in cpoolTypes}
 tag2Type = {t.tag:t for t in cpoolTypes}
 
 class ConstPool(object):
-    def __init__(self, initialData = [(None,None)]):
+    def __init__(self, initialData=((None,None),)):
         self.pool = []
         self.reserved = set()
         self.available = set()

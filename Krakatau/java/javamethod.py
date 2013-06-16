@@ -204,7 +204,7 @@ class MethodDecompiler(object):
         if copyset_stack: #if it is empty, we are at the root level and can't return anything
             fallthrough_cset = None
 
-            if scope.jump is None:
+            if scope.canFallthrough():
                 target = copyset_stack[-1][0]
                 assert(scope in target.getScopes())
 
@@ -216,7 +216,8 @@ class MethodDecompiler(object):
                     target = None
                     fallthrough_cset = copyset
             else:
-                target = scope.jump[0] if not scope.jump[1] else None
+                jumps = [x[0] for x in scope.jumps if x is not None and not x[1]]
+                target = jumps[-1] if jumps else None
 
             if target is not None:
                 keys = zip(*copyset_stack)[0]
@@ -232,28 +233,32 @@ class MethodDecompiler(object):
             line = lines[0]
             caught = item.parts[1].local 
             if isinstance(line, ast.ThrowStatement) and line.expr == caught:
+                catchb.setBreaks([])
                 new = item.getScopes()[0]
-                assert(not new.Sources())
+                assert(not new.getSources())
 
-                for x in item.Sources():
-                    x.setBreak((new,x.jump[1]))
-                assert(not item.Sources())
+
+                for x in item.getSources():
+                    x.removeJump((item, False))
+                    x.addJump((new, False))
+                assert(not item.getSources())
                 return new
         return item    
 
     def _pruneIfElse_cb(self, item):
         for block in item.getScopes():
-            if block.jump == (item, False):
-                block.setBreak(None)
+            if not block.canFallthrough() and (item, False) in block.jumps:
+                block.addJump(None)
         if len(item.scopes) > 1:
             #if true block is empty, swap it with false so we can remove it
             tblock, fblock = item.scopes
 
-            if not tblock.statements and tblock.jump == None:
+            if not tblock.statements and tblock.canFallthrough():
                 item.expr = reverseBoolExpr(item.expr)
                 item.scopes = fblock, tblock
 
-            if not item.scopes[-1].statements and item.scopes[-1].jump == None:
+            if not item.scopes[-1].statements and item.scopes[-1].canFallthrough():
+                item.scopes[-1].setBreaks([])
                 item.scopes = item.scopes[:-1]
         return item
 
@@ -264,18 +269,33 @@ class MethodDecompiler(object):
             item = self._pruneIfElse_cb(item)
 
         if isinstance(item, ast.StatementBlock):
-            if item.jump is not None:
-                #If item jumps to immediately after item, change it to fallthrough
-                if item.jump[0] == item:
-                    assert(not item.jump[1]) #can only happen if item is a while loop
-                    item.setBreak(None)
-                elif item is scope.statements[-1] and not item.Sources():
-                    assert(scope.jump is None)
-                    scope.setBreak(item.jump)
-                    item.setBreak(None)
+            #If item jumps to immediately after item, change it to fallthrough
+            if not item.canFallthrough() and (item, False) in item.jumps:
+                item.addJump(None)
+
+            assert(not item.sources[True]) #can only happen if item is a while loop
+            if item is scope.statements[-1]:
+                if item.canFallthrough():
+                    for jump in scope.jumps:
+                        if jump not in item.jumps:
+                            item.addJump(jump)
+                elif scope.getSources(): # Make sure it isn't a forcibly unlabeled scope
+                    for child in item.getSources():
+                        child.removeJump((item, False))
+                        if (scope, False) not in child.jumps:
+                            child.addJump((scope, False))
+
+                if not item.canFallthrough() and not item.hasDependents():
+                    assert((item, False) not in item.jumps)
+                    # don't bother removing item from children jumps since it will be done after inlining
+                    scope.setBreaks(item.jumps)
+                    item.setBreaks([None])
 
             #Inline the block if possible
-            if item.jump is None and not item.Sources():
+            if item.canFallthrough() and not item.hasDependents():
+                for child in item.getSources():
+                    child.removeJump((item, False))
+                item.setBreaks([])
                 return item.statements
         return [item]
     
@@ -421,7 +441,7 @@ class MethodDecompiler(object):
         if isinstance(item, ast.IfStatement):
             assigns = []
             for block in item.getScopes():
-                if block.jump != None and block.jump != (item, False):
+                if not block.canFallthrough():
                     continue
                 if len(block.statements) != 1:
                     continue                     
@@ -432,6 +452,10 @@ class MethodDecompiler(object):
                         if isinstance(left, ast.Local) and right.complexity() <= 1:
                             assigns.append((left, right))
             if len(assigns) == 2 and len(set(zip(*assigns)[0])) == 1:
+                for block in item.getScopes():
+                    block.setBreaks([])
+                assert(not item.getSources())
+
                 left = zip(*assigns)[0][0]
                 rights = zip(*assigns)[1]
                 tern = ast.Ternary(item.expr, *rights)
@@ -456,31 +480,45 @@ class MethodDecompiler(object):
     def _jumpReduction(self, scope, breakTarget, continueTarget, fallthroughs):
         '''Make breaks and continues unlabeled or remove them where possible. Must be called after all code motion and scope pruning'''
         fallthroughs = fallthroughs + ((scope, False),)
-        orig_jump = scope.jump
+        lastchild_fts = tuple(scope.jumps)
+        if None in lastchild_fts:
+            lastchild_fts += fallthroughs
 
-        if scope.jump is not None:
-            target = scope.jump[0]
-            other = continueTarget if scope.jump[1] else breakTarget
+        # for jumps in (scope.jumps, fallthroughs):
+        #     parts = [('{}_{}'.format(t[0].getLabel(),int(t[1])) if t else 'None') for t in jumps]
+        #     scope.statements.insert(0, ast.StringStatement('// ' + ', '.join(parts)))
 
-            #at this point, assign to jump directly rather than use setBreak
-            if scope.jump in fallthroughs:
-                scope.jump = None
-            elif target == other:
-                scope.jump = (None, scope.jump[1])
+        if scope.canFallthrough() or (set(fallthroughs) & set(scope.jumps)):
+            scope.setBreaks([None])
+        else: #see if we can use a bare break or continue
+            # add it manually rather than going through addJump so it doesn't try to add a source to None
+            if (breakTarget, False) in scope.jumps:
+                scope.setBreaks([])
+                scope.jumps = [(None, False)]
+            elif (continueTarget, True) in scope.jumps:
+                scope.setBreaks([])
+                scope.jumps = [(None, True)]
+            else:
+                # Try to find a target that already must be labeled
+                for jump in scope.jumps:
+                    if jump[0].hasDependents():
+                        choice = jump
+                        break
+                else:
+                    choice = scope.jumps[-1]
+                scope.setBreaks([choice])
 
         for i,item in enumerate(scope.statements):
             newbreak = item if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)) else breakTarget
             newcontinue = item if isinstance(item, ast.WhileStatement) else continueTarget
-            islast = (i == len(scope.statements)-1)
 
-            if scope.jump is not None:
-                newft = (orig_jump,) if islast else ()
-            else:
-                newft = fallthroughs if islast else ()
+            newft = ()
+            if i == len(scope.statements)-1:
+                newft = lastchild_fts
                 if isinstance(item, (ast.TryStatement, ast.IfStatement)):
                     newft += (item, False),
                 elif isinstance(item, ast.WhileStatement):
-                    newft += (item, True),
+                    newft = (item, True),
 
             for subscope in item.getScopes():
                 self._jumpReduction(subscope, newbreak, newcontinue, newft)

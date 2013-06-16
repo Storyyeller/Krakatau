@@ -195,7 +195,7 @@ def _createASTBlock(info, node, breakmap):
 
     norm_successors = node.normalSuccessors()
     jump = None if block is None else block.jump
-    jump_tup = None
+    jumps = [None]
     if isinstance(jump, (ssa_jumps.Rethrow, ssa_jumps.Return)):
         assert(not norm_successors)
         if isinstance(jump, ssa_jumps.Rethrow):
@@ -209,12 +209,12 @@ def _createASTBlock(info, node, breakmap):
                 statements.append(ast.ReturnStatement())
     elif len(norm_successors) == 1: #normal successors 
         #explicit or implicit goto (or exception with fallthrough)
-        jump_tup = breakmap[norm_successors[0]]      
+        jumps = [y for x,y in breakmap if x == norm_successors[0]]
     #case of if and switch jumps handled in parent scope
 
     new = ast.StatementBlock(info.labelgen)
     new.statements = statements
-    new.setBreak(jump_tup)
+    new.setBreaks(jumps)
     assert(None not in statements)
     return new
 
@@ -232,13 +232,13 @@ def _createASTSub(info, seroot):
             contents = []
 
             calls = []
-            def recurse(item, targets, ftblock=None, forceUnlabled=False):
+            def recurse(item, targets, ftblock, forceUnlabled=False):
                 calls.append((True, (item, targets, ftblock, forceUnlabled, contents.append)))
 
             new = None #catch error if we forget to assign it in one case
             if isinstance(current, SEScope):
                 new = ast.StatementBlock(info.labelgen)
-                if not forceUnlabled and ftblock is not None:
+                if not forceUnlabled:
                     targets = targets + ((ftblock, (new,False)),)
 
                 fallthroughs = [item.entryBlock for item in current.items[1:]] + [ftblock]
@@ -247,17 +247,14 @@ def _createASTSub(info, seroot):
 
             elif isinstance(current, SEWhile):
                 new = ast.WhileStatement(info.labelgen)
-                targets = targets + ((current.entryBlock, (new,True)),)
-                if ftblock is not None:
-                    targets = targets + ((ftblock, (new,False)),)
-                recurse(current.body, targets)
+                targets = targets + ((current.entryBlock, (new,True)), (ftblock, (new,False)))
+                recurse(current.body, targets, current.entryBlock, True)
 
             elif isinstance(current, SETry):
                 new = ast.TryStatement(info.labelgen)
-                if ftblock is not None:
-                    targets = targets + ((ftblock, (new,False)),)
+                targets = targets + ((ftblock, (new,False)),)
                 for scope in current.getScopes():
-                    recurse(scope, targets)
+                    recurse(scope, targets, ftblock, True)
 
             elif isinstance(current, SEIf):
                 node = current.head.node
@@ -269,9 +266,7 @@ def _createASTSub(info, seroot):
                 ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
 
                 new = ast.IfStatement(info.labelgen, ifexpr)
-                if ftblock is not None:
-                    targets = targets + ((ftblock, (new,False)),)
-
+                targets = targets + ((ftblock, (new,False)),)
                 for scope in current.getScopes():
                     recurse(scope, targets, ftblock, True)
                 
@@ -280,19 +275,15 @@ def _createASTSub(info, seroot):
                 jump = node.block.jump
                 expr = info.var(node, jump.params[0])
                 new = ast.SwitchStatement(info.labelgen, expr)
-                if ftblock is not None:
-                    targets = targets + ((ftblock, (new,False)),)
+                targets = targets + ((ftblock, (new,False)),)
 
                 fallthroughs = [item.entryBlock for item in current.ordered[1:]] + [ftblock]
                 for item, ft in zip(current.ordered, fallthroughs):
                     recurse(item, targets, ft, True)
 
             elif isinstance(current, SEBlockItem):
-                if ftblock is not None:
-                    targets = targets + ((ftblock, None),)
-
-                gotoMap = dict(targets) #more recent keys override, as desired
-                new = _createASTBlock(info, current.node, gotoMap)
+                targets = targets + ((ftblock, None),)
+                new = _createASTBlock(info, current.node, targets)
 
             assert(new is not None)
             #stuff to be done after recursive calls return

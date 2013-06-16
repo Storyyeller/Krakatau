@@ -83,7 +83,9 @@ class LazyLabelBase(JavaStatement):
         self.label, self.func = None, labelfunc
         self.sources = {False:[], True:[]}
 
-    def Sources(self): return self.sources[False] + self.sources[True]
+    def getSources(self): return self.sources[False] + self.sources[True]
+    # See if there are any blocks that can jump only to us
+    def hasDependents(self): return any(len(child.jumps) == 1 for child in self.getSources())
 
     def getLabel(self):
         if self.label is None:
@@ -168,24 +170,36 @@ sbcount = itertools.count()
 class StatementBlock(LazyLabelBase):
     def __init__(self, labelfunc):
         super(StatementBlock, self).__init__(labelfunc)
-        self.jump = None
+        self.jumps = [None] #Only fallthrough by default
         self.parent = None #should be assigned later
         #self.statements
         self.id = next(sbcount) #For debugging purposes
 
-    def setBreak(self, val):
-        if self.jump is not None:
-            self.jump[0].sources[self.jump[1]].remove(self)
-        self.jump = val
-        if self.jump is not None:
-            self.jump[0].sources[self.jump[1]].append(self)
+    def canFallthrough(self): return None in self.jumps
+
+    def _updateJump(self, jump, func):
+        func(self.jumps, jump)
+        if jump is not None:
+            func(jump[0].sources[jump[1]], self)
+        assert(len(set(self.jumps)) == len(self.jumps))
+
+    def removeJump(self, jump): self._updateJump(jump, list.remove)
+    def addJump(self, jump): self._updateJump(jump, list.append)
+
+    def setBreaks(self, vals):
+        for jump in self.jumps[:]:
+            self.removeJump(jump)
+        for jump in vals:
+            self.addJump(jump)
 
     def getScopes(self): return self,
 
     def print_(self): 
         contents = [x.print_() for x in self.statements]
-        if self.jump is not None:
-            temp = JumpStatement(*self.jump)
+
+        jump = self.jumps[-1]
+        if jump is not None:
+            temp = JumpStatement(*jump)
             contents.append(temp.print_())
         contents = '\n'.join(contents)
         # contents = '//{} <- {}\n'.format(str(self), ', '.join(map(str, self.sources[False]))) + contents

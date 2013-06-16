@@ -744,7 +744,7 @@ def completeScopes(dom, croot, children):
         #The problem is that when processing one child, we may want to extend it to include another child
         #We solve this by freezing already processed children and ordering them heuristically
         # TODO - find a better way to handle this
-        revorder = sorted(children[parent], key=lambda cnode:(nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
+        revorder = sorted(children[parent], key=lambda cnode:(-nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
         frozen_nodes = set()
 
         while revorder:

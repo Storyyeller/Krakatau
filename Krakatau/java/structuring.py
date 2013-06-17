@@ -486,7 +486,9 @@ def mergeExceptions(dom, children, constraints, nodes):
             ubound &= tcon.lbound
 
         parent, pscope = parents[con]
-        while not body <= pscope.lbound:
+        #Ugly hack to work around the fact that try bodies are temporarily stored 
+        #in the main constraint, not its scopes
+        while not body <= (parent if parent.tag == 'try' else pscope).lbound:
             body |= parent.lbound
             if parent in forcedup or not body <= ubound:
                 return False
@@ -1093,6 +1095,9 @@ def structure(entryNode, nodes):
     constraints = createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos)
 
     croot, ctree_children = orderConstraints(dom, constraints, nodes)
+
+    # for node in nodes:
+    #     print node, [n for n in node.successors if n in node.outvars]
 
     #May remove nodes (and update dominator info)
     dom, constraints, nodes = mergeExceptions(dom, ctree_children, constraints, nodes)

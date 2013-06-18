@@ -1,4 +1,5 @@
 from . import ast
+from .stringescape import escapeString as escape
 
 class MethodDef(object):
     def __init__(self, class_, flags, name, retType, paramDecls, body):
@@ -14,7 +15,7 @@ class MethodDef(object):
             self.name = ast.TypeName((class_.name, 0))
         else:
             self.isStaticInit, self.isConstructor = False, False
-            self.name = name 
+            self.name = escape(name)
 
     def print_(self):
         argstr = ', '.join(decl.print_() for decl in self.paramDecls)
@@ -38,7 +39,7 @@ class FieldDef(object):
     def __init__(self, flags, type_, name, expr=None):
         self.flagstr = flags + ' ' if flags else ''
         self.type_ = type_
-        self.name = name
+        self.name = escape(name)
         self.expr = None if expr is None else ast.makeCastExpr(type_.tt, expr) 
 
     def print_(self):

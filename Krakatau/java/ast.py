@@ -406,7 +406,7 @@ class ClassInstanceCreation(JavaExpression):
 class FieldAccess(JavaExpression):
     def __init__(self, primary, name, dtype, printLeft=True):
         self.dtype = dtype
-        self.params, self.name = [primary], name
+        self.params, self.name = [primary], escapeString(name)
         self.fmt = ('{}.' if printLeft else '') + name
 
     def addParens_sub(self):
@@ -492,7 +492,7 @@ class MethodInvocation(JavaExpression):
             self.params = [left] + arguments
         self.hasLeft = (left is not None)
         self.dtype = dtype
-        self.name = name
+        self.name = escapeString(name)
         self.tts = tts
         self.op = op #keep around for future reference and new merging
 
@@ -545,7 +545,7 @@ class TypeName(JavaExpression):
         if name[0] == '.': #primative type:
             name = name[1:]
         else:
-            name = name.replace('/','.')
+            name = escapeString(name.replace('/','.'))
         s = name + '[]'*dim
         if s.rpartition('.')[0] == 'java.lang':
             s = s.rpartition('.')[2]

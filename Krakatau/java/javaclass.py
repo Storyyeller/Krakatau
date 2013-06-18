@@ -50,7 +50,7 @@ class ClassDecompiler(object):
     def _getMethod(self, method):
         try:
             graph = self.cb(method) if method.code is not None else None
-            print 'Decompiling method', method.name, method.descriptor
+            print 'Decompiling method', method.name.encode('utf8'), method.descriptor.encode('utf8')
             code_ast = MethodDecompiler(method, graph, self.forbidden_identifiers).generateAST()
             return code_ast
         except Exception as e:

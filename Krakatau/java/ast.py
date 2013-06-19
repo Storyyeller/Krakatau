@@ -407,7 +407,7 @@ class FieldAccess(JavaExpression):
     def __init__(self, primary, name, dtype, printLeft=True):
         self.dtype = dtype
         self.params, self.name = [primary], escapeString(name)
-        self.fmt = ('{}.' if printLeft else '') + name
+        self.fmt = ('{}.' if printLeft else '') + self.name
 
     def addParens_sub(self):
         p0 = self.params[0]

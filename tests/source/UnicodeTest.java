@@ -1,6 +1,6 @@
 public class UnicodeTest {
 	final static String \ufe4f\u2167 = "\uFEFF\uD800\uD8D8\uDFFD";
-	transient static short x\u0058x = 5;
+	transient static short x\u03A7x = 5;
 
 	protected static String __\u0130\u00dFI(UnicodeTest x) {return \ufe4f\u2167;}
 

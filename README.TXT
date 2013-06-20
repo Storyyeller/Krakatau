@@ -112,3 +112,8 @@ class with the following caveat:
 * The exact format and ordering of attributes may not be preserved. The
 	disassembler does not attempt to disassemble LineNumberTable, 
 	LocalVariableTable, or LocalVariableTypeTable attributes.
+
+=== Performance ===
+
+You can disable the internal debugging checks by passing -O to Python. This
+will make Krakatau slightly faster, so it is recommended for normal usage.

@@ -96,7 +96,7 @@ class CompoundConstraint(object):
 
 def WhileCon(dom, head):
     ubound = dom.area(head)
-    lbound = set(dom.extend([head] + [n2 for n2 in head.predecessors if n2 in ubound]))
+    lbound = dom.extend([head] + [n2 for n2 in head.predecessors if n2 in ubound])
     assert(len(lbound)>1)
     return CompoundConstraint('while', None, [ScopeConstraint(lbound, ubound)])
 
@@ -440,7 +440,7 @@ def mergeExceptions(dom, children, constraints, nodes):
         parent, pscope = parents[con]
         children[parent] += children[con]
         for x in children[con]:
-            scopes = [s for s in con.scopes if s.lbound & x.lbound]
+            scopes = [s for s in parent.scopes if s.lbound & x.lbound]
             parents[x] = parent, scopes[0]
         children[parent].remove(con)
         del children[con]

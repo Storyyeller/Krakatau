@@ -36,12 +36,16 @@ class DominatorInfo(object):
         stack = [root]
         while stack:
             cur = stack.pop()
+            assert(cur not in stack)
             for child in cur.successors:
                 new = doms[cur] + (child,)
                 old = doms.get(child)
                 if new != old:
                     new = new if old is None else tuple(x for x in old if x in new)
-                    assert(child in new)
+                    assert(child == new[-1])
+                if old is not None:
+                    assert(new == old or len(new) < len(old))
+                    assert(new[0] == root and new[-1] == child)
                 if new != old:
                     doms[child] = new
                     if child not in stack:
@@ -728,6 +732,55 @@ def _dominatorUBoundClosure(dom, lbound, ubound):
     assert(udom == dom.dominator(ubound))
     return ubound
 
+def _mincut(startnodes, endnodes):
+    startset = frozenset(startnodes)
+    endset = frozenset(endnodes)
+    used = set()
+    backedge = {}
+
+    while 1:
+        #Find augmenting path via BFS
+        queue = collections.deque([(n,True,(n,)) for n in startnodes if n not in used])
+
+        seen = set((n,True) for n in startnodes)
+        augmenting_path = None
+        while queue:
+            pos, lastfw, path = queue.popleft()
+
+            canfwd = not lastfw or pos not in used
+            canback = pos in used and pos not in startset
+
+            if canfwd:
+                if pos in endset: #success!
+                    augmenting_path = path
+                    break
+                for pos2 in pos.norm_suc_nl:
+                    if (pos2, True) not in seen:
+                        seen.add((pos2, True))
+                        queue.append((pos2, True, path+(pos2,)))
+            if canback:
+                pos2 = backedge[pos]
+                if (pos2, False) not in seen:
+                    seen.add((pos2, False))
+                    queue.append((pos2, False, path+(pos2,)))
+
+        else: #queue is empty but we didn't find anything
+            assert(augmenting_path is None)   
+            lastseen = set(x for x,front in seen if front)
+            return lastseen | (startset & used)
+
+        path = augmenting_path
+        assert(path[0] in startset and path[-1] in endset)
+
+        for pos, last in zip(path, (None,)+path):
+            if last in pos.norm_suc_nl:
+                assert(pos in used)
+                assert(backedge[pos] != last)
+            else:
+                used.add(pos)
+                backedge[pos] = last
+                assert((backedge[pos] is None) == (pos in startset))
+
 def completeScopes(dom, croot, children):
     parentscope = {}
     for k, v in children.items():
@@ -779,63 +832,12 @@ def completeScopes(dom, croot, children):
             endnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]
 
             #Now use Edmonds-Karp, modified to find min vertex cut
-            startset = frozenset(startnodes)
-            endset = frozenset(endnodes)
-            used = set()
-            backedge = {}
-
-            #lastseen assigned in loop
-            while 1:
-                #Find augmenting path via BFS
-                queue = collections.deque([(n,True,(n,)) for n in startnodes if n not in used])
-
-                seen = set()
-                augmenting_path = None
-                while queue:
-                    pos, lastfw, path = queue.popleft()
-                    seen.add(pos)
-
-                    if pos in used:
-                        if pos not in startset:
-                            pos2 = backedge[pos]
-                            queue.append((pos2, False, path+(pos2,)))
-                        if not lastfw and pos not in endset: #last edge was backwards, so we're allowed to go forwards
-                            for pos2 in pos.norm_suc_nl:
-                                if pos2 not in path: #avoid cycles to avoid cluttering up the queue
-                                    queue.append((pos2, True, path+(pos2,)))
-                    else:
-                        assert(lastfw)
-                        if pos in endset: #success!
-                            augmenting_path = path
-                            break
-                        else:
-                            for pos2 in pos.norm_suc_nl:
-                                if pos2 not in path: #avoid cycles to avoid cluttering up the queue
-                                    queue.append((pos2, True, path+(pos2,)))
-                else: #queue is empty but we didn't find anything
-                    assert(augmenting_path is None)   
-                    lastseen = seen | (startset & used)
-                    break
-
-                path = augmenting_path
-                assert(path[0] in startset and path[-1] in endset)
-
-                last = None
-                for pos in path:
-                    if last in pos.norm_suc_nl:
-                        assert(pos in used)
-                        assert(backedge[pos] != last)
-                    else:
-                        used.add(pos)
-                        backedge[pos] = last
-                        assert((backedge[pos] is None) == (pos in startset))
-                    last = pos  
+            lastseen = _mincut(startnodes, endnodes)
 
             #Now we have the max flow, try to find the min cut
             #Just use the set of nodes visited during the final BFS
             interior = [x for x in (lastseen & ubound) if lastseen.issuperset(x.norm_suc_nl)]
-            cutsize = len(lastseen)-len(interior)
-            assert(cutsize <= min(len(startset), len(used)))
+            # cutsize = len(lastseen)-len(interior)
 
             body0 = body.copy()
             body.update(interior)
@@ -1068,6 +1070,7 @@ def _checkNested(ctree_children):
             assert(c1.lbound.isdisjoint(c2.lbound))
 
 def structure(entryNode, nodes):
+    # print 'structuring'
     for n in nodes:
         for x in n.predecessors:
             assert(n in x.successors)        
@@ -1097,8 +1100,9 @@ def structure(entryNode, nodes):
     croot, ctree_children = orderConstraints(dom, constraints, nodes)
 
     # for node in nodes:
-    #     print node, [n for n in node.successors if n in node.outvars]
+    #     print node, [n for n in node.successors if n in node.outvars], [n for n in node.successors if n not in node.outvars]
 
+    # print 'exception merging'
     #May remove nodes (and update dominator info)
     dom, constraints, nodes = mergeExceptions(dom, ctree_children, constraints, nodes)
 

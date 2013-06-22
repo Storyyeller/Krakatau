@@ -732,6 +732,32 @@ def _dominatorUBoundClosure(dom, lbound, ubound):
     assert(udom == dom.dominator(ubound))
     return ubound
 
+def _augmentingPath(startnodes, startset, endset, used, backedge):
+    #Find augmenting path via BFS
+    queue = collections.deque([(n,True,(n,)) for n in startnodes if n not in used])
+
+    seen = set((n,True) for n in startnodes)
+    while queue:
+        pos, lastfw, path = queue.popleft()
+
+        canfwd = not lastfw or pos not in used
+        canback = pos in used and pos not in startset
+
+        if canfwd:
+            if pos in endset: #success!
+                return path, None
+            for pos2 in pos.norm_suc_nl:
+                if (pos2, True) not in seen:
+                    seen.add((pos2, True))
+                    queue.append((pos2, True, path+(pos2,)))
+        if canback:
+            pos2 = backedge[pos]
+            if (pos2, False) not in seen:
+                seen.add((pos2, False))
+                queue.append((pos2, False, path+(pos2,)))
+    else: #queue is empty but we didn't find anything
+        return None, set(x for x,front in seen if front)
+
 def _mincut(startnodes, endnodes):
     startset = frozenset(startnodes)
     endset = frozenset(endnodes)
@@ -739,39 +765,11 @@ def _mincut(startnodes, endnodes):
     backedge = {}
 
     while 1:
-        #Find augmenting path via BFS
-        queue = collections.deque([(n,True,(n,)) for n in startnodes if n not in used])
-
-        seen = set((n,True) for n in startnodes)
-        augmenting_path = None
-        while queue:
-            pos, lastfw, path = queue.popleft()
-
-            canfwd = not lastfw or pos not in used
-            canback = pos in used and pos not in startset
-
-            if canfwd:
-                if pos in endset: #success!
-                    augmenting_path = path
-                    break
-                for pos2 in pos.norm_suc_nl:
-                    if (pos2, True) not in seen:
-                        seen.add((pos2, True))
-                        queue.append((pos2, True, path+(pos2,)))
-            if canback:
-                pos2 = backedge[pos]
-                if (pos2, False) not in seen:
-                    seen.add((pos2, False))
-                    queue.append((pos2, False, path+(pos2,)))
-
-        else: #queue is empty but we didn't find anything
-            assert(augmenting_path is None)   
-            lastseen = set(x for x,front in seen if front)
+        path, lastseen = _augmentingPath(startnodes, startset, endset, used, backedge)
+        if path is None:
             return lastseen | (startset & used)
 
-        path = augmenting_path
         assert(path[0] in startset and path[-1] in endset)
-
         for pos, last in zip(path, (None,)+path):
             if last in pos.norm_suc_nl:
                 assert(pos in used)

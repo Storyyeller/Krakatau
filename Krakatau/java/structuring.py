@@ -274,11 +274,15 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
     for head in while_heads:
         constraints.append(WhileCon(dom, head))
 
-    forbid_dicts = ddict(dict)
+    masks = {n:mask for n, mask, _, _ in newtryinfos}
+    forbid_dicts = ddict(lambda:masks.copy())
     for n, mask, csets, tryinfos in newtryinfos:
-        if len(csets)>1:
-            for ot, cset in csets.items():
-                forbid_dicts[ot][n] = mask - cset    
+        for ot, cset in csets.items():
+            forbid_dicts[ot][n] -= cset    
+    for forbid in forbid_dicts.values():
+        for k in forbid.keys():
+            if not forbid[k]:
+                del forbid[k]
 
     for n, mask, csets, tryinfos in newtryinfos:
         cons = [TryCon(n, target, top, caughtvar) for top, target, caughtvar in tryinfos]
@@ -471,32 +475,39 @@ def mergeExceptions(dom, children, constraints, nodes):
                 if not forbidden[n]:
                     del forbidden[n]
 
-    def tryExtend(con, con2, removed):
-        #Attempt to extend con to cover con2
-        #If not successful, rollback the changes 
-
-        assert(con.tag == con2.tag == 'try')
-        assert(con.orig_target == con2.orig_target)
-        forcedup = con.forcedup | con2.forcedup
-        forceddown = con.forceddown | con2.forceddown
+    def tryExtend(con, newblocks, xCSet, xUps, xDowns, removed):
+        forcedup = con.forcedup | xUps
+        forceddown = con.forceddown | xDowns
         assert(con not in forceddown)
         forcedup.discard(con)
         if forcedup & forceddown:
             return False
 
-        body = dom.extend(con.lbound | con2.lbound)
+        body = dom.extend(con.lbound | newblocks)
         ubound = set(con.ubound)
         for tcon in forcedup:
             ubound &= tcon.lbound
 
-        parent, pscope = parents[con]
-        #Ugly hack to work around the fact that try bodies are temporarily stored 
-        #in the main constraint, not its scopes
-        while not body <= (parent if parent.tag == 'try' else pscope).lbound:
-            body |= parent.lbound
-            if parent in forcedup or not body <= ubound:
-                return False
-            parent, pscope = parents[parent]
+        while 1:
+            done = True
+            parent, pscope = parents[con]
+            #Ugly hack to work around the fact that try bodies are temporarily stored 
+            #in the main constraint, not its scopes
+            while not body <= (parent if parent.tag == 'try' else pscope).lbound:
+                #Try to extend parent rather than just failing
+                if parent.tag == 'try' and parent in forcedup:
+                    #Note this call may mutate the parent
+                    done = not tryExtend(parent, body, ExceptionSet.EMPTY, set(), set(), removed)
+                    #Since the tree may have been updated, start over and rewalk the tree
+                    if not done:
+                        break
+
+                body |= parent.lbound
+                if parent in forcedup or not body <= ubound:
+                    return False
+                parent, pscope = parents[parent]
+            if done:
+                break
 
         for child in children[parent]:
             if child.lbound & body:
@@ -505,7 +516,7 @@ def mergeExceptions(dom, children, constraints, nodes):
         if not body <= ubound:
             return False
 
-        cset = con.cset | con2.cset
+        cset = con.cset | xCSet
         forbidden = con.forbidden.copy()
         for newdown in (forceddown - con.forceddown):
             unforbid(forbidden, newdown)
@@ -536,7 +547,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                     if not bad:
                         break
                 if bad:
-                    assert(cset - con.cset)
+                    assert(node not in con.lbound or cset - con.cset)
                     return False
         assert(forceddown.isdisjoint(forcedup))
         assert(all(forbidden.values()))
@@ -596,7 +607,7 @@ def mergeExceptions(dom, children, constraints, nodes):
 
         success = {}
         for con2 in candidates2:
-            success[con2] = tryExtend(con, con2, removed)
+            success[con2] = tryExtend(con, con2.lbound, con2.cset, con2.forcedup, con2.forceddown, removed)
 
         #Now find which ones can be removed
         def removeable(con2):
@@ -1103,6 +1114,9 @@ def structure(entryNode, nodes):
     # print 'exception merging'
     #May remove nodes (and update dominator info)
     dom, constraints, nodes = mergeExceptions(dom, ctree_children, constraints, nodes)
+
+    # handles = [c.orig_target for c in constraints if c.tag=='try']
+    # assert(len(handles) == len(set(handles)))
 
     #TODO - parallelize exceptions
 

@@ -126,14 +126,17 @@ def makeGraph(env, blocks):
             n = BaseNode(42, False)
         output = []
         for i,var in enumerate(op.getOutputs()):
-            vnode = lookup[var]
-            output.append(vnode.output[0])
-            n.uses.append(vnode)
-            vnode.sources = [(n,i)]
+            if var is None:
+                output.append(None)
+            else:
+                vnode = lookup[var]
+                output.append(vnode.output[0])
+                n.uses.append(vnode)
+                vnode.sources = [(n,i)]
         n.output = tuple(output)
-        n.upOutput = (None,)*len(output) if n.sources else n.output
+        n.upOutput = (None,None,None) if n.sources else n.output
         n.root = op
-
+        assert(len(output) == 3)
     
     vnodes = lookup.values() 
     for node in vnodes:

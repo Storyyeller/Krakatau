@@ -8,4 +8,4 @@ class TryReturn(BaseOp):
         self.outExceptionCons = ObjectConstraint.fromTops(parent.env, [], (excepttypes.MonState,), nonnull=True)
 
     def propagateConstraints(self, x):
-        return self.outExceptionCons,
+        return None, self.outExceptionCons, None

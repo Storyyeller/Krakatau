@@ -2,7 +2,6 @@ from .base import BaseOp
 from ..constraints import IntConstraint
 from . import bitwise_util
 
-
 class Truncate(BaseOp):
     def __init__(self, parent, arg, signed, width):
         super(Truncate, self).__init__(parent, [arg])
@@ -32,6 +31,6 @@ class Truncate(BaseOp):
                 parts.append(-HM)
 
             assert(-HM <= min(parts) <= max(parts) <= HM-1)
-            return IntConstraint.range(intw, min(parts), max(parts)),
+            return IntConstraint.range(intw, min(parts), max(parts)), None, None
         else:
-            return x,
+            return x, None, None

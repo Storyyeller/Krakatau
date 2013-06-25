@@ -16,12 +16,12 @@ class ArrLoad(BaseOp):
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
+                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), None
 
         if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
             etypes += (excepttypes.ArrayOOB,)
             eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-            return None, eout
+            return None, eout, None
         elif (i.max >= a.arrlen.min) or i.min < 0:
             etypes += (excepttypes.ArrayOOB,)
 
@@ -35,7 +35,7 @@ class ArrLoad(BaseOp):
             rout = ObjectConstraint.fromTops(a.types.env, supers, exact)
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return rout, eout
+        return rout, eout, None
 
 class ArrStore(BaseOp):
     def __init__(self, parent, args, monad):
@@ -47,12 +47,12 @@ class ArrStore(BaseOp):
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), m
+                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), m
 
         if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
             etypes += (excepttypes.ArrayOOB,)
             eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-            return eout, m
+            return None, eout, m
         elif (i.max >= a.arrlen.min) or i.min < 0:
             etypes += (excepttypes.ArrayOOB,)
 
@@ -63,7 +63,7 @@ class ArrStore(BaseOp):
                 etypes += (excepttypes.ArrayStore,)
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return eout, DUMMY
+        return None, eout, DUMMY
 
 class ArrLength(BaseOp):
     def __init__(self, parent, args):
@@ -77,7 +77,7 @@ class ArrLength(BaseOp):
         if x.null:
             etypes += (excepttypes.NullPtr,)
             if x.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
+                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), None
 
         excons = eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return x.arrlen, excons
+        return x.arrlen, excons, None

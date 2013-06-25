@@ -99,16 +99,15 @@ class SSA_Graph(object):
         reachable = graph_util.topologicalSort(roots, lambda var:(var.origin.params if var.origin else []))
 
         keepset = set(reachable)
+        assert(None not in keepset)
         def filterOps(oldops):
             newops = []
             for op in oldops:
                 #if any of the params is being removed due to being unreachable, we can assume the whole function can be removed
-                #else if any of the outputs are still needed, keep the function
-                # keep = keepset.issuperset(op.params) or not keepset.isdisjoint(op.getOutputs())
                 keep = keepset.issuperset(op.params) and not keepset.isdisjoint(op.getOutputs())
                 if keep:
                     newops.append(op)
-                    keepset.update(op.getOutputs()) #temp hack
+                    keepset.update(filter(None, op.getOutputs())) #temp hack
                 else:
                     assert(keepset.isdisjoint(op.getOutputs()))
             return newops
@@ -670,7 +669,7 @@ def ssaFromVerified(code, iNodes):
         bvars += [phi.rval for phi in block.phis]
         for op in block.lines:
             bvars += op.params
-            bvars += op.getOutputs()
+            bvars += [x for x in op.getOutputs() if x is not None]
         bvars += block.jump.params
 
         for var in bvars:

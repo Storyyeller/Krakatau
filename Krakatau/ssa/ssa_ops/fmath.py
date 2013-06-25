@@ -37,4 +37,4 @@ class FCmp(BaseOp):
 
     def propagateConstraints(self, x, y):
         rvalcons = IntConstraint.range(32, -1, 1)
-        return rvalcons,
+        return rvalcons, None, None

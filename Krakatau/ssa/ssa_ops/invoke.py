@@ -40,5 +40,5 @@ class Invoke(BaseOp):
 
     def propagateConstraints(self, *incons):
         if self.rval is None:
-            return self.eout, self.mout
+            return None, self.eout, self.mout
         return self.rout, self.eout, self.mout

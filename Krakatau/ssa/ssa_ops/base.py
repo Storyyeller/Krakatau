@@ -16,11 +16,11 @@ class BaseOp(SSAFunctionBase):
             self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 
     def getOutputs(self):
-        outs = self.rval, self.outException, self.outMonad
-        return [x for x in outs if x is not None]
+        return self.rval, self.outException, self.outMonad
 
     def removeOutput(self, var):
         outs = self.rval, self.outException, self.outMonad
+        assert(var is not None and var in outs)
         self.rval, self.outException, self.outMonad = [(x if x != var else None) for x in outs]
 
     def replaceOutVars(self, vardict):

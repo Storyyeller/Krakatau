@@ -16,4 +16,4 @@ class Monitor(BaseOp):
             etypes += (excepttypes.MonState,)
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         mout = m if x.isConstNull() else DUMMY
-        return eout, mout
+        return None, eout, mout

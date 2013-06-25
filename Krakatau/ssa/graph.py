@@ -107,7 +107,9 @@ class SSA_Graph(object):
                 keep = keepset.issuperset(op.params) and not keepset.isdisjoint(op.getOutputs())
                 if keep:
                     newops.append(op)
-                    keepset.update(filter(None, op.getOutputs())) #temp hack
+                    for v in op.getOutputs():
+                        if v and v not in keepset:
+                            op.removeOutput(v)
                 else:
                     assert(keepset.isdisjoint(op.getOutputs()))
             return newops

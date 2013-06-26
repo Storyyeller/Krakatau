@@ -601,12 +601,13 @@ def mergeExceptions(dom, children, constraints, nodes):
         con.ubound = set(nodes) - set(catchreach)
 
         #Now find which cons we can try to merge with
-        candidates1 = [c for c in trycons if c not in removed and c.orig_target == con.orig_target]
-        candidates2 = [c for c in candidates1 if c.lbound.issubset(con.ubound)]
-        candidates2.remove(con)
+        candidates = [c for c in trycons if c not in removed and c.orig_target == con.orig_target]
+        candidates = [c for c in candidates if c.lbound.issubset(con.ubound)]
+        candidates = [c for c in candidates if c not in con.forcedup]
+        candidates.remove(con)
 
         success = {}
-        for con2 in candidates2:
+        for con2 in candidates:
             success[con2] = tryExtend(con, con2.lbound, con2.cset, con2.forcedup, con2.forceddown, removed)
 
         #Now find which ones can be removed
@@ -619,7 +620,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                             return True
             return False
 
-        for con2 in candidates2:
+        for con2 in candidates:
             #Note that since our tryExtend is somewhat conservative, in rare cases we
             #may find that we can remove a constraint even if tryExtend failed on it
             #but the reverse should obviously never happen

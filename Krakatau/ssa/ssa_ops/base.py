@@ -26,5 +26,7 @@ class BaseOp(SSAFunctionBase):
     def replaceOutVars(self, vardict):
         self.rval, self.outException, self.outMonad = map(vardict.get, (self.rval, self.outException, self.outMonad))
 
+    # Given input constraints, return constraints on outputs. Output is (rval, exception, monad)
+    # With None returned for unused or impossible values. This should only be defined if it is
+    # actually implemented.
     # def propagateConstraints(self, *cons):
-    #   return ?

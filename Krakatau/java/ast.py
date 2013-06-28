@@ -107,13 +107,14 @@ class LazyLabelBase(JavaStatement):
 class TryStatement(LazyLabelBase):
     def __init__(self, labelfunc):
         super(TryStatement, self).__init__(labelfunc)
-        # self.parts = tryblock, formparam, catchblock
+        # self.tryb, self.pairs
 
-    def getScopes(self): return self.parts[0], self.parts[-1]
+    def getScopes(self): return (self.tryb,) + zip(*self.pairs)[1]
 
     def print_(self): 
-        parts = [x.print_() for x in self.parts]
-        return '{}try\n{}\ncatch({})\n{}'.format(self.getLabelPrefix(), *parts)
+        tryb = self.tryb.print_()
+        parts = ['catch({})\n{}'.format(x.print_(), y.print_()) for x,y in self.pairs]
+        return '{}try\n{}\n{}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
 
 class IfStatement(LazyLabelBase):
     def __init__(self, labelfunc, expr):

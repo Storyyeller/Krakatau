@@ -50,7 +50,8 @@ def findVarDeclInfo(root, predeclared):
             if stmt.expr is not None:
                 visit(scope, stmt.expr)
             if isinstance(stmt, ast.TryStatement):
-                visitDeclExpr(stmt.parts[2], stmt.parts[1].local)
+                for catchdecl, body in stmt.pairs:
+                    visitDeclExpr(body, catchdecl.local)
     return info
 
 def reverseBoolExpr(expr):
@@ -227,22 +228,26 @@ class MethodDecompiler(object):
             return copyset_stack, fallthrough_cset
 
     def _pruneRethrow_cb(self, item):
-        catchb = item.getScopes()[-1]
-        lines = catchb.statements
-        if len(lines) == 1:
-            line = lines[0]
-            caught = item.parts[1].local 
-            if isinstance(line, ast.ThrowStatement) and line.expr == caught:
-                catchb.setBreaks([])
-                new = item.getScopes()[0]
-                assert(not new.getSources())
+        while item.pairs:
+            decl, body = item.pairs[-1]
+            caught, lines = decl.local, body.statements
 
+            if len(lines) == 1:
+                line = lines[0]
+                if isinstance(line, ast.ThrowStatement) and line.expr == caught:
+                    body.setBreaks([])
+                    item.pairs = item.pairs[:-1]
+                    continue
+            break
+        if not item.pairs:
+            new = item.tryb
+            assert(not new.getSources())
 
-                for x in item.getSources():
-                    x.removeJump((item, False))
-                    x.addJump((new, False))
-                assert(not item.getSources())
-                return new
+            for x in item.getSources():
+                x.removeJump((item, False))
+                x.addJump((new, False))
+            assert(not item.getSources())
+            return new
         return item    
 
     def _pruneIfElse_cb(self, item):

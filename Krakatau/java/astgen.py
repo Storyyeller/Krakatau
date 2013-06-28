@@ -310,7 +310,8 @@ def _createASTSub(info, seroot):
                 else:
                     catchvar = info.var(catchnode, current.catchvar)
                 decl = ast.VariableDeclarator(declt, catchvar)
-                new.parts = parts[0], decl, parts[1]
+                new.tryb = parts[0]
+                new.pairs = [(decl, parts[1])]
             elif isinstance(current, SEIf):
                 headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
                 new.scopes = contents

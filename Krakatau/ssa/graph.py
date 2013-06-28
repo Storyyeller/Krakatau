@@ -10,6 +10,12 @@ from .. import graph_util
 from .. import opnames
 from ..verifier import verifier_types
 
+#This class is the main IR for bytecode level methods. It consists of a control
+#flow graph (CFG) in static single assignment form (SSA). Each node in the
+#graph is a BasicBlock. This consists of a list of phi statements representing
+#inputs, a list of operations, and a jump statement. Exceptions are represented
+#explicitly in the graph with the OnException jump. Each block also keeps track
+#of the unary constraints on the variables in that block. 
 
 class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3

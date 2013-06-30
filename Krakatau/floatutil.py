@@ -2,14 +2,16 @@ import math
 INF_MAG = 1, None
 ZERO_MAG = 0, None
 
-#numbers represented as (sign, (mantissa, exponent))
+#Numbers are represented as (sign, (mantissa, exponent))
+#For finite nonzero values, the float value is sign * mantissa * 2 ^ (exponent - mbits - 1)
+#Mantissa is normalized to always be within (2 ^ mbits) <= m < (2 ^ mbits + 1) even for subnormal numbers
 NAN = None,(None,None)
 INF = 1,INF_MAG
 NINF = -1,INF_MAG
 ZERO = 1,ZERO_MAG
 NZERO = -1,ZERO_MAG
 
-#key suitable for sorting finite (normalized) nonzero values
+#Key suitable for sorting finite (normalized) nonzero values
 sortkey = lambda (s,(m,e)):(s,s*e,s*m)
 
 #Size info for type - mantissa bits, min exponent, max exponent
@@ -18,6 +20,7 @@ DOUBLE_SIZE = 52,-1022,1023
 
 def flog(x):
     '''returns f such that 2**f <= x < 2**(f+1)'''
+    assert(x > 0)
     return len(bin(x))-3
 
 def roundMag(size, mag):

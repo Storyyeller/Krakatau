@@ -17,19 +17,17 @@ class DeclInfo(object):
 def findVarDeclInfo(root, predeclared):
     info = collections.OrderedDict()
     def visit(scope, expr):
+        for param in expr.params:
+            visit(scope, param)
+
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
-            visit(scope, left)
-            visit(scope, right)
             if isinstance(left, ast.Local):
                 info[left].defs.append(right)
         elif isinstance(expr, (ast.Local, ast.Literal)):
             #this would be so much nicer if we had Ordered defaultdicts
             info.setdefault(expr, DeclInfo())
             info[expr].scope = ast.StatementBlock.join(info[expr].scope, scope)
-
-        for param in expr.params:
-            visit(scope, param)
 
     def visitDeclExpr(scope, expr): 
         info.setdefault(expr, DeclInfo())
@@ -78,7 +76,7 @@ class MethodDecompiler(object):
 
     def _preorder(self, scope, func):
         newitems = []
-        for item in scope.statements:
+        for i, item in enumerate(scope.statements):
             for sub in item.getScopes():
                 self._preorder(sub, func)
 
@@ -373,6 +371,104 @@ class MethodDecompiler(object):
                 if len(info[var].defs) > 1:
                     forbidden.add(var)
         self._replaceExpressions(root, varmap)
+        self._replaceExpressions(root, varmap)
+
+    def _inlineVariables(self, root):
+        #first find all variables with a single def and use
+        defs = collections.defaultdict(list)
+        uses = collections.defaultdict(int)
+
+        def visitExprFindDefs(expr):
+            if isinstance(expr, ast.Assignment): 
+                left, right = expr.params
+                if isinstance(left, ast.Local):
+                    defs[left].append(expr)
+            elif isinstance(expr, ast.Local):
+                uses[expr] += 1
+
+        def visitFindDefs(scope, item):
+            if item.expr is not None:
+                stack = [item.expr]
+                while stack:
+                    expr = stack.pop()
+                    visitExprFindDefs(expr)
+                    stack.extend(expr.params)
+
+        self._preorder(root, visitFindDefs)
+        #These should have 2 uses since the initial assignment also counts
+        temp = {v[0] for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype} 
+        replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype} 
+        # import pdb;pdb.set_trace()
+
+        #Avoid reordering past expressions that potentially have side effects or depend on external state
+        oktypes = ast.BinaryInfix, ast.Local, ast.Literal, ast.Parenthesis, ast.TypeName, ast.UnaryPrefix
+        def isBarrier(expr):
+            if not isinstance(expr, oktypes):
+                return True
+            #check for division by 0. If it's a float or dividing by nonzero literal, it's ok
+            elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('/','%'):
+                if expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
+                    divisor = expr.params[-1]
+                    if not isinstance(divisor, ast.Literal) or divisor.val == 0:
+                        return True
+            return False
+
+        def doReplacement(item, pairs):
+            old, new = item.expr.params
+            assert(isinstance(old, ast.Local) and old.dtype == new.dtype)
+
+            stack = [(True, (True, item2, expr)) for item2, expr in reversed(pairs) if expr is not None]
+            while stack:
+                recurse, args = stack.pop()
+
+                if recurse:
+                    canReplace, parent, expr = args
+                    stack.append((False, expr))
+
+                    #For ternaries, we don't want to replace into the conditionally
+                    #evaluated part, but we still need to check those parts for 
+                    #barriers
+                    if isinstance(expr, ast.Ternary):
+                        stack.append((True, (False, expr, expr.params[2])))
+                        stack.append((True, (False, expr, expr.params[1])))
+                        stack.append((True, (True, expr, expr.params[0])))
+                    else:
+                        for param in reversed(expr.params):
+                            stack.append((True, (True, expr, param)))
+
+                    if expr == old:
+                        if canReplace:
+                            if isinstance(parent, ast.JavaExpression):
+                                params = parent.params = list(parent.params)
+                                params[params.index(old)] = new
+                            else: #replacing in a top level statement
+                                assert(parent.expr == old)
+                                parent.expr = new
+                        return canReplace
+                else:
+                    expr = args
+                    if isBarrier(expr):
+                        return False
+            return False
+
+        def visitReplace(scope):
+            newstatements = []
+            for item in reversed(scope.statements):
+                for sub in item.getScopes():
+                    visitReplace(sub)
+
+                if isinstance(item.expr, ast.Assignment) and item.expr.params[0] in replacevars:
+                    expr_roots = []
+                    for item2 in newstatements:
+                        expr_roots.append((item2, item2.expr))
+                        if item2.getScopes():
+                            break
+                    success = doReplacement(item, expr_roots)
+                    if success:
+                        continue
+                newstatements.insert(0, item)
+            scope.statements = newstatements
+        visitReplace(root)
 
     def _createDeclarations(self, root, predeclared):
         info = findVarDeclInfo(root, predeclared)
@@ -567,6 +663,7 @@ class MethodDecompiler(object):
             self._mergeVariables(ast_root, argsources)
             self._preorder(ast_root, self._createTernaries)
             self._preorder(ast_root, self._simplifyBlocks)
+            self._inlineVariables(ast_root)
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)

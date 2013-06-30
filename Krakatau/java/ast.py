@@ -40,9 +40,9 @@ class LocalDeclarationStatement(JavaStatement):
     def addCastsAndParens(self, env):
         if self.expr is not None:
             self.expr.addCasts(env)
-            self.expr.addParens()
             if not isJavaAssignable(env, self.expr.dtype, self.decl.typename.tt):
                 self.expr = makeCastExpr(self.decl.typename.tt, self.expr)
+            self.expr.addParens()
 
 class ReturnStatement(JavaStatement):
     def __init__(self, expr=None, tt=None):
@@ -54,9 +54,9 @@ class ReturnStatement(JavaStatement):
     def addCastsAndParens(self, env):
         if self.expr is not None:
             self.expr.addCasts(env)
-            self.expr.addParens()
             if not isJavaAssignable(env, self.expr.dtype, self.tt):
                 self.expr = makeCastExpr(self.tt, self.expr)
+            self.expr.addParens()
 
 class ThrowStatement(JavaStatement):
     def __init__(self, expr):

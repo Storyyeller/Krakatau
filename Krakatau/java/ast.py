@@ -160,12 +160,13 @@ class SwitchStatement(LazyLabelBase):
 class WhileStatement(LazyLabelBase):
     def __init__(self, labelfunc):
         super(WhileStatement, self).__init__(labelfunc)
+        self.expr = Literal.TRUE
         # self.parts = block,
     def getScopes(self): return self.parts
 
     def print_(self): 
-        parts = [x.print_() for x in self.parts]
-        return '{}while(true)\n{}'.format(self.getLabelPrefix(), *parts)
+        parts = self.expr.print_(), self.parts[0].print_()
+        return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
 
 sbcount = itertools.count()
 class StatementBlock(LazyLabelBase):

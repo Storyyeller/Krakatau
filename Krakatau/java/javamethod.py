@@ -460,7 +460,9 @@ class MethodDecompiler(object):
                 if isinstance(item.expr, ast.Assignment) and item.expr.params[0] in replacevars:
                     expr_roots = []
                     for item2 in newstatements:
-                        expr_roots.append((item2, item2.expr))
+                        #Don't inline into a while condition as it may be evaluated more than once
+                        if not isinstance(item2, ast.WhileStatement):
+                            expr_roots.append((item2, item2.expr))
                         if item2.getScopes():
                             break
                     success = doReplacement(item, expr_roots)

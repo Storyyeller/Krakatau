@@ -265,11 +265,40 @@ class MethodDecompiler(object):
                 item.scopes = item.scopes[:-1]
         return item
 
+    def _whileCondition_cb(self, item):
+        body = item.getScopes()[0]
+        if body.statements and isinstance(body.statements[0], ast.IfStatement):
+            head = body.statements[0]
+            cond = head.expr 
+            trueb, falseb = (head.getScopes() + [None])[:2]
+
+            if falseb is not None and (item, False) in falseb.jumps:
+                cond = reverseBoolExpr(cond)
+                trueb, falseb = falseb, trueb
+
+            if item.expr == ast.Literal.TRUE and not head.hasDependents():
+                if (item, False) in trueb.jumps:
+                    #Now inline the if
+                    for scope in head.getSources():
+                        scope.removeJump((head, False))
+                    assert(not trueb.getSources())
+                    assert(falseb is None or not falseb.getSources())
+
+                    item.expr = reverseBoolExpr(cond)
+                    #unequal slice assignment
+                    body.statements[:1] = ([] if falseb is None else falseb.statements) 
+                    trueb.setBreaks([None])
+                    return [item], trueb
+        return [], item
+
     def _simplifyBlocks(self, scope, item):
+        rest = []
         if isinstance(item, ast.TryStatement):
             item = self._pruneRethrow_cb(item)            
         elif isinstance(item, ast.IfStatement):
             item = self._pruneIfElse_cb(item)
+        elif isinstance(item, ast.WhileStatement):
+            rest, item = self._whileCondition_cb(item)
 
         if isinstance(item, ast.StatementBlock):
             #If item jumps to immediately after item, change it to fallthrough
@@ -299,8 +328,8 @@ class MethodDecompiler(object):
                 for child in item.getSources():
                     child.removeJump((item, False))
                 item.setBreaks([])
-                return item.statements
-        return [item]
+                return rest + item.statements
+        return rest + [item]
     
     def _setScopeParents(self, scope):
         for item in scope.statements:
@@ -664,8 +693,9 @@ class MethodDecompiler(object):
             self._setScopeParents(ast_root)
             self._mergeVariables(ast_root, argsources)
             self._preorder(ast_root, self._createTernaries)
-            self._preorder(ast_root, self._simplifyBlocks)
+
             self._inlineVariables(ast_root)
+            self._preorder(ast_root, self._simplifyBlocks)
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)

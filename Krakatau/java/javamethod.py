@@ -266,30 +266,54 @@ class MethodDecompiler(object):
         return item
 
     def _whileCondition_cb(self, item):
+        def getSubscopeIter(root):
+            stack = [root]
+            while stack:
+                scope = stack.pop()
+                if isinstance(scope, ast.StatementBlock):
+                    stack.extend(scope.statements)
+                    yield scope
+                else:
+                    stack.extend(scope.getScopes())
+
+        failure = [], item #what to return if we didn't inline
         body = item.getScopes()[0]
-        if body.statements and isinstance(body.statements[0], ast.IfStatement):
-            head = body.statements[0]
-            cond = head.expr 
-            trueb, falseb = (head.getScopes() + [None])[:2]
+        if not body.statements or not isinstance(body.statements[0], ast.IfStatement):
+            return failure
 
-            if falseb is not None and (item, False) in falseb.jumps:
-                cond = reverseBoolExpr(cond)
-                trueb, falseb = falseb, trueb
+        head = body.statements[0]
+        cond = head.expr 
+        trueb, falseb = (head.getScopes() + [None])[:2]
 
-            if item.expr == ast.Literal.TRUE and not head.hasDependents():
-                if (item, False) in trueb.jumps:
-                    #Now inline the if
-                    for scope in head.getSources():
-                        scope.removeJump((head, False))
-                    assert(not trueb.getSources())
-                    assert(falseb is None or not falseb.getSources())
+        if falseb is not None and (item, False) in falseb.jumps:
+            cond = reverseBoolExpr(cond)
+            trueb, falseb = falseb, trueb
 
-                    item.expr = reverseBoolExpr(cond)
-                    #unequal slice assignment
-                    body.statements[:1] = ([] if falseb is None else falseb.statements) 
-                    trueb.setBreaks([None])
-                    return [item], trueb
-        return [], item
+        if item.expr != ast.Literal.TRUE or (item, False) not in trueb.jumps:
+            return failure
+        true_scopes = list(getSubscopeIter(trueb))
+        assert(true_scopes.pop(0) == trueb)
+        badjumps = frozenset([(item, True), (head, False)])
+        if any(badjumps.issuperset(s.jumps) for s in true_scopes):
+            return failure
+
+        #Now we can actually do the inlining
+        #First remove any jumps there may be to after the if statement
+        false_scopes = [] if falseb is None else list(getSubscopeIter(falseb))
+        for block, scopes in [(trueb, true_scopes), (falseb, false_scopes)]:
+            for scope in scopes:
+                if (head, False) in scope.jumps:
+                    scope.removeJump((head, False))
+                    scope.addJump((block, False))
+        trueb.setBreaks([None])
+        assert(not head.getSources())
+
+        #Inline everything
+        item.expr = reverseBoolExpr(cond)
+        body.statements[0] = falseb
+        if falseb is None:
+            body.statements.pop(0)
+        return [item], trueb
 
     def _simplifyBlocks(self, scope, item):
         rest = []
@@ -297,8 +321,8 @@ class MethodDecompiler(object):
             item = self._pruneRethrow_cb(item)            
         elif isinstance(item, ast.IfStatement):
             item = self._pruneIfElse_cb(item)
-        # elif isinstance(item, ast.WhileStatement):
-        #     rest, item = self._whileCondition_cb(item)
+        elif isinstance(item, ast.WhileStatement):
+            rest, item = self._whileCondition_cb(item)
 
         if isinstance(item, ast.StatementBlock):
             #If item jumps to immediately after item, change it to fallthrough

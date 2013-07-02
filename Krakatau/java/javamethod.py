@@ -297,8 +297,8 @@ class MethodDecompiler(object):
             item = self._pruneRethrow_cb(item)            
         elif isinstance(item, ast.IfStatement):
             item = self._pruneIfElse_cb(item)
-        elif isinstance(item, ast.WhileStatement):
-            rest, item = self._whileCondition_cb(item)
+        # elif isinstance(item, ast.WhileStatement):
+        #     rest, item = self._whileCondition_cb(item)
 
         if isinstance(item, ast.StatementBlock):
             #If item jumps to immediately after item, change it to fallthrough

@@ -3,7 +3,7 @@ p1
 (lp2
 ((lp3
 (S'43\r\nfalse\r\ntrue\r\n'
-S''
+S'Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException: 0\r\n\tat whilesize.main(Unknown Source)\r\n'
 ttp4
 a((lp5
 S'x'
@@ -45,7 +45,21 @@ aS'Dogs.'
 p21
 a(S'34\r\ntrue\r\nfalse\r\n'
 S''
-tp22
-tp23
-atp24
+ttp22
+a((lp23
+S'46'
+p24
+aS'08'
+p25
+a(S'41\r\ntrue\r\nfalse\r\n51\r\n'
+S''
+ttp26
+a((lp27
+S'4608'
+p28
+a(S'16\r\ntrue\r\ntrue\r\n4369\r\n'
+S''
+tp29
+tp30
+atp31
 .

@@ -791,7 +791,7 @@ def _mincut(startnodes, endnodes):
                 backedge[pos] = last
                 assert((backedge[pos] is None) == (pos in startset))
 
-def completeScopes(dom, croot, children):
+def completeScopes(dom, croot, children, isClinit):
     parentscope = {}
     for k, v in children.items():
         for child in v:
@@ -825,8 +825,9 @@ def completeScopes(dom, croot, children):
             for other in revorder:
                 if not ubound.issuperset(other.lbound):
                     ubound -= other.lbound
-            # Avoid inlining return block so that it's always at the end
-            ubound = set(n for n in ubound if n.block is None or not isinstance(n.block.jump, ssa_jumps.Return))
+            if isClinit:
+                # Avoid inlining return block so that it's always at the end and can be pruned later
+                ubound = set(n for n in ubound if n.block is None or not isinstance(n.block.jump, ssa_jumps.Return))
 
             assert(ubound.issuperset(cnode.lbound))
             ubound = _dominatorUBoundClosure(dom, cnode.lbound, ubound)
@@ -1079,19 +1080,36 @@ def _checkNested(ctree_children):
         for c1, c2 in itertools.combinations(children, 2):
             assert(c1.lbound.isdisjoint(c2.lbound))
 
-def structure(entryNode, nodes):
-    # print 'structuring'
+def _debug_draw(nodes):
+    import pygraphviz as pgv
+    G=pgv.AGraph(directed=True)
+    G.add_nodes_from(nodes)
     for n in nodes:
-        for x in n.predecessors:
-            assert(n in x.successors)        
-        for x in n.successors:
-            assert(n in x.predecessors)                        
-        assert(set(n.successors) == (set(n.outvars) | set(n.eassigns)))
+        for n2 in n.successors:
+            color = 'black' if n2 in n.outvars else 'gray'
+            G.add_edge(n, n2, color=color)
+    G.layout(prog='dot')
+    G.draw('file.png')
+
+def structure(entryNode, nodes, isClinit):
+    # print 'structuring'
 
     #eliminate self loops
     for n in nodes[:]:
         if n in n.successors:
             nodes.append(n.indirectEdges([n]))
+
+    #inline returns if possible
+    retblocks = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.Return)]
+    if retblocks and not isClinit:
+        assert(len(retblocks) == 1)
+        ret = retblocks[0]
+        for pred in ret.predecessors[1:]:
+            new = ret.newDuplicate()
+            new.predecessors = [pred]
+            pred.replaceSuccessors({ret:new})
+            nodes.append(new)
+        ret.predecessors = ret.predecessors[:1]
 
     for n in nodes:
         for x in n.predecessors:
@@ -1106,11 +1124,7 @@ def structure(entryNode, nodes):
     switchinfos, ifinfos = structureConditionals(entryNode, nodes)
     dom = DominatorInfo(entryNode) #no new nodes should be created, so we're free to keep dom info around
     constraints = createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos)
-
     croot, ctree_children = orderConstraints(dom, constraints, nodes)
-
-    # for node in nodes:
-    #     print node, [n for n in node.successors if n in node.outvars], [n for n in node.successors if n not in node.outvars]
 
     # print 'exception merging'
     #May remove nodes (and update dominator info)
@@ -1141,7 +1155,7 @@ def structure(entryNode, nodes):
 
     # print 'completing scopes'
     _checkNested(ctree_children)
-    completeScopes(dom, croot, ctree_children)
+    completeScopes(dom, croot, ctree_children, isClinit)
 
     # print 'adding breaks'
     _checkNested(ctree_children)

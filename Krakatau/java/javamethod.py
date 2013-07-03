@@ -696,7 +696,7 @@ class MethodDecompiler(object):
             if not method.static:
                 entryNode.invars[0].name = 'this'
 
-            setree = structuring.structure(entryNode, nodes)
+            setree = structuring.structure(entryNode, nodes, (method.name == '<clinit>'))
             ast_root, varinfo = astgen.createAST(method, self.graph, setree, self.namegen)
 
             argsources = [varinfo.var(entryNode, var) for var in entryNode.invars]

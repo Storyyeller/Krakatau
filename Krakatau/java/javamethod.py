@@ -226,6 +226,7 @@ class MethodDecompiler(object):
             return copyset_stack, fallthrough_cset
 
     def _pruneRethrow_cb(self, item):
+        '''Convert try{A} catch(T e) {throw t;} to {A}'''
         while item.pairs:
             decl, body = item.pairs[-1]
             caught, lines = decl.local, body.statements
@@ -249,6 +250,7 @@ class MethodDecompiler(object):
         return item    
 
     def _pruneIfElse_cb(self, item):
+        '''Convert if(A) {B} else {} to if(A) {B}'''
         for block in item.getScopes():
             if not block.canFallthrough() and (item, False) in block.jumps:
                 block.addJump(None)
@@ -266,6 +268,7 @@ class MethodDecompiler(object):
         return item
 
     def _whileCondition_cb(self, item):
+        '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}'''
         def getSubscopeIter(root):
             stack = [root]
             while stack:

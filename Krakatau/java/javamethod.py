@@ -594,6 +594,9 @@ class MethodDecompiler(object):
             if v2 in truefalse:
                 match = (v2 == ast.Literal.TRUE) == (expr.opstr == '==')
                 expr = v1 if match else reverseBoolExpr(v1)
+            # Fix Yoda comparisons (if(null == x), etc.
+            elif isinstance(v1, ast.Literal):
+                expr.params = v2, v1
         return expr
 
     def _createTernaries(self, scope, item):

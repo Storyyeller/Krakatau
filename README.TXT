@@ -20,18 +20,18 @@ Usage:
 python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] target
 
 PATH : An optional list of directories, jars, or zipfiles to search for 
-	classes in. Krakatau will attempt to automatically detect and add the 
-	jar containing core language classes, but you can disable this with
-	the -nauto option.
+    classes in. Krakatau will attempt to automatically detect and add the 
+    jar containing core language classes, but you can disable this with
+    the -nauto option.
 
 OUT : File or directory name where source files are to be written. Defaults 
-	to the current directory
+    to the current directory
 
 -r : Decompiles all .class files found in the directory target (recursively)
 
 target : Class name or jar name to decompile. If a jar is specified, all
-	classes in the jar will be decompiled. If -r is specified, this should
-	be a directory.
+    classes in the jar will be decompiled. If -r is specified, this should
+    be a directory.
 
 The Krakatau decompiler takes a different approach to most Java decompilers.
 It can be thought of more as a compiler whose input language is Java bytecode
@@ -47,9 +47,9 @@ of the Java language. In most cases, Krakatau will try to at least produce
 readable pseudocode, but sometimes it may just throw an exception.
 
 Note: decompilation produces a file called "cache.txt" in the current
-	directory. This stores information about the standard library so it 
-	doesn't have to be loaded every time. However, if you change the library,
-	you should delete the cache.
+    directory. This stores information about the standard library so it 
+    doesn't have to be loaded every time. However, if you change the library,
+    you should delete the cache.
 
 === Assembly ===
 
@@ -57,25 +57,25 @@ Usage:
 python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] target
 
 OUT : File or directory name where class files are to be written. Defaults 
-	to the current directory 
+    to the current directory 
 
 -g : If specified, SourceFile and LineNumberTable attributes giving the 
-	offset of every instruction will be added. This is useful for debugging
-	exceptions, as it will let the JVM print the origin of the exception
-	in the traceback. If these attributes are already specified manually,
-	they will not be overridden.
+    offset of every instruction will be added. This is useful for debugging
+    exceptions, as it will let the JVM print the origin of the exception
+    in the traceback. If these attributes are already specified manually,
+    they will not be overridden.
 
 -jas : Enables incompatible Jasmin quirks. Specifying 'all' as the exception
-	handler type will implicitly catch all exceptions rather than catching a
-	class named all. The ACC_SUPER flag is added to classes even if not
-	specified. A SourceFile attribute based on the filename is added if no
-	SourceFile attribute is specified. The classfile version defaults to 
-	45.3 instead of 49.0. 
+    handler type will implicitly catch all exceptions rather than catching a
+    class named all. The ACC_SUPER flag is added to classes even if not
+    specified. A SourceFile attribute based on the filename is added if no
+    SourceFile attribute is specified. The classfile version defaults to 
+    45.3 instead of 49.0. 
 
 -r : Assembles all .j files found in the directory target (recursively)
 
 target : Name of file to assemble. If -r is specified, this should be a 
-	directory.
+    directory.
 
 The Krakatau assembler is intended as a replacement for Jasmin, and was 
 originally written due to the limitations of Jasmin. It is mostly backwards 
@@ -95,23 +95,27 @@ Usage:
 python Krakatau\disassemble.py [-out OUT] [-r] target
 
 OUT : File or directory name where source files are to be written. Defaults 
-	to the current directory
+    to the current directory
 
 -r : Disassembles all .class files found in the directory target (recursively)
 
 target : Filename or jar name to disassemble. If a jar is specified, all
-	classes in the jar will be disassembled. If -r is specified, this should
-	be a directory.
+    classes in the jar will be disassembled. If -r is specified, this should
+    be a directory.
 
 This takes a classfile and converts it into a human readable assembly format.
 Unlike Javap, this can handle even pathological classes, and the output can 
 be reassembled. Together with the Krakatau assembler, this tool should be 
 able to roundtrip any class through assembly and back into an equivalent 
-class with the following caveat:
+class with the following caveats:
 
 * The exact format and ordering of attributes may not be preserved. The
-	disassembler does not attempt to disassemble LineNumberTable, 
-	LocalVariableTable, or LocalVariableTypeTable attributes.
+    disassembler does not attempt to disassemble LineNumberTable, 
+    LocalVariableTable, or LocalVariableTypeTable attributes.
+    
+* Identical constant pool entries with distinct indexes aren't preserved. 
+    Normally this doesn't matter, but it can affect verification of 
+    InnerClasses attributes in obscure cases
 
 === Performance ===
 

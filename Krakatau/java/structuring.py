@@ -744,7 +744,7 @@ def _dominatorUBoundClosure(dom, lbound, ubound):
     assert(udom == dom.dominator(ubound))
     return ubound
 
-def _augmentingPath(startnodes, startset, endset, used, backedge):
+def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
     #Find augmenting path via BFS
     queue = collections.deque([(n,True,(n,)) for n in startnodes if n not in used])
 
@@ -758,7 +758,8 @@ def _augmentingPath(startnodes, startset, endset, used, backedge):
         if canfwd:
             if pos in endset: #success!
                 return path, None
-            for pos2 in pos.norm_suc_nl:
+            successors = [x for x in pos.successors_nl if x in bound]
+            for pos2 in successors:
                 if (pos2, True) not in seen:
                     seen.add((pos2, True))
                     queue.append((pos2, True, path+(pos2,)))
@@ -770,14 +771,15 @@ def _augmentingPath(startnodes, startset, endset, used, backedge):
     else: #queue is empty but we didn't find anything
         return None, set(x for x,front in seen if front)
 
-def _mincut(startnodes, endnodes):
+def _mincut(startnodes, endnodes, bound):
     startset = frozenset(startnodes)
     endset = frozenset(endnodes)
+    bound = bound | endset
     used = set()
     backedge = {}
 
     while 1:
-        path, lastseen = _augmentingPath(startnodes, startset, endset, used, backedge)
+        path, lastseen = _augmentingPath(startnodes, startset, endset, used, backedge, bound)
         if path is None:
             return lastseen | (startset & used)
 
@@ -843,7 +845,7 @@ def completeScopes(dom, croot, children, isClinit):
             endnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]
 
             #Now use Edmonds-Karp, modified to find min vertex cut
-            lastseen = _mincut(startnodes, endnodes)
+            lastseen = _mincut(startnodes, endnodes, frozenset(ubound))
 
             #Now we have the max flow, try to find the min cut
             #Just use the set of nodes visited during the final BFS

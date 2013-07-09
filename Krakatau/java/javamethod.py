@@ -286,7 +286,7 @@ class MethodDecompiler(object):
 
         head = body.statements[0]
         cond = head.expr 
-        trueb, falseb = (head.getScopes() + [None])[:2]
+        trueb, falseb = (head.getScopes() + (None,))[:2]
 
         if falseb is not None and (item, False) in falseb.jumps:
             cond = reverseBoolExpr(cond)

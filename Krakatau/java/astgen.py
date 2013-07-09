@@ -299,7 +299,7 @@ def _createASTSub(info, seroot):
                 new.jump = None
                 assert(all(isinstance(s, ast.JavaStatement) for s in new.statements))
             elif isinstance(current, SEWhile):
-                new.parts = contents
+                new.parts = tuple(contents)
             elif isinstance(current, SETry):
                 parts = contents
                 catchnode = current.getScopes()[-1].entryBlock
@@ -314,7 +314,7 @@ def _createASTSub(info, seroot):
                 new.pairs = [(decl, parts[1])]
             elif isinstance(current, SEIf):
                 headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
-                new.scopes = contents
+                new.scopes = tuple(contents)
 
                 #bundle head and if together so we can return as single statement
                 new2 = ast.StatementBlock(info.labelgen)

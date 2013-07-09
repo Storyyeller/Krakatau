@@ -14,7 +14,7 @@ class VariableDeclarator(object):
 
 class JavaStatement(object):
     expr = None #provide default for subclasses that don't have an expression
-    def getScopes(self): return []
+    def getScopes(self): return ()
 
     def addCastsAndParens(self, env):
         if self.expr is not None:

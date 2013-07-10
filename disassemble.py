@@ -39,15 +39,20 @@ if __name__== "__main__":
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
     parser.add_argument('-out',help='Path to generate files in')
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
+    parser.add_argument('-path',help='Jar to look for class in')
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
     targets = script_util.findFiles(args.target, args.r, '.class')
 
+    jar = args.path
+    if jar is None and args.target.endswith('.jar'):
+        jar = args.target
+
     #allow reading files from a jar if target is specified as a jar
-    if args.target.endswith('.jar'):
+    if jar:
         def readArchive(name):
-            with zipfile.ZipFile(args.target, 'r') as archive:
+            with zipfile.ZipFile(jar, 'r') as archive:
                 return archive.open(name).read()
         readTarget = readArchive
     else:

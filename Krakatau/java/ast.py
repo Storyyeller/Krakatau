@@ -530,11 +530,12 @@ class Ternary(JavaExpression):
     precedence = 20
     def __init__(self, *params):
         self.params = params
-        self.fmt = '{}?{}:{}'
+        self.fmt = '{} ? {} : {}'
         self.dtype = params[1].dtype
 
     def addParens_sub(self):
-        if self.params[0].precedence >= 20:
+        #Add unecessary parenthesis to complex conditions for readability
+        if self.params[0].precedence >= 20 or self.params[0].complexity() > 0:
             self.params[0] = Parenthesis(self.params[0])
         if self.params[2].precedence > 20:
             self.params[2] = Parenthesis(self.params[2])

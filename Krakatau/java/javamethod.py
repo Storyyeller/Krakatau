@@ -600,28 +600,37 @@ class MethodDecompiler(object):
         return expr
 
     def _createTernaries(self, scope, item):
-        if isinstance(item, ast.IfStatement):
-            assigns = []
-            for block in item.getScopes():
-                if not block.canFallthrough():
-                    continue
-                if len(block.statements) != 1:
-                    continue                     
-                s = block.statements[0]
-                if isinstance(s, ast.ExpressionStatement):
-                    if isinstance(s.expr, ast.Assignment):
-                        left, right = s.expr.params
-                        if isinstance(left, ast.Local) and right.complexity() <= 1:
-                            assigns.append((left, right))
-            if len(assigns) == 2 and len(set(zip(*assigns)[0])) == 1:
-                for block in item.getScopes():
-                    block.setBreaks([])
-                assert(not item.getSources())
+        olditem = item
+        if isinstance(item, ast.IfStatement) and len(item.getScopes()) == 2:
+            block1, block2 = item.getScopes()
+            if (len(block1.statements) == len(block2.statements) == 1):
 
-                left = zip(*assigns)[0][0]
-                rights = zip(*assigns)[1]
-                tern = ast.Ternary(item.expr, *rights)
-                item = ast.ExpressionStatement(ast.Assignment(left, tern))
+                jumps = [j for j in block1.jumps if j in block2.jumps]
+                if jumps:
+                    s1, s2 = block1.statements[0], block2.statements[0]
+                    e1, e2 = s1.expr, s2.expr
+
+                    if isinstance(s1, ast.ReturnStatement) and isinstance(s2, ast.ReturnStatement):
+                        expr = None if e1 is None else ast.Ternary(item.expr, e1, e2)
+                        item = ast.ReturnStatement(expr, s1.tt)
+                    if isinstance(s1, ast.ExpressionStatement) and isinstance(s2, ast.ExpressionStatement):
+                        if isinstance(e1, ast.Assignment) and isinstance(e2, ast.Assignment):
+                            # if e1.params[0] == e2.params[0] and max(e1.params[1].complexity(), e2.params[1].complexity()) <= 1:
+                            if e1.params[0] == e2.params[0]:
+                                expr = ast.Ternary(item.expr, e1.params[1], e2.params[1])
+                                temp = ast.ExpressionStatement(ast.Assignment(e1.params[0], expr))
+
+                                if None not in jumps:
+                                    assert((olditem, False) not in jumps)
+                                    item = ast.StatementBlock(olditem.func)
+                                    item.setBreaks(jumps)
+                                    item.statements = [temp]
+                                else:
+                                    item = temp
+
+                    if item is not olditem:
+                        block1.setBreaks([])
+                        block2.setBreaks([])
 
         if item.expr is not None:
             item.expr = self._simplifyExpressions(item.expr)
@@ -726,6 +735,7 @@ class MethodDecompiler(object):
 
             self._inlineVariables(ast_root)
             self._preorder(ast_root, self._simplifyBlocks)
+            self._preorder(ast_root, self._createTernaries)
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)

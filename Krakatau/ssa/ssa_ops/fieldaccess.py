@@ -34,7 +34,7 @@ class FieldAccess(BaseOp):
         else:
             self.returned = []
 
-        #just use a fixed cosntraint until we can do interprocedural analysis
+        #just use a fixed constraint until we can do interprocedural analysis
         #output order is rval, exception, monad, defined by BaseOp.getOutputs
         env = parent.env
         self.mout = constraints.DUMMY

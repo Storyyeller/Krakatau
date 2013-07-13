@@ -736,6 +736,8 @@ class MethodDecompiler(object):
             self._inlineVariables(ast_root)
             self._preorder(ast_root, self._simplifyBlocks)
             self._preorder(ast_root, self._createTernaries)
+            self._inlineVariables(ast_root)
+            self._preorder(ast_root, self._simplifyBlocks)
 
             self._setScopeParents(ast_root)
             self._createDeclarations(ast_root, argsources)

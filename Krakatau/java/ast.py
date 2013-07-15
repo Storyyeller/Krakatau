@@ -227,21 +227,28 @@ class StringStatement(JavaStatement):
 _assignable_sprims = '.byte','.short','.char'
 _assignable_lprims = '.int','.long','.float','.double'
 
+def isObject(tt):
+    return tt == objtypes.NullTT or tt[1]>0 or not tt[0][0].startswith('.')
+
+def isPrimativeAssignable(fromt, to):
+    x, y = fromt[0], to[0]
+    if x==y or (x in _assignable_sprims and y in _assignable_lprims):
+        return True
+    elif (x in _assignable_lprims and y in _assignable_lprims):
+        return _assignable_lprims.index(x) <= _assignable_lprims.index(y)
+    else:
+        return x == '.byte' and y == '.short'
+
 def isJavaAssignable(env, fromt, to):
     if fromt is None or to is None: #this should never happen, except during debugging
         return True
 
-    if to[1] or to[0][0] != '.':
+    if isObject(to):
+        assert(isObject(fromt))
         #todo - make it check interfaces too
         return objtypes.isSubtype(env, fromt, to)
     else: #allowed if numeric conversion is widening
-        x, y = fromt[0], to[0]
-        if x==y or (x in _assignable_sprims and y in _assignable_lprims):
-            return True
-        elif (x in _assignable_lprims and y in _assignable_lprims):
-            return _assignable_lprims.index(x) <= _assignable_lprims.index(y)
-        else:
-            return x == '.byte' and y == '.short'
+        return isPrimativeAssignable(fromt, to)
 
 _int_tts = objtypes.LongTT, objtypes.IntTT, objtypes.ShortTT, objtypes.CharTT, objtypes.ByteTT
 def makeCastExpr(newtt, expr):
@@ -310,11 +317,13 @@ class ArrayAccess(JavaExpression):
             param = makeCastExpr(('java/lang/Object',1), params[0])
             params = param, params[1]
 
-        base, dim = params[0].dtype
-        assert(dim >= 1)
-        self.dtype = base, dim-1
         self.params = params
         self.fmt = '{}[{}]'
+
+    @property 
+    def dtype(self): 
+        base, dim = self.params[0].dtype
+        return base, dim-1
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -334,7 +343,9 @@ class Assignment(JavaExpression):
     def __init__(self, *params):
         self.params = params
         self.fmt = '{} = {}'
-        self.dtype = params[0].dtype
+
+    @property 
+    def dtype(self): return self.params[0].dtype
 
     def addCasts_sub(self, env):
         left, right = self.params
@@ -356,8 +367,11 @@ class BinaryInfix(JavaExpression):
         self.params = params
         self.opstr = opstr
         self.fmt = '{{}} {} {{}}'.format(opstr)
-        self.dtype = params[0].dtype if dtype is None else dtype
+        self._dtype = dtype
         self.precedence = binary_precedences[opstr]
+
+    @property 
+    def dtype(self): return self.params[0].dtype if self._dtype is None else self._dtype
 
     def addParens_sub(self):
         myprec = self.precedence
@@ -380,10 +394,11 @@ class Cast(JavaExpression):
         tt, expr = self.dtype, self.params[1]
         # "Impossible" casts are a compile error in Java. 
         # This can be fixed with an intermediate cast to Object
-        if not isJavaAssignable(env, tt, expr.dtype):
-            if not isJavaAssignable(env, expr.dtype, tt):
-                expr = makeCastExpr(objtypes.ObjectTT, expr)
-                self.params = self.params[0], expr
+        if isObject(tt):
+            if not isJavaAssignable(env, tt, expr.dtype):
+                if not isJavaAssignable(env, expr.dtype, tt):
+                    expr = makeCastExpr(objtypes.ObjectTT, expr)
+                    self.params = self.params[0], expr
 
     def addParens_sub(self):
         p1 = self.params[1]
@@ -394,6 +409,7 @@ class ClassInstanceCreation(JavaExpression):
     def __init__(self, typename, tts, arguments):
         self.typename, self.tts, self.params = typename, tts, arguments
         self.dtype = typename.tt
+
     def print_(self): 
         return 'new {}({})'.format(self.typename.print_(), ', '.join(x.print_() for x in self.params))
 
@@ -522,16 +538,20 @@ class MethodInvocation(JavaExpression):
 
 class Parenthesis(JavaExpression):
     def __init__(self, param):
-        self.dtype = param.dtype
         self.params = param,
         self.fmt = '({})'
+
+    @property 
+    def dtype(self): return self.params[0].dtype
 
 class Ternary(JavaExpression):
     precedence = 20
     def __init__(self, *params):
         self.params = params
         self.fmt = '{} ? {} : {}'
-        self.dtype = params[1].dtype
+
+    @property 
+    def dtype(self): return self.params[1].dtype
 
     def addParens_sub(self):
         #Add unecessary parenthesis to complex conditions for readability
@@ -572,7 +592,10 @@ class UnaryPrefix(JavaExpression):
         self.params = [param]
         self.opstr = opstr
         self.fmt = opstr + '{}'
-        self.dtype = param.dtype if dtype is None else dtype
+        self._dtype = dtype
+    
+    @property 
+    def dtype(self): return self.params[0].dtype if self._dtype is None else self._dtype
 
     def addParens_sub(self):
         p0 = self.params[0]

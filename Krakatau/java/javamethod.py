@@ -725,10 +725,10 @@ class MethodDecompiler(object):
 
             # print ast_root.print_()
             self._fixObjectCreations(ast_root)
+            boolize.boolizeVars(ast_root, argsources)
             self._preorder(ast_root, self._simplifyBlocks)
             self._setScopeParents(ast_root)
-            boolize.boolizeVars(ast_root, argsources)
-
+            
             self._setScopeParents(ast_root)
             self._mergeVariables(ast_root, argsources)
             self._preorder(ast_root, self._createTernaries)

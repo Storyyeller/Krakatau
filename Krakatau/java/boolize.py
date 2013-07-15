@@ -1,6 +1,6 @@
 import collections
 
-from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT
+from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, NullTT
 from . import ast
 from .. import graph_util
 
@@ -68,7 +68,7 @@ def fixArrays(root, arg_vars):
     visitExprs(root, addSourceArray)
     vals = propagate(varlist, sources)
 
-    bases = {BOT:'.bexpr', BOOL:BoolTT[0], BYTE:ByteTT[0]}
+    bases = {BOT:'.bexpr', BOOL:BoolTT[0], BYTE:ByteTT[0], TOP:NullTT[0]}
     for var in varlist:
         assert(var.dtype[1] > 0)
         var.dtype = bases[vals[var]], var.dtype[1]

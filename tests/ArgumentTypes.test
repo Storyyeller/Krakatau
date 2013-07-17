@@ -1,29 +1,36 @@
 (S'ArgumentTypes'
 p1
 (lp2
-((lp3
-S'42'
+((S'%232'
+p3
+S'true'
 p4
-aS'false'
-p5
-a(S'true\r\n0\r\n'
-S''
+tp5
+(S''
+S'Exception in thread "main" java.lang.NumberFormatException: For input string: "%232"\r\n\tat java.lang.NumberFormatException.forInputString(Unknown Source)\r\n\tat java.lang.Integer.parseInt(Unknown Source)\r\n\tat java.lang.Integer.valueOf(Unknown Source)\r\n\tat java.lang.Integer.decode(Unknown Source)\r\n\tat ArgumentTypes.main(Unknown Source)\r\n'
 ttp6
-a((lp7
-S'43'
+a((S'42'
+p7
+S'false'
 p8
-aS'true'
-p9
-a(S'false\r\n1\r\n'
+tp9
+(S'true\r\n0\r\nnull\r\n[false, true, false]\r\n[1, 2, 3, 45, 6]\r\nC\r\n67\r\n'
 S''
 ttp10
-a((lp11
-S'1'
-aS'1'
-aS'1'
-a(S'true\r\n0\r\n'
-S''
+a((S'43'
+p11
+g4
 tp12
-tp13
-atp14
+(S'false\r\n1\r\nnull\r\n[false, true, false]\r\n[1, 2, 3, 45, 6]\r\nC\r\n67\r\n'
+S''
+ttp13
+a((S'1'
+S'1'
+S'1'
+tp14
+(S'true\r\n0\r\nnull\r\n[false, true, false]\r\n[1, 2, 3, 45, 6]\r\nC\r\n67\r\n'
+S''
+tp15
+tp16
+atp17
 .

@@ -1,6 +1,6 @@
 import collections
 
-from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, NullTT
+from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT
 from . import ast
 from .. import graph_util
 
@@ -10,7 +10,7 @@ BOT, BOOL, BYTE, TOP = 0,1,2,3
 def visitLeaf(expr, mask, arg_vars):
     #designed to handle both array and scalar case so doesn't do type checking
     if isinstance(expr, ast.Local):
-        if expr in arg_vars:
+        if expr in arg_vars or (expr.dtype[0] != '.bexpr' and expr.dtype[1]>0):
             isbool = (expr.dtype[0] == BoolTT[0])
             mask.consts.append(BOOL if isbool else BYTE)
         else:
@@ -41,6 +41,16 @@ def propagate(varlist, sources):
             vals[var] = val
     return vals
 
+def backPropagate(varlist, sources, vals):
+    #Propagate backwards to vars that are undecided
+    ordered = graph_util.topologicalSort(varlist, lambda v:sources[v].vars)
+    revorder = [v for v in reversed(ordered) if vals[v] != BOT]
+
+    for var in revorder:
+        for v2 in sources[var].vars:
+            if vals[v2] == TOP:
+                vals[v2] = vals[var]
+
 def fixArrays(root, arg_vars):
     varlist = []
     sources = collections.defaultdict(lambda:mask_t([], []))
@@ -67,11 +77,13 @@ def fixArrays(root, arg_vars):
     
     visitExprs(root, addSourceArray)
     vals = propagate(varlist, sources)
+    backPropagate(varlist, sources, vals)
 
-    bases = {BOT:'.bexpr', BOOL:BoolTT[0], BYTE:ByteTT[0], TOP:NullTT[0]}
-    for var in varlist:
-        assert(var.dtype[1] > 0)
+    bases = {BOT:'.bexpr', BOOL:BoolTT[0], BYTE:ByteTT[0]}
+    for var in set(varlist):
+        assert(var.dtype[0] == '.bexpr' and var.dtype[1] > 0)
         var.dtype = bases[vals[var]], var.dtype[1]
+
 
 def fixScalars(root, arg_vars):
     varlist = []
@@ -111,21 +123,15 @@ def fixScalars(root, arg_vars):
 
     visitExprs(root, addSourceScalar)
     vals = propagate(varlist, sources)
+
     #Make instanceof results bool if it doesn't conflict with previous assignments
     for var in instanceofs:
         if vals[var] & BOOL:
            vals[var] = BOOL 
+    backPropagate(varlist, sources, vals)
 
-    #Now propagate backwards to vars that are undecided
-    ordered = graph_util.topologicalSort(varlist, lambda v:sources[v].vars)
-    revorder = [v for v in reversed(ordered) if vals[v] != BOT]
-
-    for var in revorder:
-        for v2 in sources[var].vars:
-            if vals[v2] == TOP:
-                vals[v2] = vals[var]
     #Fix the propagated types
-    for var in revorder:
+    for var in set(varlist):
         if vals[var] == BOOL:
             var.dtype = BoolTT
 

@@ -32,7 +32,7 @@ class VarInfo(object):
 
                 if var.type == ssa_types.SSA_OBJECT:
                     tt = uc.getSingleTType() #temp hack
-                    if tt[1] == objtypes.ObjectTT[1] and uc.types.isBoolOrByteArray():
+                    if uc.types.isBoolOrByteArray():
                         tt = '.bexpr', tt[1]+1
                 else:
                     tt = _ssaToTT[var.type]
@@ -173,6 +173,13 @@ def _createASTBlock(info, node, breakmap):
     lines = map(op2expr, block.lines) if block else []
     lines = [x for x in lines if x is not None]
 
+    # Kind of hackish: If the block ends in a cast and hence it is not known to always
+    # succeed, assign the results of the cast rather than passing through the variable 
+    # unchanged
+    outreplace = {}
+    if lines and isinstance(block.lines[-1], ssa_ops.CheckCast):
+        outreplace[block.lines[-1].params[0]] = lines[-1].expr
+
     eassigns = []
     nassigns = []
     for n2 in node.successors:
@@ -186,7 +193,8 @@ def _createASTBlock(info, node, breakmap):
                 eassigns.append(ast.ExpressionStatement(expr))        
         else:
             for outv, inv in zip(node.outvars[n2], n2.invars):
-                expr = ast.Assignment(info.var(n2, inv), info.var(node, outv))
+                right = outreplace.get(outv, info.var(node, outv))
+                expr = ast.Assignment(info.var(n2, inv), right)
                 nassigns.append(ast.ExpressionStatement(expr))
 
     #Need to put exception assignments before last statement, which might throw

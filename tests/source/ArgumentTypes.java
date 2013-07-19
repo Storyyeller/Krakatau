@@ -46,4 +46,11 @@ public class ArgumentTypes{
 		System.out.println(c);
 		System.out.println((int)c);
 	}
+
+	public static byte[] main(byte[][] x){
+		if (x.length > 0) {
+			return x[0];
+		}
+		return null;
+	}	
 }

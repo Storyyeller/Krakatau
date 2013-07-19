@@ -24,7 +24,7 @@ def visitExprs(scope, callback):
     for item in scope.statements:
         for sub in item.getScopes():
             visitExprs(sub, callback)
-        callback(item.expr)
+        callback(item, item.expr)
 
 def propagate(varlist, sources):
     vals = {}
@@ -55,7 +55,7 @@ def fixArrays(root, arg_vars):
     varlist = []
     sources = collections.defaultdict(lambda:mask_t([], []))
 
-    def addSourceArray(expr):
+    def addSourceArray(item, expr):
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
             if not isinstance(left, ast.Local):
@@ -74,6 +74,10 @@ def fixArrays(root, arg_vars):
                     visitLeaf(right.params[0], sources[left], arg_vars)
                 else:
                     assert(0)
+        if isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
+            if expr.dtype[0] == '.bexpr':
+                isbool = (item.tt[0] == BoolTT[0])
+                sources[expr].consts.append(BOOL if isbool else BYTE)
     
     visitExprs(root, addSourceArray)
     vals = propagate(varlist, sources)
@@ -92,13 +96,12 @@ def fixScalars(root, arg_vars):
     int_tts = IntTT, ShortTT, CharTT, ByteTT, BoolTT
     instanceofs = []
 
-    def addSourceScalar(expr):
+    def addSourceScalar(item, expr):
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
             if not isinstance(left, ast.Local):
                 return
 
-            # print left.print_(), left.dtype, left not in arg_vars
             if left.dtype in int_tts and left not in arg_vars:
                 varlist.append(left) # Note, may have duplicates, but this shouldn't really matter
 
@@ -120,6 +123,10 @@ def fixScalars(root, arg_vars):
                         sources[left].consts.append(BYTE)
                 else:
                     assert(0)
+        if isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
+            if expr.dtype in int_tts and expr not in arg_vars:
+                isbool = (item.tt[0] == BoolTT[0])
+                sources[expr].consts.append(BOOL if isbool else BYTE)
 
     visitExprs(root, addSourceScalar)
     vals = propagate(varlist, sources)
@@ -136,7 +143,7 @@ def fixScalars(root, arg_vars):
             var.dtype = BoolTT
 
     #Fix everything else back up
-    def fixExpr(expr):
+    def fixExpr(item, expr):
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
             if left.dtype in int_tts:

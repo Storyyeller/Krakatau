@@ -72,6 +72,12 @@ def performTest(target):
     cpath = [decompile.findJRE(), class_location]
     if None in cpath:
         raise RuntimeError('Unable to locate rt.jar')
+
+    # Clear any pre-existing source file, in case decompileClass fails silently.
+    try:
+        os.remove(os.path.join(temppath, target + '.java'))
+    except OSError:
+        pass
     decompile.decompileClass(cpath, targets=[target], outpath=temppath)
 
     print 'Attempting to compile'

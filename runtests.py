@@ -1,11 +1,9 @@
 '''Script for testing the decompiler.
 
-On the first run (or when the --create-all-testfiles flag is passed),
-tests/*.test files will be created with the results of running each program in
-the tests/classes/*.class directory.
+On the first run tests/*.test files will be created with expected results for each test.
 
-To generate a test's result file, run with `-c testname`.
-To add a new test, add it to the test_registry then generate the result file.
+To generate a test's result file, run with `--create-only`.
+To add a new test, add the relevant classfile and an entry in tests.registry.
 '''
 import os, shutil, tempfile
 import subprocess

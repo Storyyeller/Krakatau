@@ -51,8 +51,6 @@ Note: decompilation produces a file called "cache.txt" in the current
     doesn't have to be loaded every time. However, if you change the library,
     you should delete the cache.
 
-To test the decompiler, run `python test_decompiler.py`.
-
 === Assembly ===
 
 Usage: 

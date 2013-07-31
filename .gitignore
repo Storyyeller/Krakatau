@@ -1,6 +1,6 @@
 *.pyc
 *.pyo
 test.py
-Krakatau/plugins/user*
+Krakatau/plugins/*
 cache.txt
 tests/*.test

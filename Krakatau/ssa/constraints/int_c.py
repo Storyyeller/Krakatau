@@ -34,7 +34,8 @@ class IntConstraint(ValueType):
         xmax = min(c.max for c in cons)
         if xmin > xmax:
             return None
-        return IntConstraint(cons[0].width, xmin, xmax)
+        res = IntConstraint(cons[0].width, xmin, xmax)
+        return cons[0] if cons[0] == res else res
 
     def meet(*cons):
         xmin = min(c.min for c in cons)

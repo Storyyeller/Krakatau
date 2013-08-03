@@ -141,7 +141,8 @@ class ObjectConstraint(ValueType):
 
         arrlens = [c.arrlen for c in cons]
         arrlen = None if None in arrlens else IntConstraint.join(*arrlens)
-        return  ObjectConstraint(null, types, arrlen)
+        res = ObjectConstraint(null, types, arrlen)
+        return cons[0] if cons[0] == res else res
 
     def meet(*cons):
         null = any(c.null for c in cons)

@@ -10,6 +10,19 @@ from Krakatau import script_util
 
 def findJRE():
     try:
+        #Search the PATH 
+        for path in os.environ["PATH"].split(os.pathsep):
+            path=os.path.join(path,'java')
+            if not os.path.isfile(path):
+                continue
+            path=os.path.realpath(path)
+            path=os.path.dirname(path)
+            path=os.path.dirname(path)
+            path=os.path.join(path,'lib','rt.jar')
+            if os.path.isfile(path):
+                return path
+
+        #Check JAVA_HOME
         home = os.environ['JAVA_HOME']
         path = os.path.join(home, 'jre', 'lib', 'rt.jar')
         if os.path.isfile(path):
@@ -19,6 +32,8 @@ def findJRE():
         path = os.path.join(home, 'bundle', 'Classes', 'classes.jar')
         if os.path.isfile(path):
             return path
+
+
     except Exception as e:
         pass
 

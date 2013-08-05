@@ -40,8 +40,9 @@ class LocalDeclarationStatement(JavaStatement):
     def addCastsAndParens(self, env):
         if self.expr is not None:
             self.expr.addCasts(env)
+
             if not isJavaAssignable(env, self.expr.dtype, self.decl.typename.tt):
-                self.expr = makeCastExpr(self.decl.typename.tt, self.expr)
+                self.expr = makeCastExpr(self.decl.typename.tt, self.expr, fixEnv=env)
             self.expr.addParens()
 
 class ReturnStatement(JavaStatement):
@@ -55,7 +56,7 @@ class ReturnStatement(JavaStatement):
         if self.expr is not None:
             self.expr.addCasts(env)
             if not isJavaAssignable(env, self.expr.dtype, self.tt):
-                self.expr = makeCastExpr(self.tt, self.expr)
+                self.expr = makeCastExpr(self.tt, self.expr, fixEnv=env)
             self.expr.addParens()
 
 class ThrowStatement(JavaStatement):
@@ -251,7 +252,7 @@ def isJavaAssignable(env, fromt, to):
         return isPrimativeAssignable(fromt, to)
 
 _int_tts = objtypes.LongTT, objtypes.IntTT, objtypes.ShortTT, objtypes.CharTT, objtypes.ByteTT
-def makeCastExpr(newtt, expr):
+def makeCastExpr(newtt, expr, fixEnv=None):
     if newtt == expr.dtype:
         return expr
 
@@ -262,7 +263,11 @@ def makeCastExpr(newtt, expr):
         return Ternary(expr, Literal.ONE, Literal.ZERO)    
     elif newtt == objtypes.BoolTT and expr.dtype == objtypes.IntTT:
         return BinaryInfix('!=', (expr, Literal.ZERO), objtypes.BoolTT)
-    return Cast(TypeName(newtt), expr)
+
+    ret = Cast(TypeName(newtt), expr)
+    if fixEnv is not None:
+        ret = ret.fix(fixEnv)
+    return ret
 #############################################################################################################################################
 #Precedence:
 #    0 - pseudoprimary
@@ -350,7 +355,7 @@ class Assignment(JavaExpression):
     def addCasts_sub(self, env):
         left, right = self.params
         if not isJavaAssignable(env, right.dtype, left.dtype):
-            expr = makeCastExpr(left.dtype, right)
+            expr = makeCastExpr(left.dtype, right, fixEnv=env)
             self.params = left, expr
 
 _binary_ptable = ['* / %', '+ -', '<< >> >>>', 
@@ -390,7 +395,7 @@ class Cast(JavaExpression):
         self.params = params
         self.fmt = '({}){}'
 
-    def addCasts_sub(self, env):
+    def fix(self, env):
         tt, expr = self.dtype, self.params[1]
         # "Impossible" casts are a compile error in Java. 
         # This can be fixed with an intermediate cast to Object
@@ -399,7 +404,9 @@ class Cast(JavaExpression):
                 if not isJavaAssignable(env, expr.dtype, tt):
                     expr = makeCastExpr(objtypes.ObjectTT, expr)
                     self.params = self.params[0], expr
+        return self        
 
+    def addCasts_sub(self, env): self.fix(env)
     def addParens_sub(self):
         p1 = self.params[1]
         if p1.precedence > 5 or (isinstance(p1, UnaryPrefix) and p1.opstr[0] in '-+'):
@@ -417,7 +424,7 @@ class ClassInstanceCreation(JavaExpression):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
             if expr.dtype != tt:
-                expr = makeCastExpr(tt, expr)
+                expr = makeCastExpr(tt, expr, fixEnv=env)
             newparams.append(expr)
         self.params = newparams
 
@@ -526,7 +533,7 @@ class MethodInvocation(JavaExpression):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
             if expr.dtype != tt:
-                expr = makeCastExpr(tt, expr)
+                expr = makeCastExpr(tt, expr, fixEnv=env)
             newparams.append(expr)
         self.params = newparams
 

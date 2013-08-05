@@ -1,4 +1,5 @@
 from . import ast
+from . import variablemerge
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 from ..ssa import ssa_types, ssa_ops, ssa_jumps
 from ..ssa import objtypes
@@ -14,7 +15,7 @@ _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
 _ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT,
             ssa_types.SSA_FLOAT:objtypes.FloatTT, ssa_types.SSA_DOUBLE:objtypes.DoubleTT}
 class VarInfo(object):
-    def __init__(self, method, blocks, namegen):
+    def __init__(self, method, blocks, namegen, replace):
         self.env = method.class_.env
         self.labelgen = LabelGen().next
 
@@ -22,6 +23,7 @@ class VarInfo(object):
         self.return_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
         self.clsname = method.class_.name
         self._namegen = namegen
+        self._replace = replace
 
         self._vars = {}
         self._tts = {}
@@ -56,12 +58,15 @@ class VarInfo(object):
                 namefunc = self._nameCallback
             return ast.Local(tt, namefunc)   
 
-    def var(self, node, var):
+    def var(self, node, var, isCast=False):
         assert(var.type != ssa_types.SSA_MONAD)
+        key = node, var, isCast
+        key = self._replace.get(key,key)
         try:
-            return self._vars[var, node.num]
+            return self._vars[key]
         except KeyError:
-            self._vars[var, node.num] = new = self._newVar(var, node.num)
+            new = self._newVar(key[1], key[0].num)
+            self._vars[key] = new
             return new
 
     def customVar(self, tt, prefix): #for use with ignored exceptions
@@ -170,7 +175,7 @@ def _createASTBlock(info, node, breakmap):
     op2expr = lambda op: _convertJExpr(op, getExpr, info.clsname)
 
     block = node.block
-    lines = map(op2expr, block.lines) if block else []
+    lines = map(op2expr, block.lines) if block is not None else []
     lines = [x for x in lines if x is not None]
 
     # Kind of hackish: If the block ends in a cast and hence it is not known to always
@@ -178,7 +183,10 @@ def _createASTBlock(info, node, breakmap):
     # unchanged
     outreplace = {}
     if lines and isinstance(block.lines[-1], ssa_ops.CheckCast):
-        outreplace[block.lines[-1].params[0]] = lines[-1].expr
+        assert(isinstance(lines[-1].expr, ast.Cast))
+        var = block.lines[-1].params[0]
+        lines[-1].expr = ast.Assignment(info.var(node, var, True), lines[-1].expr)
+        outreplace[var] = lines[-1].expr.params[0]
 
     eassigns = []
     nassigns = []
@@ -190,12 +198,14 @@ def _createASTBlock(info, node, breakmap):
                     #obviously doesn't get an explicit assignment statement
                     continue
                 expr = ast.Assignment(info.var(n2, inv), info.var(node, outv))
-                eassigns.append(ast.ExpressionStatement(expr))        
+                if expr.params[0] != expr.params[1]:
+                    eassigns.append(ast.ExpressionStatement(expr))        
         else:
             for outv, inv in zip(node.outvars[n2], n2.invars):
                 right = outreplace.get(outv, info.var(node, outv))
                 expr = ast.Assignment(info.var(n2, inv), right)
-                nassigns.append(ast.ExpressionStatement(expr))
+                if expr.params[0] != expr.params[1]:
+                    nassigns.append(ast.ExpressionStatement(expr))
 
     #Need to put exception assignments before last statement, which might throw
     #While normal assignments must come last as they may depend on it
@@ -326,13 +336,13 @@ def _createASTSub(info, seroot):
 
                 #bundle head and if together so we can return as single statement
                 new2 = ast.StatementBlock(info.labelgen)
-                new2.statements = headscope, new
+                new2.statements = [headscope, new]
                 new = new2
             elif isinstance(current, SESwitch):
                 headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
                 new.pairs = zip(current.ordered_keysets, contents)
                 new2 = ast.StatementBlock(info.labelgen)
-                new2.statements = headscope, new
+                new2.statements = [headscope, new]
                 new = new2
             elif isinstance(current, SEBlockItem):
                 pass
@@ -341,6 +351,7 @@ def _createASTSub(info, seroot):
     return result[0]
 
 def createAST(method, ssagraph, seroot, namegen):
-    info = VarInfo(method, ssagraph.blocks, namegen)
+    replace = variablemerge.mergeVariables(seroot)
+    info = VarInfo(method, ssagraph.blocks, namegen, replace)
     astroot = _createASTSub(info, seroot)
     return astroot, info

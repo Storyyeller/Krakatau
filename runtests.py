@@ -43,11 +43,15 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
         raise RuntimeError('Unable to locate rt.jar')
 
     # Clear any pre-existing files and create directory if necessary
+    # try:
+    #     shutil.rmtree(temppath)
+    # except OSError as e:
+    #     print e    
     try:
-        shutil.rmtree(temppath)
-    except OSError:
-        pass
-    os.mkdir(temppath)
+        os.mkdir(temppath)
+    except OSError as e:
+        print e
+    assert(os.path.isdir(temppath))
 
     decompile.decompileClass(cpath, targets=[target], outpath=temppath)
 

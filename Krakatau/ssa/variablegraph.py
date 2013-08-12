@@ -5,13 +5,14 @@ from .. import graph_util
 #UC = unary constraints
 
 class BaseNode(object):
-    def __init__(self, processfunc, isphi):
+    def __init__(self, processfunc, isphi, filterNone=True):
         assert(processfunc is not None)
         self.sources = []
         self.uses = []
         self.process = processfunc
         self.iters = self.upIters = 0
         self.propagateInvalid = not isphi
+        self.filterNone = filterNone
         self.upInvalid = False
         #self.output, self.upOutput to be filled in
 
@@ -21,7 +22,8 @@ class BaseNode(object):
         if self.propagateInvalid and None in inputs:
             new = (None,)*len(self.output)
         else:
-            inputs = [x for x in inputs if x is not None]
+            if self.filterNone:
+                inputs = [x for x in inputs if x is not None]
             new = self.process(*inputs)
             assert(len(self.output)==len(new))
             new = tuple(join(oldv, newv) for oldv, newv in zip(self.output, new))
@@ -38,7 +40,7 @@ class BaseNode(object):
             if new != self.output:
                 self.output = new
                 self.iters += 1
-                changed = True        
+                changed = True
 
         if self.upIters < iterlimit:
             self.upInvalid = False
@@ -46,37 +48,37 @@ class BaseNode(object):
             if new != self.upOutput:
                 self.upOutput = new
                 #don't increase upiters if changed was possibly due to change in lower bound
-                self.upIters += 1 if not changed else 0 
+                self.upIters += 1 if not changed else 0
                 changed = True
 
                 for node in self.uses:
                     node.upInvalid = True
-
         return changed
 
 def registerUses(use, sources):
     for node,index in sources:
         node.uses.append(use)
 
-def getJumpNode(pair, source, outvar, getVarNode, jumplookup):
-    if (source, pair, outvar) in jumplookup:
-        return jumplookup[(source, pair, outvar)]
+def getJumpNode(pair, source, var, getVarNode, jumplookup):
+    if (source, pair, var) in jumplookup:
+        return jumplookup[(source, pair, var)]
+
     jump = source.jump
-    #OnException may still have a valid successor even if the param is invalid
-    # skipInvalid = isinstance(jump, ssa_jumps.OnException)
-    skipInvalid = False
-    n = BaseNode(jump.getSuccessorConstraints(pair), skipInvalid)
+    if var in jump.params:
+        if hasattr(jump, 'getSuccessorConstraints'):
+            n = BaseNode(jump.getSuccessorConstraints(pair), False)
+            n.sources = [(getVarNode(param),0) for param in jump.params]
+            registerUses(n, n.sources)
 
-    n.sources = [(getVarNode(var),0) for var in jump.params]
-    registerUses(n, n.sources)
+            n.output = tuple(t[0].output[0] for t in n.sources)
+            n.upOutput = (None,) * len(n.output)
+            n.root = jump
 
-    n.output = tuple(t[0].output[0] for t in n.sources)
-    n.upOutput = (None,) * len(n.sources)
-    n.root = jump
+            for i, param in enumerate(jump.params):
+                jumplookup[(source, pair, param)] = n, i
+            return jumplookup[(source, pair, var)]
 
-    for i,var in enumerate(jump.params):
-        jumplookup[(source, pair, var)] = n, i
-    return jumplookup[(source, pair, outvar)]
+    return getVarNode(var), 0
 
 def makeGraph(env, blocks):
     lookup = collections.OrderedDict()
@@ -102,11 +104,7 @@ def makeGraph(env, blocks):
         block = phi.block
 
         for (source, exc), var in phi.odict.items():
-            if var in source.jump.params and hasattr(source.jump, 'getSuccessorConstraints'):
-                jump, index = getJumpNode((block, exc), source, var, lookup.get, jumplookup)
-                n.sources.append((jump, index))
-            else:
-                n.sources.append((lookup[var],0))
+            n.sources.append(getJumpNode((block, exc), source, var, lookup.get, jumplookup))
         registerUses(n, n.sources)
 
         outnode = lookup[phi.rval]
@@ -137,8 +135,8 @@ def makeGraph(env, blocks):
         n.upOutput = (None,None,None) if n.sources else n.output
         n.root = op
         assert(len(output) == 3)
-    
-    vnodes = lookup.values() 
+
+    vnodes = lookup.values()
     for node in vnodes:
         node.upOutput = node.output if not node.sources else (None,)*len(node.output)
 

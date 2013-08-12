@@ -328,6 +328,7 @@ class ArrayAccess(JavaExpression):
     @property 
     def dtype(self): 
         base, dim = self.params[0].dtype
+        assert(dim>0)
         return base, dim-1
 
     def addParens_sub(self):

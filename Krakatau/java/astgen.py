@@ -185,8 +185,10 @@ def _createASTBlock(info, node, breakmap):
     if lines and isinstance(block.lines[-1], ssa_ops.CheckCast):
         assert(isinstance(lines[-1].expr, ast.Cast))
         var = block.lines[-1].params[0]
-        lines[-1].expr = ast.Assignment(info.var(node, var, True), lines[-1].expr)
-        outreplace[var] = lines[-1].expr.params[0]
+        cexpr = lines[-1].expr
+        lines[-1].expr = ast.Assignment(info.var(node, var, True), cexpr)
+        nvar = outreplace[var] = lines[-1].expr.params[0]
+        nvar.dtype = cexpr.dtype
 
     eassigns = []
     nassigns = []

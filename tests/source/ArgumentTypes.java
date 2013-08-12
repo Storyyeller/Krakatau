@@ -8,18 +8,21 @@ public class ArgumentTypes{
 
 	public static boolean main(int x){
 		return x <= 42;
-	}	
+	}
 
 	public static char main(char x){
 		return x ^= '*';
-	}	
+	}
 
 	public static String main(Object x){
 		if (x instanceof boolean[]){
 			return Arrays.toString((boolean[])x);
-		}		
+		}
 		else if (x instanceof String[]) {
-		} 
+		}
+		else if (x instanceof int[]) {
+			return "" + ((int[])x)[0];
+		}
 		else {
 			return java.util.Arrays.toString((byte[])x);
 		}
@@ -30,7 +33,7 @@ public class ArgumentTypes{
 	{
 		int x = Integer.decode(a[0]);
 		boolean y = Boolean.valueOf(a[1]);
-			    
+
 		System.out.println(main(x));
 		System.out.println(main(y));
 
@@ -52,5 +55,5 @@ public class ArgumentTypes{
 			return x[0];
 		}
 		return null;
-	}	
+	}
 }

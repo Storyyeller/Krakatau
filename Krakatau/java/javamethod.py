@@ -11,7 +11,7 @@ from . import graphproxy, structuring, astgen
 class DeclInfo(object):
     __slots__ = "declScope scope defs".split()
     def __init__(self):
-        self.declScope = self.scope = None 
+        self.declScope = self.scope = None
         self.defs = []
 
 def findVarDeclInfo(root, predeclared):
@@ -29,10 +29,10 @@ def findVarDeclInfo(root, predeclared):
             info.setdefault(expr, DeclInfo())
             info[expr].scope = ast.StatementBlock.join(info[expr].scope, scope)
 
-    def visitDeclExpr(scope, expr): 
+    def visitDeclExpr(scope, expr):
         info.setdefault(expr, DeclInfo())
         assert(scope is not None and info[expr].declScope is None)
-        info[expr].declScope = scope 
+        info[expr].declScope = scope
 
     for expr in predeclared:
         visitDeclExpr(root, expr)
@@ -67,6 +67,16 @@ def reverseBoolExpr(expr):
         return expr.params[0]
     return ast.UnaryPrefix('!', expr)
 
+def getSubscopeIter(root):
+    stack = [root]
+    while stack:
+        scope = stack.pop()
+        if isinstance(scope, ast.StatementBlock):
+            stack.extend(scope.statements)
+            yield scope
+        else:
+            stack.extend(scope.getScopes())
+
 class MethodDecompiler(object):
     def __init__(self, method, graph, forbidden_identifiers):
         self.env = method.class_.env
@@ -90,14 +100,14 @@ class MethodDecompiler(object):
 
         # There are two main data structures used in this function
 
-        # Copyset: dict(var -> tuple(var)) gives the variables that a 
+        # Copyset: dict(var -> tuple(var)) gives the variables that a
         # given new object has been assigned to. Copysets are copied on
-        # modification, so can freely be shared. 
+        # modification, so can freely be shared.
         # Intersection identity (universe) represented by None
 
         # Copyset Stack: tuple(item -> copyset) gives for each
-        # scope-containing item, the intersection of all copysets 
-        # representing paths of execution which jump to after that item. 
+        # scope-containing item, the intersection of all copysets
+        # representing paths of execution which jump to after that item.
         # None if no paths jump to that item
 
         def mergeCopysets(csets1, csets2):
@@ -146,7 +156,7 @@ class MethodDecompiler(object):
                 copyset_stack = tuple(merged_stack)
                 if mayskip:
                     copyset = mergeCopysets(copyset, oldcopyset)
-                
+
                 if copyset is None: #In this case, every one of the subscopes breaks, meaning that whatever follows this item is unreachable
                     assert(item is scope.statements[-1])
 
@@ -185,7 +195,7 @@ class MethodDecompiler(object):
                     newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
                     newexpr = ast.Assignment(left, newexpr)
                     item.expr = newexpr
-                    
+
                     hits = [(k,v) for k,v in copyset.items() if left in v]
                     assert(len(hits)==1)
                     k, v = hits[0]
@@ -199,7 +209,7 @@ class MethodDecompiler(object):
             if  not remove:
                 newitems.append(item)
 
-        scope.statements = newitems 
+        scope.statements = newitems
         if copyset_stack: #if it is empty, we are at the root level and can't return anything
             fallthrough_cset = None
 
@@ -247,7 +257,7 @@ class MethodDecompiler(object):
                 x.addJump((new, False))
             assert(not item.getSources())
             return new
-        return item    
+        return item
 
     def _pruneIfElse_cb(self, item):
         '''Convert if(A) {B} else {} to if(A) {B}'''
@@ -269,47 +279,60 @@ class MethodDecompiler(object):
 
     def _whileCondition_cb(self, item):
         '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}'''
-        def getSubscopeIter(root):
-            stack = [root]
-            while stack:
-                scope = stack.pop()
-                if isinstance(scope, ast.StatementBlock):
-                    stack.extend(scope.statements)
-                    yield scope
-                else:
-                    stack.extend(scope.getScopes())
-
         failure = [], item #what to return if we didn't inline
         body = item.getScopes()[0]
         if not body.statements or not isinstance(body.statements[0], ast.IfStatement):
             return failure
+        if item.expr != ast.Literal.TRUE: #don't use && conditions for now
+            return failure
 
         head = body.statements[0]
-        cond = head.expr 
+        cond = head.expr
         trueb, falseb = (head.getScopes() + (None,))[:2]
-
-        if falseb is not None and (item, False) in falseb.jumps:
-            cond = reverseBoolExpr(cond)
-            trueb, falseb = falseb, trueb
-
-        if item.expr != ast.Literal.TRUE or (item, False) not in trueb.jumps:
-            return failure
-        true_scopes = list(getSubscopeIter(trueb))
-        assert(true_scopes.pop(0) == trueb)
         badjumps = frozenset([(item, True), (head, False)])
-        if any(badjumps.issuperset(s.jumps) for s in true_scopes):
-            return failure
+        badjumps2 = frozenset([(item, True), (head, False), None])
+        break_types = ast.ReturnStatement, ast.ThrowStatement
+
+        def breaksOnly(block):
+            for scope in getSubscopeIter(block):
+                #TODO - clean up the jump analysis code
+                if scope.statements and isinstance(scope.statements[-1], break_types):
+                    continue
+                elif badjumps.issuperset(scope.jumps):
+                    return False
+                elif scope is block and badjumps2.issuperset(scope.jumps):
+                    return False
+            return True
+
+        # if falseb is not None and (item, False) in falseb.jumps:
+        if not breaksOnly(trueb):
+            if falseb is not None and breaksOnly(falseb):
+                cond = reverseBoolExpr(cond)
+                trueb, falseb = falseb, trueb
+            else:
+                return failure
+        assert(breaksOnly(trueb))
 
         #Now we can actually do the inlining
         #First remove any jumps there may be to after the if statement
+        true_scopes = list(getSubscopeIter(trueb))
         false_scopes = [] if falseb is None else list(getSubscopeIter(falseb))
         for block, scopes in [(trueb, true_scopes), (falseb, false_scopes)]:
             for scope in scopes:
                 if (head, False) in scope.jumps:
                     scope.removeJump((head, False))
                     scope.addJump((block, False))
-        trueb.setBreaks([None])
+        for scope in true_scopes:
+            if (item, False) in scope.jumps and (trueb, False) not in scope.jumps:
+                scope.removeJump((item, False))
+                scope.addJump((trueb, False))
+
         assert(not head.getSources())
+        if (trueb, False) in trueb.jumps:
+            trueb.removeJump((trueb, False))
+            if None not in trueb.jumps:
+                trueb.addJump(None)
+        assert(trueb.jumps)
 
         #Inline everything
         item.expr = reverseBoolExpr(cond)
@@ -321,7 +344,7 @@ class MethodDecompiler(object):
     def _simplifyBlocks(self, scope, item):
         rest = []
         if isinstance(item, ast.TryStatement):
-            item = self._pruneRethrow_cb(item)            
+            item = self._pruneRethrow_cb(item)
         elif isinstance(item, ast.IfStatement):
             item = self._pruneIfElse_cb(item)
         elif isinstance(item, ast.WhileStatement):
@@ -357,7 +380,7 @@ class MethodDecompiler(object):
                 item.setBreaks([])
                 return rest + item.statements
         return rest + [item]
-    
+
     def _setScopeParents(self, scope):
         for item in scope.statements:
             for sub in item.getScopes():
@@ -373,7 +396,7 @@ class MethodDecompiler(object):
                 self._replaceExpressions(subscope, rdict)
 
             try:
-                expr = item.expr 
+                expr = item.expr
             except AttributeError:
                 pass
             else:
@@ -382,11 +405,11 @@ class MethodDecompiler(object):
 
             #remove redundant assignments i.e. x=x;
             if isinstance(item, ast.ExpressionStatement) and isinstance(item.expr, ast.Assignment):
-                left, right = item.expr.params 
+                left, right = item.expr.params
                 remove = (left == right)
 
             if not remove:
-                newcontents.append(item) 
+                newcontents.append(item)
         scope.statements = newcontents
 
     def _mergeVariables(self, root, predeclared):
@@ -403,7 +426,7 @@ class MethodDecompiler(object):
 
         sccs = graph_util.tarjanSCC(lvars, lambda var:([] if var in forbidden else info[var].defs))
         #the sccs will be in topolgical order
-        varmap = {} 
+        varmap = {}
         for scc in sccs:
             if forbidden.isdisjoint(scc):
                 alldefs = []
@@ -420,7 +443,7 @@ class MethodDecompiler(object):
                             for var in scc:
                                 varmap[var] = target
                             info[target].scope = ast.StatementBlock.join(scope, info[target].scope)
-                            continue 
+                            continue
             #fallthrough if merging is impossible
             for var in scc:
                 varmap[var] = var
@@ -435,7 +458,7 @@ class MethodDecompiler(object):
         uses = collections.defaultdict(int)
 
         def visitExprFindDefs(expr):
-            if isinstance(expr, ast.Assignment): 
+            if isinstance(expr, ast.Assignment):
                 left, right = expr.params
                 if isinstance(left, ast.Local):
                     defs[left].append(expr)
@@ -452,8 +475,8 @@ class MethodDecompiler(object):
 
         self._preorder(root, visitFindDefs)
         #These should have 2 uses since the initial assignment also counts
-        temp = {v[0] for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype} 
-        replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype} 
+        temp = {v[0] for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
+        replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
         # import pdb;pdb.set_trace()
 
         #Avoid reordering past expressions that potentially have side effects or depend on external state
@@ -482,7 +505,7 @@ class MethodDecompiler(object):
                     stack.append((False, expr))
 
                     #For ternaries, we don't want to replace into the conditionally
-                    #evaluated part, but we still need to check those parts for 
+                    #evaluated part, but we still need to check those parts for
                     #barriers
                     if isinstance(expr, ast.Ternary):
                         stack.append((True, (False, expr, expr.params[2])))
@@ -535,7 +558,7 @@ class MethodDecompiler(object):
         remaining = set(newvars)
 
         #The compiler treats statements as if they can throw any exception at any time, so
-        #it may think variables are not definitely assigned even when they really are. 
+        #it may think variables are not definitely assigned even when they really are.
         #Therefore, we give an unused initial value to every variable declaration
         #TODO - find a better way to handle this
         _init_d = {objtypes.BoolTT: ast.Literal.FALSE,
@@ -563,7 +586,7 @@ class MethodDecompiler(object):
                         top = stmt.expr
                         for expr in top.postFlatIter():
                             if expr in remaining:
-                                mdVisitVarUse(expr)   
+                                mdVisitVarUse(expr)
                     for sub in stmt.getScopes():
                         mdVisitScope(sub)
 
@@ -581,7 +604,7 @@ class MethodDecompiler(object):
         if isinstance(expr, ast.Ternary):
             cond, val1, val2 = expr.params
             if (val1, val2) == truefalse:
-                expr = cond 
+                expr = cond
             elif (val2, val1) == truefalse:
                 expr = reverseBoolExpr(cond)
             elif isinstance(cond, ast.UnaryPrefix): # (!x)?y:z -> x?z:y
@@ -639,7 +662,7 @@ class MethodDecompiler(object):
     def _fixExprStatements(self, scope, item):
         if isinstance(item, ast.ExpressionStatement):
             if not isinstance(item.expr, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation, ast.Dummy)):
-                right = item.expr 
+                right = item.expr
                 left = ast.Local(right.dtype, lambda expr:self.namegen.getPrefix('dummy'))
                 decl = ast.VariableDeclarator(ast.TypeName(left.dtype), left)
                 item = ast.LocalDeclarationStatement(decl, right)
@@ -704,7 +727,7 @@ class MethodDecompiler(object):
         method = self.method
         class_ = method.class_
         inputTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)[0]
-        tts = objtypes.verifierToSynthetic_seq(inputTypes) 
+        tts = objtypes.verifierToSynthetic_seq(inputTypes)
 
         if self.graph is not None:
             entryNode, nodes = graphproxy.createGraphProxy(self.graph)
@@ -715,7 +738,7 @@ class MethodDecompiler(object):
             ast_root, varinfo = astgen.createAST(method, self.graph, setree, self.namegen)
 
             argsources = [varinfo.var(entryNode, var) for var in entryNode.invars]
-            disp_args = argsources if method.static else argsources[1:] 
+            disp_args = argsources if method.static else argsources[1:]
             for expr, tt in zip(disp_args, tts):
                 expr.dtype = tt
 
@@ -728,7 +751,7 @@ class MethodDecompiler(object):
             boolize.boolizeVars(ast_root, argsources)
             self._preorder(ast_root, self._simplifyBlocks)
             self._setScopeParents(ast_root)
-            
+
             self._setScopeParents(ast_root)
             self._mergeVariables(ast_root, argsources)
             self._preorder(ast_root, self._createTernaries)
@@ -751,7 +774,7 @@ class MethodDecompiler(object):
             argsources = [ast.Local(tt, lambda expr:self.namegen.getPrefix('arg')) for tt in tts]
             decls = [ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in argsources]
 
-        flags = method.flags - set(['BRIDGE','SYNTHETIC','VARARGS'])    
+        flags = method.flags - set(['BRIDGE','SYNTHETIC','VARARGS'])
         if method.name == '<init>': #More arbtirary restrictions. Yay!
             flags = flags - set(['ABSTRACT','STATIC','FINAL','NATIVE','STRICTFP','SYNCHRONIZED'])
 

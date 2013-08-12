@@ -7,7 +7,7 @@ from .stringescape import escapeString
 class VariableDeclarator(object):
     def __init__(self, typename, identifier): self.typename = typename; self.local = identifier
 
-    def print_(self): 
+    def print_(self):
         return '{} {}'.format(self.typename.print_(), self.local.print_())
 
 #############################################################################################################################################
@@ -32,7 +32,7 @@ class LocalDeclarationStatement(JavaStatement):
         self.decl = decl
         self.expr = expr
 
-    def print_(self): 
+    def print_(self):
         if self.expr is not None:
             return '{} = {};'.format(self.decl.print_(), self.expr.print_())
         return self.decl.print_() + ';'
@@ -66,7 +66,7 @@ class ThrowStatement(JavaStatement):
 
 class JumpStatement(JavaStatement):
     def __init__(self, target, isFront):
-        self.target = target 
+        self.target = target
         self.isFront = isFront
 
     def getTarget(self): return self.redirect[0]
@@ -94,8 +94,7 @@ class LazyLabelBase(JavaStatement):
         return self.label
 
     def getLabelPrefix(self): return '' if self.label is None else self.label + ': '
-    # def getLabelPrefix(self): 
-    #     return '{} //{}\n'.format(self._getLabelPrefix(), self)
+    # def getLabelPrefix(self): return self.getLabel() + ': '
 
     #For debugging
     def __str__(self):
@@ -112,7 +111,7 @@ class TryStatement(LazyLabelBase):
 
     def getScopes(self): return (self.tryb,) + zip(*self.pairs)[1]
 
-    def print_(self): 
+    def print_(self):
         tryb = self.tryb.print_()
         parts = ['catch({})\n{}'.format(x.print_(), y.print_()) for x,y in self.pairs]
         return '{}try\n{}\n{}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
@@ -126,11 +125,11 @@ class IfStatement(LazyLabelBase):
 
     def getScopes(self): return self.scopes
 
-    def print_(self): 
+    def print_(self):
         parts = (self.expr,) + tuple(self.scopes)
         parts = [x.print_() for x in parts]
         if len(self.scopes) == 1:
-            return '{}if({})\n{}'.format(self.getLabelPrefix(), *parts) 
+            return '{}if({})\n{}'.format(self.getLabelPrefix(), *parts)
         return '{}if({})\n{}\nelse\n{}'.format(self.getLabelPrefix(), *parts)
 
 class SwitchStatement(LazyLabelBase):
@@ -141,7 +140,7 @@ class SwitchStatement(LazyLabelBase):
 
     def getScopes(self): return zip(*self.pairs)[1]
 
-    def print_(self): 
+    def print_(self):
         expr = self.expr.print_()
 
         def printCase(keys):
@@ -165,7 +164,7 @@ class WhileStatement(LazyLabelBase):
         # self.parts = block,
     def getScopes(self): return self.parts
 
-    def print_(self): 
+    def print_(self):
         parts = self.expr.print_(), self.parts[0].print_()
         return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
 
@@ -197,7 +196,7 @@ class StatementBlock(LazyLabelBase):
 
     def getScopes(self): return self,
 
-    def print_(self): 
+    def print_(self):
         contents = [x.print_() for x in self.statements]
 
         jump = self.jumps[-1]
@@ -260,7 +259,7 @@ def makeCastExpr(newtt, expr, fixEnv=None):
         return Literal(newtt, expr.val)
 
     if newtt == objtypes.IntTT and expr.dtype == objtypes.BoolTT:
-        return Ternary(expr, Literal.ONE, Literal.ZERO)    
+        return Ternary(expr, Literal.ONE, Literal.ZERO)
     elif newtt == objtypes.BoolTT and expr.dtype == objtypes.IntTT:
         return BinaryInfix('!=', (expr, Literal.ZERO), objtypes.BoolTT)
 
@@ -286,7 +285,7 @@ class JavaExpression(object):
     def postFlatIter(self):
         return itertools.chain([self], *[expr.postFlatIter() for expr in self.params])
 
-    def print_(self): 
+    def print_(self):
         return self.fmt.format(*[expr.print_() for expr in self.params])
 
     def replaceSubExprs(self, rdict):
@@ -304,8 +303,8 @@ class JavaExpression(object):
 
     def addParens(self):
         for param in self.params:
-            param.addParens()      
-        self.params = list(self.params) #make it easy for children to edit  
+            param.addParens()
+        self.params = list(self.params) #make it easy for children to edit
         self.addParens_sub()
 
     def addParens_sub(self): pass
@@ -325,8 +324,8 @@ class ArrayAccess(JavaExpression):
         self.params = params
         self.fmt = '{}[{}]'
 
-    @property 
-    def dtype(self): 
+    @property
+    def dtype(self):
         base, dim = self.params[0].dtype
         assert(dim>0)
         return base, dim-1
@@ -350,7 +349,7 @@ class Assignment(JavaExpression):
         self.params = params
         self.fmt = '{} = {}'
 
-    @property 
+    @property
     def dtype(self): return self.params[0].dtype
 
     def addCasts_sub(self, env):
@@ -359,8 +358,8 @@ class Assignment(JavaExpression):
             expr = makeCastExpr(left.dtype, right, fixEnv=env)
             self.params = left, expr
 
-_binary_ptable = ['* / %', '+ -', '<< >> >>>', 
-    '< > <= >= instanceof', '== !=', 
+_binary_ptable = ['* / %', '+ -', '<< >> >>>',
+    '< > <= >= instanceof', '== !=',
     '&', '^', '|', '&&', '||']
 
 binary_precedences = {}
@@ -376,7 +375,7 @@ class BinaryInfix(JavaExpression):
         self._dtype = dtype
         self.precedence = binary_precedences[opstr]
 
-    @property 
+    @property
     def dtype(self): return self.params[0].dtype if self._dtype is None else self._dtype
 
     def addParens_sub(self):
@@ -398,14 +397,14 @@ class Cast(JavaExpression):
 
     def fix(self, env):
         tt, expr = self.dtype, self.params[1]
-        # "Impossible" casts are a compile error in Java. 
+        # "Impossible" casts are a compile error in Java.
         # This can be fixed with an intermediate cast to Object
         if isObject(tt):
             if not isJavaAssignable(env, tt, expr.dtype):
                 if not isJavaAssignable(env, expr.dtype, tt):
                     expr = makeCastExpr(objtypes.ObjectTT, expr)
                     self.params = self.params[0], expr
-        return self        
+        return self
 
     def addCasts_sub(self, env): self.fix(env)
     def addParens_sub(self):
@@ -418,7 +417,7 @@ class ClassInstanceCreation(JavaExpression):
         self.typename, self.tts, self.params = typename, tts, arguments
         self.dtype = typename.tt
 
-    def print_(self): 
+    def print_(self):
         return 'new {}({})'.format(self.typename.print_(), ', '.join(x.print_() for x in self.params))
 
     def addCasts_sub(self, env):
@@ -461,10 +460,10 @@ class Literal(JavaExpression):
         if vartype == objtypes.StringTT:
             self.str = '"' + escapeString(val) + '"'
         elif vartype == objtypes.IntTT:
-            self.str = repr(int(val))   
+            self.str = repr(int(val))
             assert('L' not in self.str) #if it did we were passed an invalid value anyway
         elif vartype == objtypes.LongTT:
-            self.str = repr(long(val))  
+            self.str = repr(long(val))
             assert('L' in self.str)
         elif vartype == objtypes.FloatTT or vartype == objtypes.DoubleTT:
             assert(type(val) == float)
@@ -488,7 +487,7 @@ class Literal(JavaExpression):
     def _key(self): return self.dtype, self.val
     def __eq__(self, other): return type(self) == type(other) and self._key() == other._key()
     def __ne__(self, other): return type(self) != type(other) or self._key() != other._key()
-    def __hash__(self): return hash(self._key())   
+    def __hash__(self): return hash(self._key())
 Literal.FALSE = Literal(objtypes.BoolTT, 0)
 Literal.TRUE = Literal(objtypes.BoolTT, 1)
 Literal.N_ONE = Literal(objtypes.IntTT, -1)
@@ -522,13 +521,13 @@ class MethodInvocation(JavaExpression):
         self.tts = tts
         self.op = op #keep around for future reference and new merging
 
-    def print_(self): 
+    def print_(self):
         if self.hasLeft:
-            left, arguments = self.params[0], self.params[1:] 
+            left, arguments = self.params[0], self.params[1:]
             return '{}.{}({})'.format(left.print_(), self.name, ', '.join(x.print_() for x in arguments))
         else:
             arguments = self.params
-            return '{}({})'.format(self.name, ', '.join(x.print_() for x in arguments))         
+            return '{}({})'.format(self.name, ', '.join(x.print_() for x in arguments))
 
     def addCasts_sub(self, env):
         newparams = []
@@ -549,7 +548,7 @@ class Parenthesis(JavaExpression):
         self.params = param,
         self.fmt = '({})'
 
-    @property 
+    @property
     def dtype(self): return self.params[0].dtype
 
 class Ternary(JavaExpression):
@@ -558,7 +557,7 @@ class Ternary(JavaExpression):
         self.params = params
         self.fmt = '{} ? {} : {}'
 
-    @property 
+    @property
     def dtype(self): return self.params[1].dtype
 
     def addParens_sub(self):
@@ -601,8 +600,8 @@ class UnaryPrefix(JavaExpression):
         self.opstr = opstr
         self.fmt = opstr + '{}'
         self._dtype = dtype
-    
-    @property 
+
+    @property
     def dtype(self): return self.params[0].dtype if self._dtype is None else self._dtype
 
     def addParens_sub(self):

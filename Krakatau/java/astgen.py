@@ -50,13 +50,13 @@ class VarInfo(object):
             return ast.Literal(tt, var.const)
         else:
             if var.name:
-                #important to not add num when it is 0, since we currently 
+                #important to not add num when it is 0, since we currently
                 #use var names to force 'this'
                 temp = '{}_{}'.format(var.name, num) if num else var.name
                 namefunc = lambda expr:temp
             else:
                 namefunc = self._nameCallback
-            return ast.Local(tt, namefunc)   
+            return ast.Local(tt, namefunc)
 
     def var(self, node, var, isCast=False):
         assert(var.type != ssa_types.SSA_MONAD)
@@ -85,7 +85,7 @@ def _convertJExpr(op, getExpr, clsname):
 
     #Have to do this one seperately since it isn't an expression statement
     if isinstance(op, ssa_ops.Throw):
-        return ast.ThrowStatement(params[0])    
+        return ast.ThrowStatement(params[0])
 
     if isinstance(op, _math_types):
         opdict = _math_symbols
@@ -98,9 +98,9 @@ def _convertJExpr(op, getExpr, clsname):
         expr = ast.ArrayAccess(params[0], params[1])
         expr = ast.Assignment(expr, params[2])
     elif isinstance(op, ssa_ops.CheckCast):
-        expr = ast.Cast(ast.TypeName(op.target_tt), params[0])        
+        expr = ast.Cast(ast.TypeName(op.target_tt), params[0])
     elif isinstance(op, ssa_ops.Convert):
-        typecode = {ssa_types.SSA_INT:'.int', ssa_types.SSA_LONG:'.long', ssa_types.SSA_FLOAT:'.float', 
+        typecode = {ssa_types.SSA_INT:'.int', ssa_types.SSA_LONG:'.long', ssa_types.SSA_FLOAT:'.float',
             ssa_types.SSA_DOUBLE:'.double'}[op.target]
         tt = typecode, 0
         expr = ast.Cast(ast.TypeName(tt), params[0])
@@ -128,14 +128,14 @@ def _convertJExpr(op, getExpr, clsname):
             expr = ast.Assignment(expr, params[-1])
 
     elif isinstance(op, ssa_ops.FNeg):
-        expr = ast.UnaryPrefix('-', params[0])    
+        expr = ast.UnaryPrefix('-', params[0])
     elif isinstance(op, ssa_ops.InstanceOf):
         args = params[0], ast.TypeName(op.target_tt)
         expr = ast.BinaryInfix('instanceof', args, dtype=objtypes.BoolTT)
-    elif isinstance(op, ssa_ops.Invoke):            
+    elif isinstance(op, ssa_ops.Invoke):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
         tt_types = objtypes.verifierToSynthetic_seq(vtypes)
-        ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None 
+        ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
 
         if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
             name = 'this' if (op.target == clsname) else 'super'
@@ -147,11 +147,11 @@ def _convertJExpr(op, getExpr, clsname):
             expr = ast.MethodInvocation(params[0], op.name, [(op.target,0)]+tt_types, params[1:], op, ret_type)
     elif isinstance(op, ssa_ops.Monitor):
         fmt = '//monexit({})' if op.exit else '//monenter({})'
-        expr = ast.Dummy(fmt, params)    
+        expr = ast.Dummy(fmt, params)
     elif isinstance(op, ssa_ops.MultiNewArray):
-        expr = ast.ArrayCreation(op.tt, *params) 
+        expr = ast.ArrayCreation(op.tt, *params)
     elif isinstance(op, ssa_ops.New):
-        expr = ast.Dummy('//<unmerged new> {}', [ast.TypeName(op.tt)], isNew=True)     
+        expr = ast.Dummy('//<unmerged new> {}', [ast.TypeName(op.tt)], isNew=True)
     elif isinstance(op, ssa_ops.NewArray):
         base, dim = op.baset
         expr = ast.ArrayCreation((base, dim+1), params[0])
@@ -161,7 +161,7 @@ def _convertJExpr(op, getExpr, clsname):
         expr = ast.Cast(ast.TypeName(tt), params[0])
     if op.rval is not None and expr:
         expr = ast.Assignment(getExpr(op.rval), expr)
-    
+
     if expr is None: #Temporary hack to show what's missing
         if isinstance(op, ssa_ops.TryReturn):
             return None #Don't print out anything
@@ -170,7 +170,7 @@ def _convertJExpr(op, getExpr, clsname):
     return ast.ExpressionStatement(expr)
 
 #########################################################################################
-def _createASTBlock(info, node, breakmap):
+def _createASTBlock(info, endk, node):
     getExpr = lambda var: info.var(node, var)
     op2expr = lambda op: _convertJExpr(op, getExpr, info.clsname)
 
@@ -179,7 +179,7 @@ def _createASTBlock(info, node, breakmap):
     lines = [x for x in lines if x is not None]
 
     # Kind of hackish: If the block ends in a cast and hence it is not known to always
-    # succeed, assign the results of the cast rather than passing through the variable 
+    # succeed, assign the results of the cast rather than passing through the variable
     # unchanged
     outreplace = {}
     if lines and isinstance(block.lines[-1], ssa_ops.CheckCast):
@@ -196,12 +196,12 @@ def _createASTBlock(info, node, breakmap):
         assert((n2 in node.outvars) != (n2 in node.eassigns))
         if n2 in node.eassigns:
             for outv, inv in zip(node.eassigns[n2], n2.invars):
-                if outv is None: #this is how we mark the thrown exception, which 
+                if outv is None: #this is how we mark the thrown exception, which
                     #obviously doesn't get an explicit assignment statement
                     continue
                 expr = ast.Assignment(info.var(n2, inv), info.var(node, outv))
                 if expr.params[0] != expr.params[1]:
-                    eassigns.append(ast.ExpressionStatement(expr))        
+                    eassigns.append(ast.ExpressionStatement(expr))
         else:
             for outv, inv in zip(node.outvars[n2], n2.invars):
                 right = outreplace.get(outv, info.var(node, outv))
@@ -215,7 +215,7 @@ def _createASTBlock(info, node, breakmap):
 
     norm_successors = node.normalSuccessors()
     jump = None if block is None else block.jump
-    jumps = [None]
+    jumpKey = None
     if isinstance(jump, (ssa_jumps.Rethrow, ssa_jumps.Return)):
         assert(not norm_successors)
         if isinstance(jump, ssa_jumps.Rethrow):
@@ -227,133 +227,72 @@ def _createASTBlock(info, node, breakmap):
                 statements.append(ast.ReturnStatement(param, info.return_tt))
             else:
                 statements.append(ast.ReturnStatement())
-    elif len(norm_successors) == 1: #normal successors 
-        #explicit or implicit goto (or exception with fallthrough)
-        jumps = [y for x,y in breakmap if x == norm_successors[0]]
+    elif len(norm_successors) == 1: #normal successors
+        jumpKey = norm_successors[0]._key
     #case of if and switch jumps handled in parent scope
 
-    new = ast.StatementBlock(info.labelgen)
-    new.statements = statements
-    new.setBreaks(jumps)
+    new = ast.StatementBlock(info.labelgen, node._key, endk, statements, jumpKey)
     assert(None not in statements)
     return new
 
-def _createASTSub(info, seroot):
-    # The basic pattern is to create a node, recurse of the children, collect the results,
-    # assign them back to the parent AST node, and return. The first boolean in each stack
-    # value indicates whether it is before or after recursing
+_cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split()))
+def _createASTSub(info, current, ftitem, forceUnlabled=False):
+    begink = current.entryBlock._key
+    endk = ftitem.entryBlock._key if ftitem is not None else None
 
-    result = []
-    stack = [(True, (seroot, (), None, True, result.append))]
-    while stack:
-        before, data = stack.pop()
-        if before:
-            current, targets, ftblock, forceUnlabled, ret_cb = data
-            contents = []
+    if isinstance(current, SEBlockItem):
+        return _createASTBlock(info, endk, current.node)
+    elif isinstance(current, SEScope):
+        ftitems = current.items[1:] + [ftitem]
+        parts = [_createASTSub(info, item, newft) for item, newft in zip(current.items, ftitems)]
+        return ast.StatementBlock(info.labelgen, begink, endk, parts, endk, labelable=(not forceUnlabled))
+    elif isinstance(current, SEWhile):
+        parts = [_createASTSub(info, scope, current, True) for scope in current.getScopes()]
+        return ast.WhileStatement(info.labelgen, begink, endk, tuple(parts))
+    elif isinstance(current, SETry):
+        parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
+        catchnode = current.getScopes()[-1].entryBlock
+        declt = ast.CatchTypeNames(info.env, current.toptts)
 
-            calls = []
-            def recurse(item, targets, ftblock, forceUnlabled=False):
-                calls.append((True, (item, targets, ftblock, forceUnlabled, contents.append)))
+        if current.catchvar is None: #exception is ignored and hence not referred to by the graph, so we need to make our own
+            catchvar = info.customVar(declt, 'ignoredException')
+        else:
+            catchvar = info.var(catchnode, current.catchvar)
+        decl = ast.VariableDeclarator(declt, catchvar)
+        pairs = [(decl, parts[1])]
+        return ast.TryStatement(info.labelgen, begink, endk, parts[0], pairs)
 
-            new = None #catch error if we forget to assign it in one case
-            if isinstance(current, SEScope):
-                new = ast.StatementBlock(info.labelgen)
-                if not forceUnlabled:
-                    targets = targets + ((ftblock, (new,False)),)
+    #Create a fake key to represent the beginning of the conditional statement itself
+    #doesn't matter what it is as long as it's unique
+    midk = begink + (-1,)
+    node = current.head.node
+    jump = node.block.jump
 
-                fallthroughs = [item.entryBlock for item in current.items[1:]] + [ftblock]
-                for item, ft in zip(current.items, fallthroughs):
-                    recurse(item, targets, ft)
+    if isinstance(current, SEIf):
+        parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
+        cmp_str = _cmp_strs[jump.cmp]
+        exprs = [info.var(node, var) for var in jump.params]
+        ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
+        new = ast.IfStatement(info.labelgen, midk, endk, ifexpr, tuple(parts))
 
-            elif isinstance(current, SEWhile):
-                new = ast.WhileStatement(info.labelgen)
-                targets = targets + ((current.entryBlock, (new,True)), (ftblock, (new,False)))
-                recurse(current.body, targets, current.entryBlock, True)
+    elif isinstance(current, SESwitch):
+        ftitems = current.ordered[1:] + [ftitem]
+        parts = [_createASTSub(info, item, newft, True) for item, newft in zip(current.ordered, ftitems)]
+        for part in parts:
+            part.breakKey = endk #createSub will assume break should be ft, which isn't the case with switch statements
 
-            elif isinstance(current, SETry):
-                new = ast.TryStatement(info.labelgen)
-                targets = targets + ((ftblock, (new,False)),)
-                for scope in current.getScopes():
-                    recurse(scope, targets, ftblock, True)
+        expr = info.var(node, jump.params[0])
+        pairs = zip(current.ordered_keysets, parts)
+        new = ast.SwitchStatement(info.labelgen, midk, endk, expr, pairs)
 
-            elif isinstance(current, SEIf):
-                node = current.head.node
-                jump = node.block.jump
-
-                cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split()))
-                cmp_str = cmp_strs[jump.cmp]
-                exprs = [info.var(node, var) for var in jump.params]
-                ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
-
-                new = ast.IfStatement(info.labelgen, ifexpr)
-                targets = targets + ((ftblock, (new,False)),)
-                for scope in current.getScopes():
-                    recurse(scope, targets, ftblock, True)
-                
-            elif isinstance(current, SESwitch):
-                node = current.head.node
-                jump = node.block.jump
-                expr = info.var(node, jump.params[0])
-                new = ast.SwitchStatement(info.labelgen, expr)
-                targets = targets + ((ftblock, (new,False)),)
-
-                fallthroughs = [item.entryBlock for item in current.ordered[1:]] + [ftblock]
-                for item, ft in zip(current.ordered, fallthroughs):
-                    recurse(item, targets, ft, True)
-
-            elif isinstance(current, SEBlockItem):
-                targets = targets + ((ftblock, None),)
-                new = _createASTBlock(info, current.node, targets)
-
-            assert(new is not None)
-            #stuff to be done after recursive calls return
-            stack.append((False, (current, new, contents, ret_cb)))
-            stack.extend(calls)
-        else: #after recursion
-            current, new, contents, ret_cb = data
-            contents = list(reversed(contents)) #the results of recursive calls. Has to be reversed since stacks are FILO
-
-
-            if isinstance(current, SEScope):
-                new.statements = contents
-                new.jump = None
-                assert(all(isinstance(s, ast.JavaStatement) for s in new.statements))
-            elif isinstance(current, SEWhile):
-                new.parts = tuple(contents)
-            elif isinstance(current, SETry):
-                parts = contents
-                catchnode = current.getScopes()[-1].entryBlock
-                declt = ast.CatchTypeNames(info.env, current.toptts)
-
-                if current.catchvar is None: #exception is ignored and hence not referred to by the graph, so we need to make our own
-                    catchvar = info.customVar(declt, 'ignoredException')
-                else:
-                    catchvar = info.var(catchnode, current.catchvar)
-                decl = ast.VariableDeclarator(declt, catchvar)
-                new.tryb = parts[0]
-                new.pairs = [(decl, parts[1])]
-            elif isinstance(current, SEIf):
-                headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
-                new.scopes = tuple(contents)
-
-                #bundle head and if together so we can return as single statement
-                new2 = ast.StatementBlock(info.labelgen)
-                new2.statements = [headscope, new]
-                new = new2
-            elif isinstance(current, SESwitch):
-                headscope = _createASTBlock(info, current.head.node, None) #pass none as breakmap so an error occurs if it is used
-                new.pairs = zip(current.ordered_keysets, contents)
-                new2 = ast.StatementBlock(info.labelgen)
-                new2.statements = [headscope, new]
-                new = new2
-            elif isinstance(current, SEBlockItem):
-                pass
-
-            ret_cb(new) # 'return' from recursive call
-    return result[0]
+    #bundle head and if together so we can return as single statement
+    headscope = _createASTBlock(info, midk, node)
+    assert(headscope.jumpKey is None)
+    headscope.jumpKey = midk
+    return ast.StatementBlock(info.labelgen, begink, endk, [headscope, new], endk)
 
 def createAST(method, ssagraph, seroot, namegen):
     replace = variablemerge.mergeVariables(seroot)
     info = VarInfo(method, ssagraph.blocks, namegen, replace)
-    astroot = _createASTSub(info, seroot)
+    astroot = _createASTSub(info, seroot, None)
     return astroot, info

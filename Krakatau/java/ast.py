@@ -66,27 +66,26 @@ class ThrowStatement(JavaStatement):
 
 class JumpStatement(JavaStatement):
     def __init__(self, target, isFront):
-        self.target = target
-        self.isFront = isFront
+        keyword = 'continue' if isFront else 'break'
+        label = (' ' + target.getLabel()) if target is not None else ''
+        self.str = keyword + label + ';'
 
-    def getTarget(self): return self.redirect[0]
-
-    def print_(self):
-        keyword = 'continue' if self.isFront else 'break'
-        if self.target is not None:
-            return '{} {};'.format(keyword, self.target.getLabel())
-        else:
-            return keyword + ';'
+    def print_(self): return self.str
 
 #Compound Statements
+sbcount = itertools.count()
 class LazyLabelBase(JavaStatement):
-    def __init__(self, labelfunc):
+    # Jumps are represented by arbitrary 'keys', currently just the key of the
+    # original proxy node. Each item has a continueKey and a breakKey representing
+    # the beginning and the point just past the end respectively. breakKey may be
+    # None if this item appears at the end of the function and there is nothing after it.
+    # Statement blocks have a jump key representing where it jumps to if any. This
+    # may be None if the jump is unreachable (such as if there is a throw or return)
+    def __init__(self, labelfunc, begink, endk):
         self.label, self.func = None, labelfunc
-        self.sources = {False:[], True:[]}
-
-    def getSources(self): return self.sources[False] + self.sources[True]
-    # See if there are any blocks that can jump only to us
-    def hasDependents(self): return any(len(child.jumps) == 1 for child in self.getSources())
+        self.continueKey = begink
+        self.breakKey = endk
+        # self.id = next(sbcount) #For debugging purposes
 
     def getLabel(self):
         if self.label is None:
@@ -100,14 +99,13 @@ class LazyLabelBase(JavaStatement):
     def __str__(self):
         if isinstance(self, StatementBlock):
             return 'Sb'+str(self.id)
-        return type(self).__name__[:3]
-        # return type(self).__name__[:3] + str(self.getScopes()[0].id)
+        return type(self).__name__[:3]+str(self.id)
     __repr__ = __str__
 
 class TryStatement(LazyLabelBase):
-    def __init__(self, labelfunc):
-        super(TryStatement, self).__init__(labelfunc)
-        # self.tryb, self.pairs
+    def __init__(self, labelfunc, begink, endk, tryb, pairs):
+        super(TryStatement, self).__init__(labelfunc, begink, endk)
+        self.tryb, self.pairs = tryb, pairs
 
     def getScopes(self): return (self.tryb,) + zip(*self.pairs)[1]
 
@@ -117,28 +115,40 @@ class TryStatement(LazyLabelBase):
         return '{}try\n{}\n{}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
 
 class IfStatement(LazyLabelBase):
-    def __init__(self, labelfunc, expr):
-        super(IfStatement, self).__init__(labelfunc)
+    def __init__(self, labelfunc, begink, endk, expr, scopes):
+        super(IfStatement, self).__init__(labelfunc, begink, endk)
         self.expr = expr #don't rename without changing how var replacement works!
-        # self.scopes = scopes
+        self.scopes = scopes
         # assert(len(self.scopes) == 1 or len(self.scopes) == 2)
 
     def getScopes(self): return self.scopes
 
     def print_(self):
-        parts = (self.expr,) + tuple(self.scopes)
-        parts = [x.print_() for x in parts]
+        lbl = self.getLabelPrefix()
+        parts = [self.expr] + list(self.scopes)
+
         if len(self.scopes) == 1:
-            return '{}if({})\n{}'.format(self.getLabelPrefix(), *parts)
-        return '{}if({})\n{}\nelse\n{}'.format(self.getLabelPrefix(), *parts)
+            parts = [x.print_() for x in parts]
+            return '{}if({})\n{}'.format(lbl, *parts)
+
+        # Special case handling for 'else if'
+        sep = '\n' #else seperator depends on if we have else if
+        fblock = self.scopes[1]
+        if len(fblock.statements) == 1:
+            stmt = fblock.statements[-1]
+            if isinstance(stmt, IfStatement) and stmt.label is None:
+                sep, parts[-1] = ' ', stmt
+        parts = [x.print_() for x in parts]
+        return '{}if({})\n{}\nelse{sep}{}'.format(lbl, *parts, sep=sep)
 
 class SwitchStatement(LazyLabelBase):
-    def __init__(self, labelfunc, expr):
-        super(SwitchStatement, self).__init__(labelfunc)
+    def __init__(self, labelfunc, begink, endk, expr, pairs):
+        super(SwitchStatement, self).__init__(labelfunc, begink, endk)
         self.expr = expr #don't rename without changing how var replacement works!
-        #self.pairs = (keys, scope)*
+        self.pairs = pairs
 
     def getScopes(self): return zip(*self.pairs)[1]
+    def hasDefault(self): return None in zip(*self.pairs)[0]
 
     def print_(self):
         expr = self.expr.print_()
@@ -158,53 +168,33 @@ class SwitchStatement(LazyLabelBase):
         return '{}switch({}){}'.format(self.getLabelPrefix(), expr, '\n'.join(lines))
 
 class WhileStatement(LazyLabelBase):
-    def __init__(self, labelfunc):
-        super(WhileStatement, self).__init__(labelfunc)
+    def __init__(self, labelfunc, begink, endk, parts):
+        super(WhileStatement, self).__init__(labelfunc, begink, endk)
         self.expr = Literal.TRUE
-        # self.parts = block,
+        self.parts = parts
+        assert(len(self.parts) == 1)
+
     def getScopes(self): return self.parts
 
     def print_(self):
         parts = self.expr.print_(), self.parts[0].print_()
         return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
 
-sbcount = itertools.count()
 class StatementBlock(LazyLabelBase):
-    def __init__(self, labelfunc):
-        super(StatementBlock, self).__init__(labelfunc)
-        self.jumps = [None] #Only fallthrough by default
+    def __init__(self, labelfunc, begink, endk, statements, jumpk, labelable=True):
+        super(StatementBlock, self).__init__(labelfunc, begink, endk)
         self.parent = None #should be assigned later
-        #self.statements
-        self.id = next(sbcount) #For debugging purposes
+        self.statements = statements
+        self.jumpKey = jumpk
+        self.labelable = labelable
 
-    def canFallthrough(self): return None in self.jumps
-
-    def _updateJump(self, jump, func):
-        func(self.jumps, jump)
-        if jump is not None:
-            func(jump[0].sources[jump[1]], self)
-        assert(len(set(self.jumps)) == len(self.jumps))
-
-    def removeJump(self, jump): self._updateJump(jump, list.remove)
-    def addJump(self, jump): self._updateJump(jump, list.append)
-
-    def setBreaks(self, vals):
-        for jump in self.jumps[:]:
-            self.removeJump(jump)
-        for jump in vals:
-            self.addJump(jump)
+    def doesFallthrough(self): return self.jumpKey is None or self.jumpKey == self.breakKey
 
     def getScopes(self): return self,
 
     def print_(self):
-        contents = [x.print_() for x in self.statements]
-
-        jump = self.jumps[-1]
-        if jump is not None:
-            temp = JumpStatement(*jump)
-            contents.append(temp.print_())
-        contents = '\n'.join(contents)
-        # contents = '//{} <- {}\n'.format(str(self), ', '.join(map(str, self.sources[False]))) + contents
+        assert(self.labelable or self.label is None)
+        contents = '\n'.join(x.print_() for x in self.statements)
         indented = ['    '+line for line in contents.splitlines()]
         lines = [self.getLabelPrefix() + '{'] + indented + ['}']
         return '\n'.join(lines)

@@ -54,6 +54,12 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     assert(os.path.isdir(temppath))
 
     decompile.decompileClass(cpath, targets=[target], outpath=temppath)
+    # out, err = execute(['java',  '-jar', 'procyon-decompiler-0.5.10.jar', os.path.join(class_location, target+'.class')], '.')
+    # if err:
+    #     print 'Decompile errors:', err
+    #     return False
+    # with open(os.path.join(temppath, target+'.java'), 'wb') as f:
+    #     f.write(out)
 
     print 'Attempting to compile'
     _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=temppath)

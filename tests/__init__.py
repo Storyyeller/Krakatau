@@ -23,7 +23,7 @@ registry = {
     'TryCatchTest': ([], ['bad'], ['bad', 'boy'], ['good'], [u'f'], ['=', '='],
                      ['<<', '<', ':', '>', '>>']),
     'UnicodeTest': ([],),
-    'whilesize': ([], ['x'], ['x', 'x'], ['x', 'xx', 'x'],
+    'WhileLoops': ([], ['#9'], ['x', 'x'], ['x', 'xx', 'x'],
                   ['The', 'Quick', 'Brown', 'Fox', 'Jumped', 'Over', 'The', 'Lazy', 'Dogs.'],
                   ['46', '08'], ['4608']),
 }

@@ -46,7 +46,7 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     # try:
     #     shutil.rmtree(temppath)
     # except OSError as e:
-    #     print e    
+    #     print e
     try:
         os.mkdir(temppath)
     except OSError as e:
@@ -64,6 +64,7 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
 
     cases = tests.registry[target]
     for args, expected in zip(cases, expected_results):
+        print 'Executing {} w/ args {}'.format(target, args)
         result = execute(['java', target] + list(args), cwd=temppath)
         if result != expected:
             print 'Failed test {} w/ args {}:'.format(target, args)

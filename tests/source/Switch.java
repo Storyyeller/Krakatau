@@ -1,7 +1,7 @@
 public class Switch {
     strictfp public static void main(String args[]){
     	int x = -1;
-    	
+
     	switch(args.length % -5){
 			case 3:
 				x += 3;
@@ -12,7 +12,7 @@ public class Switch {
 				}
 			case 0:
 				x += (x << x);
-				break;				
+				break;
 			case 2:
 			default:
 				x = x ^ (int)0xABCD000L;
@@ -20,7 +20,19 @@ public class Switch {
 				x *= 4;
 				break;
 		}
-    
+
     	System.out.println(x);
+    	System.out.println(i(args.length));
+	}
+
+	static public int i(int x){
+		switch (x)	{
+			case 2:
+				x += 4;
+			default:
+				return -x;
+			case 1: case 3:
+				throw null;
+		}
 	}
 }

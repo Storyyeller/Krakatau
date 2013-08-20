@@ -196,6 +196,7 @@ class StatementBlock(LazyLabelBase):
         assert(self.labelable or self.label is None)
         contents = '\n'.join(x.print_() for x in self.statements)
         indented = ['    '+line for line in contents.splitlines()]
+        # indented[:0] = ['    //{}{}'.format(self,x) for x in (self.breakKey, self.continueKey, self.jumpKey)]
         lines = [self.getLabelPrefix() + '{'] + indented + ['}']
         return '\n'.join(lines)
 

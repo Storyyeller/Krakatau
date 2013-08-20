@@ -56,9 +56,9 @@ class ClassFile(object):
                 'SUPER':0x0020,
                 'INTERFACE':0x0200,
                 'ABSTRACT':0x0400,
-                'SYNTHETIC':0x1000, 
-                'ANNOTATION':0x2000, 
-                'ENUM':0x4000, 
+                'SYNTHETIC':0x1000,
+                'ANNOTATION':0x2000,
+                'ENUM':0x4000,
 
                 # These flags are only used for InnerClasses attributes
                 'PRIVATE':0x0002,
@@ -96,10 +96,10 @@ class ClassFile(object):
         if self.super:
             self.supername = self.cpool.getArgsCheck('Class', self.super)
             # if superclass is cached, we can assume it is free from circular inheritance
-            # since it must have been loaded successfully on a previous run 
+            # since it must have been loaded successfully on a previous run
             if not self.env.isCached(self.supername):
                 self.env.getClass(self.supername, subclasses + (name,), partial=True)
-            self.hierarchy = self.env.getSupers(self.supername) + (self.name,)         
+            self.hierarchy = self.env.getSupers(self.supername) + (self.name,)
         else:
             assert(name == 'java/lang/Object')
             self.supername = None
@@ -108,7 +108,7 @@ class ClassFile(object):
     def loadElements(self, keepRaw=False):
         if self.elementsLoaded:
             return
-        self.fields = [field.Field(m, self, keepRaw) for m in self.fields_raw]    
+        self.fields = [field.Field(m, self, keepRaw) for m in self.fields_raw]
         self.methods = [method.Method(m, self, keepRaw) for m in self.methods_raw]
         self.attributes = fixAttributeNames(self.attributes_raw, self.cpool)
         del self.fields_raw

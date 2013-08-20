@@ -58,15 +58,15 @@ class Environment(object):
 
         if data is None:
             raise ClassLoaderError('ClassNotFoundException', name)
-        
+
         stream = binUnpacker.binUnpacker(data=data)
         new = ClassFile(stream)
         new.loadSupers(self, name, subclasses)
-        self.classes[name] = new
+        self.classes[new.name] = new
         return new
 
     #Context Manager methods to manager our zipfiles
-    def __enter__(self): 
+    def __enter__(self):
         assert(not self._open)
         for place in self.path:
             if place.endswith('.jar') or place.endswith('.zip'):

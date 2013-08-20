@@ -110,15 +110,17 @@ def mayBreakTo(root, forbidden):
 
 def replaceKeys(top, replace):
     assert(None not in replace)
-    if top.getScopes():
-        if isinstance(top, ast.StatementBlock):
-            if replace.get(top.breakKey, top.breakKey) is None:
-                assert(replace.get(top.jumpKey, top.jumpKey) is None)
+    get = lambda k:replace.get(k,k)
 
-        top.breakKey = replace.get(top.breakKey, top.breakKey)
-        # top.continueKey = replace.get(top.continueKey, top.continueKey)
+    if top.getScopes():
+        if isinstance(top, ast.StatementBlock) and get(top.breakKey) is None:
+            #breakkey can be None with non-None jumpkey when we're a scope in a switch statement that falls through
+            #and the end of the switch statement is unreachable
+            assert(get(top.jumpKey) is None or not top.labelable)
+
+        top.breakKey = get(top.breakKey)
         if isinstance(top, ast.StatementBlock):
-            top.jumpKey = replace.get(top.jumpKey, top.jumpKey)
+            top.jumpKey = get(top.jumpKey)
             for item in top.statements:
                 replaceKeys(item, replace)
         else:

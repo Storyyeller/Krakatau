@@ -48,7 +48,7 @@ def makeCallback(funcs):
         s.mergeSingleSuccessorBlocks()
         s.removeUnusedVariables()
         # print _stats(s)
-        s.constraintPropagation() 
+        s.constraintPropagation()
         s.disconnectConstantVariables()
         s.simplifyJumps()
         s.mergeSingleSuccessorBlocks()
@@ -132,7 +132,7 @@ if __name__== "__main__":
 
     if args.target.endswith('.jar'):
         path.append(args.target)
-        
+
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
     decompileClass(path, targets, args.out, plugins)

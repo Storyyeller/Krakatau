@@ -15,7 +15,7 @@ from ..verifier import verifier_types
 #graph is a BasicBlock. This consists of a list of phi statements representing
 #inputs, a list of operations, and a jump statement. Exceptions are represented
 #explicitly in the graph with the OnException jump. Each block also keeps track
-#of the unary constraints on the variables in that block. 
+#of the unary constraints on the variables in that block.
 
 class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3
@@ -40,7 +40,7 @@ class SSA_Graph(object):
         entryb.tempvars = [x for x in self.inputArgs if x is not None]
         del entryb.sourceStates
 
-        #return 
+        #return
         newmonad = self.makeVariable(SSA_MONAD)
         newstack = [self.makeVarFromVtype(vt, {}) for vt in returnTypes[:1]] #make sure not to include dummy if returning double/long
         returnb = BasicBlock(self.returnKey, lines=[], jump=ssa_jumps.Return(self, [newmonad] + newstack))
@@ -65,7 +65,7 @@ class SSA_Graph(object):
         sccs = graph_util.tarjanSCC([self.entryBlock], lambda block:block.jump.getSuccessors())
         sccs = list(reversed(sccs))
         self.blocks = list(itertools.chain.from_iterable(map(reversed, sccs)))
-        
+
         assert(set(self.blocks) <= set(old))
         if len(self.blocks) < len(old):
             kept = set(self.blocks)
@@ -78,7 +78,7 @@ class SSA_Graph(object):
             if self.returnBlock not in kept:
                 self.returnBlock = None
             if self.rethrowBlock not in kept:
-                self.rethrowBlock = None        
+                self.rethrowBlock = None
 
             for proc in self.procs:
                 proc.callops = ODict((op,block) for op,block in proc.callops.items() if block not in kept)
@@ -130,7 +130,7 @@ class SSA_Graph(object):
                 for k, v in op.out.items():
                     if v not in keepset:
                         op.out[k] = None
-            phis = proc.target.phis 
+            phis = proc.target.phis
             for op, block in proc.callops.items():
                 pvars = set(phi.odict[block,False] for phi in phis)
                 op.input = ODict((k,v) for k,v in op.input.items() if v in pvars)
@@ -179,7 +179,7 @@ class SSA_Graph(object):
                     uc2 = block.unaryConstraints[new]
                     block.unaryConstraints[new] = constraints.join(uc1, uc2)
                     del block.unaryConstraints[old]
-                
+
                 block.lines += child.lines
                 block.jump = child.jump
 
@@ -196,7 +196,7 @@ class SSA_Graph(object):
                         phi.replaceBlocks({child:block})
 
                 removed.add(child)
-        self.blocks = [b for b in self.blocks if b not in removed]  
+        self.blocks = [b for b in self.blocks if b not in removed]
         #Fix up replace dict so it can handle multiple chained replacements
         for old in replace.keys()[:]:
             while replace[old] in replace:
@@ -240,7 +240,7 @@ class SSA_Graph(object):
                 assert(phi.rval is None or phi.rval in block.unaryConstraints)
                 for k,v in phi.odict.items():
                     assert(v.origin is None or v in k[0].unaryConstraints)
-                    
+
         for proc in self.procs:
             for callop in proc.callops:
                 assert(set(proc.retop.input) == set(callop.out))
@@ -323,7 +323,7 @@ class SSA_Graph(object):
                     newbad.add(block)
             badblocks, newbad = newbad, set()
 
-        self.condenseBlocks()   
+        self.condenseBlocks()
         self._conscheck()
 
     # Subprocedure stuff #####################################################
@@ -378,7 +378,7 @@ class SSA_Graph(object):
 
             for var in newb.unaryConstraints:
                 var.origin = opmap[var.origin]
-        
+
         #now add new blocks into phi dicts of abscond successors
         dupedSet = frozenset(newblocks) | frozenset(region)
         for block in region:
@@ -391,7 +391,7 @@ class SSA_Graph(object):
                     for phi in child.phis:
                         assert((newb,t) not in phi.odict)
                         var = varmap[phi.odict[block,t]]
-                        phi.updateDict(phi.odict.items() + [((newb,t), var)])   
+                        phi.updateDict(phi.odict.items() + [((newb,t), var)])
 
         #disconnect from existing jsr target
         for phi in target.phis:
@@ -459,9 +459,9 @@ class SSA_Graph(object):
                     svarcopy[var, block] = new = copy.copy(var)
                     phi = ssa_ops.Phi(self, [], new)
                     phi.block = block
-                    new.origin = phi 
+                    new.origin = phi
                     block.phis.append(phi)
-                    newphis[var, block] = phi 
+                    newphis[var, block] = phi
                     block.unaryConstraints[new] = callblock.unaryConstraints[var]
 
                 for var, block in itertools.product(skipvars, newregion):
@@ -504,7 +504,7 @@ class SSA_Graph(object):
     ##########################################################################
 
     #assign variable names for debugging
-    varnum = collections.defaultdict(itertools.count) 
+    varnum = collections.defaultdict(itertools.count)
     def makeVariable(self, *args, **kwargs):
         var = Variable(*args, **kwargs)
         pref = args[0][0][0]
@@ -531,7 +531,7 @@ class SSA_Graph(object):
         except KeyError:
             if len(self._interns) < 256: #arbitrary limit
                 self._interns[x] = x
-            return x 
+            return x
 
     def getConstPoolArgs(self, index):
         return self.class_.cpool.getArgs(index)
@@ -598,11 +598,11 @@ def ssaFromVerified(code, iNodes):
         merged_slots = slots_t(monad=newmonad, locals=merged, stack=newstack)
 
         block.successorStates[callop.iNode.next_instruction, False] = merged_slots
-        
+
         proc = procs[target.key]
-        proc.callops[callop] = block 
+        proc.callops[callop] = block
         assert(proc.target == target.key and proc.retblock == retblock and proc.retop == retop)
-        del callop.iNode 
+        del callop.iNode
     #Now delete iNodes and fix extra input variables
     procs = procs.values()
     for proc in procs:
@@ -673,7 +673,7 @@ def ssaFromVerified(code, iNodes):
         bvars = list(block.tempvars)
         del block.tempvars
         assert(None not in bvars)
-        
+
         bvars += [phi.rval for phi in block.phis]
         for op in block.lines:
             bvars += op.params
@@ -688,7 +688,7 @@ def ssaFromVerified(code, iNodes):
     for block in blocks:
         block.jump = block.jump.reduceSuccessors([])
     parent.blocks = blocks
-    
+
     del parent._interns #no new variables should be created from vtypes after this point. Might as well free it
     parent._conscheck()
     return parent

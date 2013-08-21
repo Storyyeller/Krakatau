@@ -398,7 +398,6 @@ class MethodDecompiler(object):
 
         self._preorder(root, visitFindDefs)
         #These should have 2 uses since the initial assignment also counts
-        temp = {v[0] for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
         replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
 
         #Avoid reordering past expressions that potentially have side effects or depend on external state
@@ -412,12 +411,12 @@ class MethodDecompiler(object):
                     divisor = expr.params[-1]
                     if not isinstance(divisor, ast.Literal) or divisor.val == 0:
                         return True
+            assert(not isinstance(expr, ast.BinaryInfix) or expr.opstr not in ('&&','||'))
             return False
 
         def doReplacement(item, pairs):
             old, new = item.expr.params
             assert(isinstance(old, ast.Local) and old.dtype == new.dtype)
-
             stack = [(True, (True, item2, expr)) for item2, expr in reversed(pairs) if expr is not None]
             while stack:
                 recurse, args = stack.pop()
@@ -432,10 +431,10 @@ class MethodDecompiler(object):
                     if isinstance(expr, ast.Ternary):
                         stack.append((True, (False, expr, expr.params[2])))
                         stack.append((True, (False, expr, expr.params[1])))
-                        stack.append((True, (True, expr, expr.params[0])))
+                        stack.append((True, (canReplace, expr, expr.params[0])))
                     else:
                         for param in reversed(expr.params):
-                            stack.append((True, (True, expr, param)))
+                            stack.append((True, (canReplace, expr, param)))
 
                     if expr == old:
                         if canReplace:

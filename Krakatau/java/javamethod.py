@@ -432,6 +432,16 @@ class MethodDecompiler(object):
                         stack.append((True, (False, expr, expr.params[2])))
                         stack.append((True, (False, expr, expr.params[1])))
                         stack.append((True, (canReplace, expr, expr.params[0])))
+                    #For assignments, we unroll the LHS arguments, because if assigning
+                    #to an array or field, we don't want that to serve as a barrier
+                    elif isinstance(expr, ast.Assignment):
+                        left, right = expr.params
+                        stack.append((True, (canReplace, expr, right)))
+                        if isinstance(left, (ast.ArrayAccess, ast.FieldAccess)):
+                            for param in reversed(left.params):
+                                stack.append((True, (canReplace, left, param)))
+                        else:
+                            assert(isinstance(left, ast.Local))
                     else:
                         for param in reversed(expr.params):
                             stack.append((True, (canReplace, expr, param)))

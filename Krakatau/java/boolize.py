@@ -24,7 +24,8 @@ def visitExprs(scope, callback):
     for item in scope.statements:
         for sub in item.getScopes():
             visitExprs(sub, callback)
-        callback(item, item.expr)
+        if item.expr is not None:
+            callback(item, item.expr)
 
 def propagate(varlist, sources):
     vals = {}
@@ -33,7 +34,7 @@ def propagate(varlist, sources):
         val = TOP
         for var in scc:
             for c in sources[var].consts:
-                val &= c        
+                val &= c
             for v in sources[var].vars:
                 if v not in scc:
                     val &= vals[v]
@@ -56,11 +57,8 @@ def fixArrays(root, arg_vars):
     sources = collections.defaultdict(lambda:mask_t([], []))
 
     def addSourceArray(item, expr):
-        if isinstance(expr, ast.Assignment):
+        if expr.isLocalAssign():
             left, right = expr.params
-            if not isinstance(left, ast.Local):
-                return
-
             if left.dtype[0] == '.bexpr':
                 assert(left not in arg_vars)
                 varlist.append(left) # Note, may have duplicates, but this shouldn't really matter
@@ -74,11 +72,11 @@ def fixArrays(root, arg_vars):
                     visitLeaf(right.params[0], sources[left], arg_vars)
                 else:
                     assert(0)
-        if isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
+        elif isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
             if expr.dtype[0] == '.bexpr':
                 isbool = (item.tt[0] == BoolTT[0])
                 sources[expr].consts.append(BOOL if isbool else BYTE)
-    
+
     visitExprs(root, addSourceArray)
     vals = propagate(varlist, sources)
     backPropagate(varlist, sources, vals)
@@ -97,11 +95,8 @@ def fixScalars(root, arg_vars):
     instanceofs = []
 
     def addSourceScalar(item, expr):
-        if isinstance(expr, ast.Assignment):
+        if expr.isLocalAssign():
             left, right = expr.params
-            if not isinstance(left, ast.Local):
-                return
-
             if left.dtype in int_tts and left not in arg_vars:
                 varlist.append(left) # Note, may have duplicates, but this shouldn't really matter
 
@@ -123,7 +118,7 @@ def fixScalars(root, arg_vars):
                         sources[left].consts.append(BYTE)
                 else:
                     assert(0)
-        if isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
+        elif isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
             if expr.dtype in int_tts and expr not in arg_vars:
                 isbool = (item.tt[0] == BoolTT[0])
                 sources[expr].consts.append(BOOL if isbool else BYTE)
@@ -134,7 +129,7 @@ def fixScalars(root, arg_vars):
     #Make instanceof results bool if it doesn't conflict with previous assignments
     for var in instanceofs:
         if vals[var] & BOOL:
-           vals[var] = BOOL 
+           vals[var] = BOOL
     backPropagate(varlist, sources, vals)
 
     #Fix the propagated types

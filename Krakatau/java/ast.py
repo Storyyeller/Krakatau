@@ -300,6 +300,8 @@ class JavaExpression(object):
 
     def addParens_sub(self): pass
 
+    def isLocalAssign(self): return isinstance(self, Assignment) and isinstance(self.params[0], Local)
+
     def __repr__(self):
         return type(self).__name__.rpartition('.')[-1] + ' ' + self.print_()
     __str__ = __repr__

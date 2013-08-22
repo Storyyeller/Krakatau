@@ -21,10 +21,9 @@ def findVarDeclInfo(root, predeclared):
         for param in expr.params:
             visit(scope, param)
 
-        if isinstance(expr, ast.Assignment):
+        if expr.isLocalAssign():
             left, right = expr.params
-            if isinstance(left, ast.Local):
-                info[left].defs.append(right)
+            info[left].defs.append(right)
         elif isinstance(expr, (ast.Local, ast.Literal)):
             #this would be so much nicer if we had Ordered defaultdicts
             info.setdefault(expr, DeclInfo())
@@ -129,7 +128,6 @@ def replaceKeys(top, replace):
                 replaceKeys(scope, replace)
 
 NONE_SET = frozenset([None])
-
 def _preorder(scope, func):
     newitems = []
     for i, item in enumerate(scope.statements):
@@ -304,30 +302,17 @@ def _setScopeParents(scope):
             sub.bases = scope.bases + (sub,)
             _setScopeParents(sub)
 
-def _replaceExpressions(scope, rdict):
+def _replaceExpressions(scope, item, rdict):
     #Must be done before local declarations are created since it doesn't touch/remove them
-    newcontents = []
-    for item in scope.statements:
-        remove = False
-        for subscope in item.getScopes():
-            _replaceExpressions(subscope, rdict)
-
-        try:
-            expr = item.expr
-        except AttributeError:
-            pass
-        else:
-            if expr is not None:
-                item.expr = expr.replaceSubExprs(rdict)
-
-        #remove redundant assignments i.e. x=x;
-        if isinstance(item, ast.ExpressionStatement) and isinstance(item.expr, ast.Assignment):
-            left, right = item.expr.params
-            remove = (left == right)
-
-        if not remove:
-            newcontents.append(item)
-    scope.statements = newcontents
+    if item.expr is not None:
+        item.expr = item.expr.replaceSubExprs(rdict)
+    #remove redundant assignments i.e. x=x;
+    if isinstance(item.expr, ast.Assignment):
+        assert(isinstance(item, ast.ExpressionStatement))
+        left, right = item.expr.params
+        if left == right:
+            return []
+    return [item]
 
 def _mergeVariables(root, predeclared):
     _setScopeParents(root)
@@ -367,8 +352,8 @@ def _mergeVariables(root, predeclared):
             varmap[var] = var
             if len(info[var].defs) > 1:
                 forbidden.add(var)
-    _replaceExpressions(root, varmap)
-    _replaceExpressions(root, varmap)
+    _preorder(root, partial(_replaceExpressions, rdict=varmap))
+    _preorder(root, partial(_replaceExpressions, rdict=varmap))
 
 def _inlineVariables(root):
     #first find all variables with a single def and use
@@ -376,10 +361,8 @@ def _inlineVariables(root):
     uses = collections.defaultdict(int)
 
     def visitExprFindDefs(expr):
-        if isinstance(expr, ast.Assignment):
-            left, right = expr.params
-            if isinstance(left, ast.Local):
-                defs[left].append(expr)
+        if expr.isLocalAssign():
+            defs[expr.params[0]].append(expr)
         elif isinstance(expr, ast.Local):
             uses[expr] += 1
 

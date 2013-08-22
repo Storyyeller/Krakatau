@@ -84,9 +84,7 @@ def decompileClass(path=[], targets=None, outpath=None, plugins=[]):
         for i,target in enumerate(targets):
             print 'processing target {}, {} remaining'.format(target, len(targets)-i)
             c = e.getClass(target)
-
-            deco = javaclass.ClassDecompiler(c, makeGraph)
-            source = deco.generateSource()
+            source = javaclass.generateAST(c, makeGraph).print_()
             #The single class decompiler doesn't add package declaration currently so we add it here
             if '/' in target:
                 package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])

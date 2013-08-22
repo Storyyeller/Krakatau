@@ -4,7 +4,7 @@ from ..ssa import objtypes
 from ..verifier.descriptors import parseFieldDescriptor
 
 from . import ast, ast2
-from .javamethod import MethodDecompiler
+from .javamethod import generateAST
 from .reserved import reserved_identifiers
 
 IGNORE_EXCEPTIONS = 0
@@ -45,13 +45,13 @@ class ClassDecompiler(object):
                 data = const_attrs[0]
                 index = struct.unpack('>h', data)[0]
                 initexpr = loadConstValue(cpool, index)
-        return ast2.FieldDef(' '.join(flags), ast.TypeName(dtype), field.name, initexpr)       
+        return ast2.FieldDef(' '.join(flags), ast.TypeName(dtype), field.name, initexpr)
 
     def _getMethod(self, method):
         try:
             graph = self.cb(method) if method.code is not None else None
             print 'Decompiling method', method.name.encode('utf8'), method.descriptor.encode('utf8')
-            code_ast = MethodDecompiler(method, graph, self.forbidden_identifiers).generateAST()
+            code_ast = generateAST(method, graph, self.forbidden_identifiers)
             return code_ast
         except Exception as e:
             if not IGNORE_EXCEPTIONS:
@@ -60,8 +60,8 @@ class ClassDecompiler(object):
                 print 'Unable to decompile ' + self.class_.name
             else:
                 print 'Decompiling {} failed!'.format(self.class_.name)
-            code_ast = MethodDecompiler(method, None, self.forbidden_identifiers).generateAST()
-            code_ast.comment = ' {0!r}: {0!s}'.format(e) 
+            code_ast = generateAST(method, None, self.forbidden_identifiers)
+            code_ast.comment = ' {0!r}: {0!s}'.format(e)
             return code_ast
 
     def generateSource(self):

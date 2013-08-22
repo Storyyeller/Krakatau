@@ -219,11 +219,11 @@ _assignable_sprims = '.byte','.short','.char'
 _assignable_lprims = '.int','.long','.float','.double'
 
 def isObject(tt):
-    return tt == objtypes.NullTT or tt[1]>0 or not tt[0][0].startswith('.')
+    return tt == objtypes.NullTT or tt[1] > 0 or not tt[0][0].startswith('.')
 
 def isPrimativeAssignable(fromt, to):
     x, y = fromt[0], to[0]
-    if x==y or (x in _assignable_sprims and y in _assignable_lprims):
+    if x == y or (x in _assignable_sprims and y in _assignable_lprims):
         return True
     elif (x in _assignable_lprims and y in _assignable_lprims):
         return _assignable_lprims.index(x) <= _assignable_lprims.index(y)
@@ -376,7 +376,7 @@ class BinaryInfix(JavaExpression):
         for i, p in enumerate(self.params):
             if p.precedence > myprec:
                 self.params[i] = Parenthesis(p)
-            elif p.precedence == myprec and i>0 and not associative:
+            elif p.precedence == myprec and i > 0 and not associative:
                 self.params[i] = Parenthesis(p)
 
 class Cast(JavaExpression):

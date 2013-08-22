@@ -9,12 +9,12 @@ from ..ssa.exceptionset import ExceptionSet
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 
 # This module is responsible for transforming an arbitrary control flow graph into a tree
-# of nested structures corresponding to Java control flow statements. This occurs in 
+# of nested structures corresponding to Java control flow statements. This occurs in
 # several main steps
 #
 # Preprocessing - create graph view and ensure that there are no self loops and every node
 #   has only one incoming edge type
-# Structure loops - ensure every loop has a single entry point. This may result in 
+# Structure loops - ensure every loop has a single entry point. This may result in
 #   exponential code duplication in pathological cases
 # Structure exceptions - create dummy nodes for every throw exception type for every node
 # Structure conditionals - order switch targets consistent with fallthrough and create
@@ -146,7 +146,7 @@ def structureLoops(nodes):
                 print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
                 print '({} entry points, {} blocks)'.format(len(entries), len(scc))
 
-                reaches = [(n, graph_util.topologicalSort(entries, 
+                reaches = [(n, graph_util.topologicalSort(entries,
                     lambda block:[x for x in block.successors if x in scc_set and x is not n]))
                     for n in scc]
 
@@ -159,8 +159,8 @@ def structureLoops(nodes):
             newtodo.extend(scc)
             newtodo.remove(head)
             while_heads.append(head)
-        todo = newtodo   
-    return while_heads 
+        todo = newtodo
+    return while_heads
 
 def structureExceptions(nodes):
     thrownodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.OnException)]
@@ -207,8 +207,8 @@ def structureExceptions(nodes):
 
 def structureConditionals(entryNode, nodes):
     dom = DominatorInfo(entryNode)
-    switchnodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.Switch)]    
-    ifnodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.If)]    
+    switchnodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.Switch)]
+    ifnodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.If)]
 
     #For switch statements, we can't just blithley indirect all targets as that interferes with fallthrough behavior
     switchinfos = []
@@ -224,7 +224,7 @@ def structureConditionals(entryNode, nodes):
             parents[x] = [k for k,v in domains.items() if not v.isdisjoint(x.predecessors)]
             if x in parents[x]:
                 parents[x].remove(x)
-        
+
         #We need to make sure that the fallthrough graph consists of independent chains
         #For targets with multiple parents, both parents must be removed
         #For a target with multiple children, all but one of the children must be removed
@@ -278,7 +278,7 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
     forbid_dicts = ddict(lambda:masks.copy())
     for n, mask, csets, tryinfos in newtryinfos:
         for ot, cset in csets.items():
-            forbid_dicts[ot][n] -= cset    
+            forbid_dicts[ot][n] -= cset
     for forbid in forbid_dicts.values():
         for k in forbid.keys():
             if not forbid[k]:
@@ -420,7 +420,7 @@ def orderConstraints(dom, constraints, nodes):
         children[parent].append(cnode)
         todo.remove(cnode)
         frozen.add(cnode)
-        
+
     #make sure items are nested
     for k, v in children.items():
         temp = set()
@@ -491,7 +491,7 @@ def mergeExceptions(dom, children, constraints, nodes):
         while 1:
             done = True
             parent, pscope = parents[con]
-            #Ugly hack to work around the fact that try bodies are temporarily stored 
+            #Ugly hack to work around the fact that try bodies are temporarily stored
             #in the main constraint, not its scopes
             while not body <= (parent if parent.tag == 'try' else pscope).lbound:
                 #Try to extend parent rather than just failing
@@ -540,7 +540,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                     temp.add(topnd)
                     for newdown in temp:
                         unforbid(forbidden, newdown)
-                    
+
                     assert(con not in temp)
                     forceddown |= temp
                     bad = cset & forbidden.get(node, ExceptionSet.EMPTY)
@@ -573,7 +573,7 @@ def mergeExceptions(dom, children, constraints, nodes):
             unforbid(new.forbidden, con)
             for new2 in forceddown - new.forceddown:
                 unforbid(new.forbidden, new2)
-            new.forceddown.add(con) 
+            new.forceddown.add(con)
             new.forceddown |= forceddown
 
         #Move con into it's new position in the tree
@@ -585,7 +585,7 @@ def mergeExceptions(dom, children, constraints, nodes):
     # print 'Merging exceptions ({1}/{0}) trys'.format(len(constraints), len(trycons))
     topoorder = graph_util.topologicalSort(constraints, lambda cn:([parents[cn]] if cn in parents else []))
     trycons = sorted(trycons, key=topoorder.index)
-    #note that the tree may be changed while iterating, but constraints should only move up 
+    #note that the tree may be changed while iterating, but constraints should only move up
 
     removed = set()
     for con in trycons:
@@ -838,7 +838,7 @@ def completeScopes(dom, croot, children, isClinit):
             #Be careful to make sure the order is deterministic
             temp = set(body)
             parts = [n.norm_suc_nl for n in sorted(body, key=nodeorder.get)]
-            startnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]            
+            startnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]
 
             temp = set(ubound)
             parts = [n.norm_suc_nl for n in sorted(ubound, key=nodeorder.get)]
@@ -850,9 +850,7 @@ def completeScopes(dom, croot, children, isClinit):
             #Now we have the max flow, try to find the min cut
             #Just use the set of nodes visited during the final BFS
             interior = [x for x in (lastseen & ubound) if lastseen.issuperset(x.norm_suc_nl)]
-            # cutsize = len(lastseen)-len(interior)
 
-            body0 = body.copy()
             body.update(interior)
             body = dom.extend(body) #TODO - figure out a cleaner way to do this
             assert(body.issubset(ubound) and body==dom.extend(body))
@@ -898,7 +896,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
             domC[n] = domC[n][:match]
 
     heads = set(n for n in body if domC[n][-1] == n)
-    for n in body: 
+    for n in body:
         domC[n] = [x for x in domC[n] if x in heads]
 
     #Make sure this is deterministicly ordered
@@ -906,7 +904,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
     for n in body:
         mdata[domC[n][-1]].nodes.add(n)
     for item in childcons:
-        head = domC[dom.dominator(item.lbound)][-1] 
+        head = domC[dom.dominator(item.lbound)][-1]
         mdata[head].items.append(item)
         mdata[head].nodes |= item.lbound
 
@@ -925,7 +923,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
                 del mdata[h2]
             hits = mdata[h].nodes.intersection(mdata)
         assert(hits == set([h]))
-    
+
     #Now that we have the final set of heads, fill in the tree data
     #add a dummy to the front so [-1] always works
     domPruned = {h:[None]+[h2 for h2 in domC[h][:-1] if h2 in mdata] for h in mdata}
@@ -940,7 +938,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
             mnode.depth = 2
         mnode.tiebreak = rno_get(h)
 
-        assert(h in mnode.nodes and len(mnode.nodes) >= len(mnode.items))      
+        assert(h in mnode.nodes and len(mnode.nodes) >= len(mnode.items))
         mnode.children = [mnode2 for h2, mnode2 in mdata.items() if domPruned[h2][-1] == h]
 
     revorder = graph_util.topologicalSort(mdata.values(), lambda mn:mn.children)
@@ -966,7 +964,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
                 subnode.top = False
         assert(mnode.top)
         assert(len(set(mnode.subtree)) == len(mnode.subtree))
-    
+
     results = []
     for root in revorder:
         if not root.top:
@@ -976,7 +974,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
             nodes |= mnode.nodes
             items += mnode.items
         results.append((nodes, items))
-    
+
     temp = list(itertools.chain.from_iterable(zip(*results)[1]))
     assert(len(temp) == len(childcons) and set(temp) == set(childcons))
     return results
@@ -1044,13 +1042,13 @@ def constraintsToSETree(dom, croot, children, nodes):
         elif cnode.tag == 'if':
             #ssa_jump stores false branch first, but ast gen assumes true branch first
             sescopes = [sescopes[1], sescopes[0]]
-            new = SEIf(head, sescopes)            
+            new = SEIf(head, sescopes)
         elif cnode.tag == 'switch':
             #Switch fallthrough can only be done implicitly, but we may need to jump to it
-            #from arbitrary points in the scope, so we add an extra scope so we have a 
+            #from arbitrary points in the scope, so we add an extra scope so we have a
             #labeled break. If unnecessary, it should be removed later on anyway
             sescopes = [SEScope([sescope]) for sescope in sescopes]
-            new = SESwitch(head, sescopes)            
+            new = SESwitch(head, sescopes)
         elif cnode.tag == 'try':
             catchtts = cnode.cset.getTopTTs()
             catchvar = cnode.catchvar
@@ -1070,8 +1068,8 @@ def _checkNested(ctree_children):
     #Check tree for proper nesting
     for k, children in ctree_children.items():
         for child in children:
-            assert(child.lbound <= k.lbound)    
-            assert(child.lbound <= child.ubound)  
+            assert(child.lbound <= k.lbound)
+            assert(child.lbound <= child.ubound)
             scopes = [s for s in k.scopes if s.ubound & child.lbound]
             assert(len(scopes) == 1)
 
@@ -1115,9 +1113,9 @@ def structure(entryNode, nodes, isClinit):
 
     for n in nodes:
         for x in n.predecessors:
-            assert(n in x.successors)        
+            assert(n in x.successors)
         for x in n.successors:
-            assert(n in x.predecessors)                        
+            assert(n in x.predecessors)
         assert(set(n.successors) == (set(n.outvars) | set(n.eassigns)))
 
     #note, these add new nodes (list passed by ref)

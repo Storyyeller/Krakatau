@@ -643,7 +643,6 @@ def _pruneVoidReturn(scope):
 def generateAST(method, graph, forbidden_identifiers):
     env = method.class_.env
     namegen = NameGen(forbidden_identifiers)
-    labelgen = LabelGen().next
     class_ = method.class_
     inputTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)[0]
     tts = objtypes.verifierToSynthetic_seq(inputTypes)

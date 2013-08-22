@@ -5,7 +5,6 @@ class IntConstraint(ValueType):
         self.width = width
         self.min = min_
         self.max = max_
-        self.reducible = min_<max_
         self.isBot = (-min_ == max_+1 == (1<<width)//2)
 
     @staticmethod

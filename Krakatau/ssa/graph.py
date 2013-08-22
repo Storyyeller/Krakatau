@@ -593,7 +593,7 @@ def ssaFromVerified(code, iNodes):
 
         #The successor state uses the merged locals so it gets skipvars
         zipped = itertools.izip_longest(newlocals, jsrslots.locals, fillvalue=None)
-        mask = [mask for entry,mask in retop.iNode.masks if entry==target.key][0]
+        mask = [mask for entry,mask in retop.iNode.masks if entry == target.key][0]
         merged = [(x if i in mask else y) for i,(x,y) in enumerate(zipped)]
         merged_slots = slots_t(monad=newmonad, locals=merged, stack=newstack)
 

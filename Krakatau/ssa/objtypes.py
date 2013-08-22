@@ -19,9 +19,9 @@ CharTT = '.char', 0
 ShortTT = '.short', 0
 
 def isSubtype(env, x, y):
-    if x==y or y==ObjectTT or x==NullTT:
+    if x == y or y == ObjectTT or x == NullTT:
         return True
-    elif y==NullTT:
+    elif y == NullTT:
         return False
     xname, xdim = x
     yname, ydim = y
@@ -48,7 +48,7 @@ def commonSupertype(env, tts):
     bases, dims = zip(*tts)
     dim = min(dims)
     if max(dims) > dim or 'java/lang/Object' in bases:
-        return 'java/lang/Object', dim 
+        return 'java/lang/Object', dim
     #all have same dim, find common superclass
     if any(base[0] == '.' for base in bases):
         return 'java/lang/Object', dim-1
@@ -60,7 +60,7 @@ def commonSupertype(env, tts):
 ######################################################################################################
 _verifierConvert = {vtypes.T_INT:IntTT, vtypes.T_FLOAT:FloatTT, vtypes.T_LONG:LongTT,
         vtypes.T_DOUBLE:DoubleTT, vtypes.T_SHORT:ShortTT, vtypes.T_CHAR:CharTT,
-        vtypes.T_BYTE:ByteTT, vtypes.T_BOOL:BoolTT, vtypes.T_NULL:NullTT, 
+        vtypes.T_BYTE:ByteTT, vtypes.T_BOOL:BoolTT, vtypes.T_NULL:NullTT,
         vtypes.OBJECT_INFO:ObjectTT}
 
 def verifierToSynthetic_seq(vtypes):
@@ -80,7 +80,7 @@ def verifierToSynthetic(vtype):
 
 #returns supers, exacts
 def declTypeToActual(env, decltype):
-    name, dim = decltype 
+    name, dim = decltype
 
     #Verifier treats bool[]s and byte[]s as interchangeable, so it could really be either
     if dim and (name == ByteTT[0] or name == BoolTT[0]):

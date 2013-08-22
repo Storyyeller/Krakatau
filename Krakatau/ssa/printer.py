@@ -2,8 +2,8 @@ import itertools, collections
 import re
 
 from ..namegen import NameGen
-from ssa_types import *
-import ssa_ops, ssa_jumps, subproc
+from .ssa_types import *
+from . import ssa_ops, ssa_jumps, subproc
 
 '''Prints out SSA graphs, mostly for debugging purposes'''
 
@@ -44,7 +44,7 @@ class SSAPrinter(object):
         if var in self.aliases:
             return self.aliases[var]
         if self.doAlias:
-            orig = var.origin    
+            orig = var.origin
             if orig.__class__.__name__ == 'Phi':
                 vals = list(set(orig.params))
 
@@ -61,7 +61,7 @@ class SSAPrinter(object):
     _math_types += (ssa_ops.IAnd, ssa_ops.IOr, ssa_ops.IShl, ssa_ops.IShr, ssa_ops.IUshr, ssa_ops.IXor)
     _math_types += (ssa_ops.FAdd, ssa_ops.FDiv, ssa_ops.FMul, ssa_ops.FRem, ssa_ops.FSub)
     _math_symbols = dict(zip(_math_types, '+ / * % - & | << >> >>> ^ + / * % -'.split()))
-    
+
     def printTT(self, tt):
         base, dim = tt
         return base.strip('.') + '[]'*dim
@@ -91,16 +91,16 @@ class SSAPrinter(object):
         elif isinstance(op, ssa_ops.ArrLength):
             rhs_expr = '{}.length'.format(params[0])
         elif isinstance(op, ssa_ops.ArrLoad):
-            rhs_expr = '{}[{}]'.format(params[0], params[1])        
+            rhs_expr = '{}[{}]'.format(params[0], params[1])
         elif isinstance(op, ssa_ops.ArrStore):
             rhs_expr = '{}[{}] = {}'.format(params[0], params[1], params[2])
         elif isinstance(op, ssa_ops.CheckCast):
-            rhs_expr = '({}){}'.format(self.printTT(op.target_tt), params[0])        
+            rhs_expr = '({}){}'.format(self.printTT(op.target_tt), params[0])
         elif isinstance(op, ssa_ops.Convert):
             typecode = {SSA_INT:'int', SSA_LONG:'long', SSA_FLOAT:'float', SSA_DOUBLE:'double'}[op.target]
             rhs_expr = '({}){}'.format(typecode, params[0])
         elif isinstance(op, ssa_ops.FCmp):
-            rhs_expr = 'fcmp({}, {}, onNan={})'.format(params[0], params[1], op.NaN_val)  
+            rhs_expr = 'fcmp({}, {}, onNan={})'.format(params[0], params[1], op.NaN_val)
         elif isinstance(op, ssa_ops.FNeg):
             rhs_expr = '-' + params[0]
         elif isinstance(op, ssa_ops.FieldAccess):
@@ -113,9 +113,9 @@ class SSAPrinter(object):
                 ident = ident + ' = ' + params[-1]
             rhs_expr = ident
         elif isinstance(op, ssa_ops.ICmp):
-            rhs_expr = 'icmp({}, {})'.format(*params) 
+            rhs_expr = 'icmp({}, {})'.format(*params)
         elif isinstance(op, ssa_ops.InstanceOf):
-            rhs_expr = '{} instanceof {}'.format(params[0], self.printTT(op.target_tt))  
+            rhs_expr = '{} instanceof {}'.format(params[0], self.printTT(op.target_tt))
         elif isinstance(op, ssa_ops.Invoke):
             if op.instruction[0] in ('invokevirtual','invokeinterface'):
                 suffix = '{}.{}({})'.format(params[0], op.name, ', '.join(params[1:]))
@@ -124,12 +124,12 @@ class SSAPrinter(object):
             rhs_expr = suffix
         elif isinstance(op, ssa_ops.Monitor):
             code = 'exit' if op.exit else 'enter'
-            rhs_expr = 'mon{}({})'.format(code, params[0])          
+            rhs_expr = 'mon{}({})'.format(code, params[0])
         elif isinstance(op, ssa_ops.New):
-            rhs_expr = 'new {}'.format(self.printTT(op.tt))        
+            rhs_expr = 'new {}'.format(self.printTT(op.tt))
         elif isinstance(op, (ssa_ops.NewArray, ssa_ops.MultiNewArray)):
             dims = params
-            base, dim = op.tt 
+            base, dim = op.tt
             dim_exprs = params + ['']*(dim-len(params))
             fmt = 'new {}' + '[{}]'*dim
             rhs_expr = fmt.format(self.printTT((base,0)), *dim_exprs)
@@ -243,8 +243,8 @@ class SSAPrinter(object):
             lines += ['\t' + line for line in self.printJump(block.jump, nextBlock)]
             blocklines.append((block,lines))
 
-        # blocklines = [(lines if block in self.referencedBlocks else lines[1:]) for block,lines in blocklines]    
-        blocklines = [lines for block,lines in blocklines]    
+        # blocklines = [(lines if block in self.referencedBlocks else lines[1:]) for block,lines in blocklines]
+        blocklines = [lines for block,lines in blocklines]
         alllines += map('\n'.join, blocklines)
 
         #print Constraints

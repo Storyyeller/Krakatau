@@ -3,21 +3,20 @@ import itertools
 from .. import error as error_types
 from .. import opnames
 from .. import bytecode
-from verifier_types import *
-from descriptors import *
+from .verifier_types import *
+from .descriptors import *
 
 #This verifier is intended to closely replicate the behavior of Hotspot's inference verifier
 #http://hg.openjdk.java.net/jdk7/jdk7/jdk/file/tip/src/share/native/common/check_code.c
 
-
-stackCharPatterns = {opnames.NOP:'-', 
+stackCharPatterns = {opnames.NOP:'-',
                     opnames.CONSTNULL:'-A', opnames.CONST:'-{0}',
                     opnames.LDC:'-?',
                     opnames.LOAD:'-{0}', opnames.STORE:'{0}-',
                     # opnames.ARRLOAD:'[{0}]I-{1}', opnames.ARRSTORE:'[{0}]I{1}-',
                     opnames.ARRLOAD_OBJ:'[A]I-A', opnames.ARRSTORE_OBJ:'[A]IA-',
-                    opnames.IINC:'-', 
-                    
+                    opnames.IINC:'-',
+
                     #Stack manip handled elsewhere
                     opnames.POP:'1-', opnames.POP2:'2+1-',
                     opnames.DUP:'1-11', opnames.DUPX1:'21-121', opnames.DUPX2:'3+21-1321',
@@ -36,7 +35,7 @@ stackCharPatterns = {opnames.NOP:'-',
                     opnames.IF_I:'I-', opnames.IF_ICMP:'II-',
                     opnames.IF_A:'A-', opnames.IF_ACMP:'AA-', #under standard ordering, if_a comes much later
 
-                    opnames.GOTO:'-', opnames.JSR:'-R', opnames.RET:'-', 
+                    opnames.GOTO:'-', opnames.JSR:'-R', opnames.RET:'-',
                     opnames.SWITCH:'I-',
                     #return
                     #field, invoke
@@ -46,7 +45,7 @@ stackCharPatterns = {opnames.NOP:'-',
                     opnames.THROW:'A-', #Hotspot uses special code 'O', but it doesn't actually matter
                     opnames.CHECKCAST:'A-A', opnames.INSTANCEOF:'A-I',
                     opnames.MONENTER:'A-',opnames.MONEXIT:'A-',
-                    #multinewarray 
+                    #multinewarray
                 }
 
 _invoke_ops = (opnames.INVOKESPECIAL,opnames.INVOKESTATIC,opnames.INVOKEVIRTUAL,opnames.INVOKEINTERFACE,opnames.INVOKEINIT,opnames.INVOKEDYNAMIC)
@@ -56,7 +55,7 @@ def getSpecificStackCode(code, instr):
     cpool = code.class_.cpool
 
     #special cases, which either don't have a before or an after
-    if op in (opnames.PUTSTATIC,opnames.GETSTATIC,opnames.PUTFIELD,opnames.GETFIELD,opnames.MULTINEWARRAY) + _invoke_ops:        
+    if op in (opnames.PUTSTATIC,opnames.GETSTATIC,opnames.PUTFIELD,opnames.GETFIELD,opnames.MULTINEWARRAY) + _invoke_ops:
         before = {opnames.GETSTATIC:'', opnames.GETFIELD:'A'}.get(op)
         after = {opnames.PUTSTATIC:'', opnames.PUTFIELD:'', opnames.MULTINEWARRAY:'A'}.get(op)
         #before, after may be None if unused
@@ -127,7 +126,7 @@ class InstructionNode(object):
     NOT_CONSTRUCTED = 1<<2
 
     #These are used only in __str__ for display purposes
-    _flag_vals = {1<<0:'NO_RETURN', 1<<1:'NEED_CONSTRUCTOR', 
+    _flag_vals = {1<<0:'NO_RETURN', 1<<1:'NEED_CONSTRUCTOR',
         1<<2:'NOT_CONSTRUCTED'}
 
     def __init__(self, code, offsetList, key):
@@ -149,12 +148,12 @@ class InstructionNode(object):
 
         #Field correspondences
         # invoke*: op2.fi -> target_type
-        # new, checkcast, newarray, anewarray, multinewarray, instanceof: 
+        # new, checkcast, newarray, anewarray, multinewarray, instanceof:
         #   op.fi -> push_type
         # new: op2.fi -> target_type
 
     def _verifyOpcodeOperands(self):
-        
+
         def isTargetLegal(addr):
             return addr is not None and addr in self.offsetList
         def verifyCPType(ind, types):
@@ -177,7 +176,7 @@ class InstructionNode(object):
             default, jumps, padding = self.instruction[1:]
             if padding != '\0'*len(padding):
                 self.error('Padding must be 0 in switch instruction')
-            
+
             keys, targets = zip(*jumps) if jumps else ([],[])
             if list(keys) != sorted(keys):
                 self.error('Lookupswitch keys must be in sorted order')
@@ -189,7 +188,7 @@ class InstructionNode(object):
             if cat == 1:
                 types = 'Int','Float','String'
                 if major >= 49:
-                    types += 'Class',                
+                    types += 'Class',
                 if major >= 51:
                     types += 'MethodHandle','MethodType'
             else:
@@ -216,7 +215,7 @@ class InstructionNode(object):
             if isctor:
                 if op != opnames.INVOKEINIT:
                     assert(op != opnames.INVOKESPECIAL) #should have been converted already
-                    self.error('Initializers must be called with invokespecial')            
+                    self.error('Initializers must be called with invokespecial')
             else:
                 if isinternal: #I don't think this is actually reachable in Hotspot due to earlier checks
                     self.error('Attempt to call internal method')
@@ -256,7 +255,7 @@ class InstructionNode(object):
                     self.error('Illegal dimensions in multinewarray')
 
         elif op == opnames.NEWARRAY:
-            target = parseFieldDescriptor('[' + self.instruction[1])[0]            
+            target = parseFieldDescriptor('[' + self.instruction[1])[0]
             if target is None:
                 self.error('Bad typecode for newarray')
             self.push_type = target
@@ -284,7 +283,7 @@ class InstructionNode(object):
             self.local_ind = self.instruction[2]
         elif op == opnames.IINC:
             self.local_tag = '.int'
-            self.local_ind = self.instruction[1]        
+            self.local_ind = self.instruction[1]
         elif op == opnames.RET:
             self.local_tag = '.address'
             self.local_ind = self.instruction[1]
@@ -292,11 +291,11 @@ class InstructionNode(object):
             self.parsed_desc = _loadFieldDesc(self.cpool, self.instruction[1])
             if self.parsed_desc is not None:
                 prefix = 'A' if op == opnames.PUTFIELD else ''
-                self.before = prefix + ''.join(map(vtype2Char, self.parsed_desc))           
+                self.before = prefix + ''.join(map(vtype2Char, self.parsed_desc))
         elif op in (opnames.GETFIELD, opnames.GETSTATIC):
             self.parsed_desc = _loadFieldDesc(self.cpool, self.instruction[1])
             if self.parsed_desc is not None:
-                self.after = ''.join(map(vtype2Char, self.parsed_desc))        
+                self.after = ''.join(map(vtype2Char, self.parsed_desc))
         elif op in _invoke_ops:
             self.parsed_desc = _loadMethodDesc(self.cpool, self.instruction[1])
             if self.parsed_desc is not None:
@@ -313,11 +312,11 @@ class InstructionNode(object):
 
         #Now get successors
         next_ = self.next_instruction
-        
+
         if op in (opnames.IF_A, opnames.IF_I, opnames.IF_ICMP, opnames.IF_ACMP):
             self.successors = next_, self.instruction[2]
         elif op in (opnames.JSR, opnames.GOTO):
-            self.successors = self.instruction[1], 
+            self.successors = self.instruction[1],
         elif op in (opnames.RETURN, opnames.THROW):
             self.successors = ()
         elif op == opnames.RET:
@@ -373,7 +372,7 @@ class InstructionNode(object):
                 #Return address case will fallthrough and error anyway
                 elif reg.tag == '.new' and reg.dim == 0:
                     return
-            self.error("Invalid local at {}, expected {}", i, t)   
+            self.error("Invalid local at {}, expected {}", i, t)
 
         if cat2:
             reg = locs[i+1]
@@ -385,9 +384,9 @@ class InstructionNode(object):
             inc = InstructionNode
             #Hotspot only checks this for void return as it only occurs in ctors
             if (self.flags & inc.NEED_CONSTRUCTOR) and (self.flags & inc.NOT_CONSTRUCTED):
-                self.error('Invalid flags at return')    
+                self.error('Invalid flags at return')
             if (self.flags & (inc.NO_RETURN)):
-                self.error('Invalid flags at return')    
+                self.error('Invalid flags at return')
 
     def _popStack(self, iNodes):
         #part1, get the stack code
@@ -419,7 +418,7 @@ class InstructionNode(object):
             si -= 1
             ci -= 1
             top = stack[si]
-            char = scode[ci]                
+            char = scode[ci]
 
             if char in 'IF':
                 et = T_FLOAT if char == 'F' else T_INT
@@ -529,7 +528,7 @@ class InstructionNode(object):
             elif op in (opnames.INVOKEVIRTUAL, opnames.INVOKEINTERFACE, opnames.INVOKESPECIAL):
                 objt = popped[0]
                 if not isAssignable(self.env, objt, self.target_type):
-                    self.error('Calling method on object of incorrect type')                
+                    self.error('Calling method on object of incorrect type')
                 if op == opnames.INVOKESPECIAL and not isAssignable(self.env, objt, curclass_fi):
                     self.error('Calling private or super method on different class')
                 # Note: this will never happen under our current implementation, but Hotspot
@@ -563,9 +562,9 @@ class InstructionNode(object):
         op = self.op
         newlocs = list(self.locals) #mutable copies
         newmasks = list(self.masks)
-        
+
         # Hotspot does things a bit strangely due to optimizations, which
-        # we don't really care about. So we save all the new bits and 
+        # we don't really care about. So we save all the new bits and
         # apply them at the end
         newbits = set()
         if op in (opnames.STORE, opnames.LOAD):
@@ -594,7 +593,7 @@ class InstructionNode(object):
                     newbits.add(i)
 
         newmasks = [(addr,bits | newbits) for addr,bits in newmasks]
-        locals_ = tuple(newlocs) if newbits else self.locals 
+        locals_ = tuple(newlocs) if newbits else self.locals
         return locals_, tuple(newmasks)
 
     def _updateFlags(self, swap):
@@ -609,7 +608,7 @@ class InstructionNode(object):
 
         scode = self.after
         new_fi = T_INVALID
-        
+
         if op == opnames.LDC:
             #Hotspot appears to precompute this
             ind, cat = self.instruction[1:]
@@ -681,14 +680,14 @@ class InstructionNode(object):
 
         assert(all(isinstance(vt, fullinfo_t) for vt in stack))
         assert(all(isinstance(vt, fullinfo_t) for vt in locals_))
-        return (stack, locals_, masks, flags), swap        
+        return (stack, locals_, masks, flags), swap
 
     def _mergeSingleSuccessor(self, other, newstate, iNodes, isException):
         newstack, newlocals, newmasks, newflags = newstate
         if self.op in (opnames.RET, opnames.JSR):
             # Note: In most cases, this will cause an error later
             # as INVALID is not allowed on the stack after merging
-            # but if the stack is never merged afterwards, it's ok 
+            # but if the stack is never merged afterwards, it's ok
             newstack = tuple((T_INVALID if x.tag == '.new' else x) for x in newstack)
             newlocals = tuple((T_INVALID if x.tag == '.new' else x) for x in newlocals)
 
@@ -698,7 +697,7 @@ class InstructionNode(object):
             jsrnode = iNodes[self.offsetList[off_i-1]]
 
             if jsrnode.returnedFrom is not None and jsrnode.returnedFrom != self.key:
-                jsrnode.error('Multiple returns to jsr')                
+                jsrnode.error('Multiple returns to jsr')
             jsrnode.returnedFrom = self.key
 
             if jsrnode.visited: #if not, skip for later
@@ -761,7 +760,7 @@ class InstructionNode(object):
                         item = entry1, (mask1 | mask2)
                         mergedmasks.append(item)
                         last_match = j
-            newmasks = tuple(mergedmasks)            
+            newmasks = tuple(mergedmasks)
             if other.masks != newmasks:
                 other.masks = newmasks
                 other.changed = True
@@ -832,7 +831,7 @@ def verifyBytecode(code):
     method, class_ = code.method, code.class_
     args, rval = parseUnboundMethodDescriptor(method.descriptor, class_.name, method.static)
     env = class_.env
-    
+
     startFlags = 0
     #Object has no superclass to construct, so it doesn't get an uninit this
     if method.isConstructor and class_.name != 'java/lang/Object':
@@ -842,7 +841,7 @@ def verifyBytecode(code):
         startFlags |= InstructionNode.NOT_CONSTRUCTED
     assert(len(args) <= 255)
     args = tuple(args)
-    
+
     maxstack, maxlocals = code.stack, code.locals
     assert(len(args) <= maxlocals)
 
@@ -852,7 +851,7 @@ def verifyBytecode(code):
 
     keys = frozenset(iNodeLookup)
     for raw in code.except_raw:
-        if not ((0 <= raw.start < raw.end) and (raw.start in keys) and 
+        if not ((0 <= raw.start < raw.end) and (raw.start in keys) and
             (raw.handler in keys) and (raw.end in keys or raw.end == code.codelen)):
 
             keylist = sorted(keys) + [code.codelen]
@@ -860,7 +859,7 @@ def verifyBytecode(code):
             raise error_types.VerificationError(msg)
 
     def makeException(rawdata):
-        if rawdata.type_ind:        
+        if rawdata.type_ind:
             typen = class_.cpool.getArgsCheck('Class', rawdata.type_ind)
         else:
             typen = 'java/lang/Throwable'
@@ -871,7 +870,7 @@ def verifyBytecode(code):
     exceptions = map(makeException, code.except_raw)
 
     start = iNodes[0]
-    start.stack, start.locals, start.masks, start.flags = (), args, (), startFlags   
+    start.stack, start.locals, start.masks, start.flags = (), args, (), startFlags
     start.visited, start.changed = True, True
 
     done = False

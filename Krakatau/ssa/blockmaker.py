@@ -1,11 +1,9 @@
-import collections 
+import collections
 
+from . import ssa_ops, ssa_jumps, objtypes, subproc
 from .. import opnames as vops
 from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
-from ssa_types import *
-import ssa_ops, ssa_jumps
-import objtypes #for LDC
-import subproc
+from .ssa_types import *
 
 _charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'J':SSA_LONG,
                 'B':SSA_INT, 'C':SSA_INT, 'S':SSA_INT}
@@ -22,7 +20,7 @@ def makeConstVar(parent, type_, val):
 def parseArrOrClassName(desc):
     if desc[0] == '[':
         vtypes = parseFieldDescriptor(desc, unsynthesize=False)
-        tt = objtypes.verifierToSynthetic(vtypes[0])        
+        tt = objtypes.verifierToSynthetic(vtypes[0])
     else:
         tt = desc, 0
     return tt
@@ -142,7 +140,7 @@ def _field_access(parent, input_, iNode):
     index = iNode.instruction[1]
     target, name, desc = parent.getConstPoolArgs(index)
     cat = len(parseFieldDescriptor(desc))
-    
+
     argcnt = cat if 'put' in iNode.instruction[0] else 0
     if not 'static' in iNode.instruction[0]:
         argcnt += 1
@@ -173,7 +171,7 @@ def _if_icmp(parent, input_, iNode):
 
 def _iinc(parent, input_, iNode):
     junk, index, amount = iNode.instruction
-    
+
     oldval = input_.locals[index]
     constval = makeConstVar(parent, SSA_INT, amount)
     line = ssa_ops.IAdd(parent, (oldval, constval))
@@ -235,7 +233,7 @@ def _ldc(parent, input_, iNode):
     elif entry_type == 'Int':
         var = makeConstVar(parent, SSA_INT, args[0])
     elif entry_type == 'Long':
-        var = makeConstVar(parent, SSA_LONG, args[0])    
+        var = makeConstVar(parent, SSA_LONG, args[0])
     elif entry_type == 'Float':
         var = makeConstVar(parent, SSA_FLOAT, args[0])
     elif entry_type == 'Double':
@@ -322,7 +320,7 @@ def _return(parent, input_, iNode):
 def _store(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
-    
+
     newlocals = list(input_.locals)
     if len(newlocals) < index+cat:
         newlocals += [None] * (index+cat - len(newlocals))
@@ -368,7 +366,7 @@ _instructionHandlers = {
                         vops.GETFIELD: _field_access,
                         vops.GOTO: _nop, #since gotos are added by default, this is a nop
                         vops.IF_A: _if_a,
-                        vops.IF_ACMP: _if_icmp, #icmp works on objs too                
+                        vops.IF_ACMP: _if_icmp, #icmp works on objs too
                         vops.IF_I: _if_i,
                         vops.IF_ICMP: _if_icmp,
                         vops.IINC: _iinc,
@@ -444,7 +442,7 @@ def fromInstruction(parent, iNode, initMap):
     newstack = vals.get('newstack', stack)
     newlocals = vals.get('newlocals', locals_)
     newmonad = line.outMonad if (line and line.outMonad) else monad
-    outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)    
+    outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
 
     lines = [line] if line is not None else []
     successorStates = [((nodekey, False), outslot_norm) for nodekey in iNode.successors]
@@ -468,6 +466,6 @@ def fromInstruction(parent, iNode, initMap):
     block = BasicBlock(iNode.key, lines=lines, jump=jump)
     block.inslots = inslots
     block.successorStates = collections.OrderedDict(successorStates)
-    #store these vars in case we created any constants in the block that won't show up later 
+    #store these vars in case we created any constants in the block that won't show up later
     block.tempvars = [var for var in newstack + newlocals if var is not None]
     return block

@@ -1,6 +1,6 @@
 import collections, itertools
 
-from constraints import join, meet
+from .constraints import join, meet
 from .. import graph_util
 #UC = unary constraints
 

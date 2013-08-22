@@ -3,7 +3,8 @@ import collections
 from . import ssa_ops, ssa_jumps, objtypes, subproc
 from .. import opnames as vops
 from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
-from .ssa_types import *
+from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT, SSA_MONAD
+from .ssa_types import slots_t, BasicBlock
 
 _charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'J':SSA_LONG,
                 'B':SSA_INT, 'C':SSA_INT, 'S':SSA_INT}

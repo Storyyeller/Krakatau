@@ -17,9 +17,9 @@ SSA_OBJECT = 'obj',
 SSA_MONAD = 'monad',
 
 def verifierToSSAType(vtype):
-    vtype_dict = {vtypes.T_INT:SSA_INT, 
-                vtypes.T_LONG:SSA_LONG, 
-                vtypes.T_FLOAT:SSA_FLOAT, 
+    vtype_dict = {vtypes.T_INT:SSA_INT,
+                vtypes.T_LONG:SSA_LONG,
+                vtypes.T_FLOAT:SSA_FLOAT,
                 vtypes.T_DOUBLE:SSA_DOUBLE}
     #These should never be passed in here
     assert(vtype.tag not in ('.new','.init'))
@@ -28,24 +28,6 @@ def verifierToSSAType(vtype):
     elif vtype in vtype_dict:
         return vtype_dict[vtype]
     return None
-
-class Variable(object):
-    __slots__ = 'type','origin','name','const','decltype'
-
-    def __init__(self, type_, origin=None, name=""):
-        self.type = type_
-        self.origin = origin
-        self.name = name
-        self.const = None 
-        self.decltype = None #for objects, the inferred type from the verifier if any
-
-    #for debugging
-    def __str__(self):
-        return self.name if self.name else super(Variable, self).__str__()
-
-    def __repr__(self):
-        name =  self.name if self.name else "@" + hex(id(self))
-        return "Var {}".format(name)
 
 class BasicBlock(object):
     def __init__(self, key, lines, jump):
@@ -65,7 +47,7 @@ class BasicBlock(object):
     def getOps(self):
         return self.phis + self.lines
 
-    def getSuccessors(self): 
+    def getSuccessors(self):
         return self.jump.getSuccessors()
 
     def filterVarConstraints(self, keepvars):

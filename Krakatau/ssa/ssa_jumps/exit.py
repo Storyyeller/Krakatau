@@ -1,5 +1,4 @@
 from .base import BaseJump
-# from ssa_types import Variable, SSA_OBJECT
 
 class Return(BaseJump):
     def __init__(self, parent, arguments):

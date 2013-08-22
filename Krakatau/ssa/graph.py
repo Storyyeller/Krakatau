@@ -1,7 +1,6 @@
 import itertools, collections, copy
 ODict = collections.OrderedDict
 
-from .ssa_types import *
 from . import blockmaker,constraints, variablegraph, objtypes, subproc
 from . import ssa_jumps, ssa_ops
 from ..verifier.descriptors import parseUnboundMethodDescriptor
@@ -9,6 +8,26 @@ from .. import graph_util
 
 from .. import opnames
 from ..verifier import verifier_types
+from .ssa_types import SSA_OBJECT, SSA_MONAD
+from .ssa_types import slots_t, BasicBlock, verifierToSSAType
+
+class SSA_Variable(object):
+    __slots__ = 'type','origin','name','const','decltype'
+
+    def __init__(self, type_, origin=None, name=""):
+        self.type = type_
+        self.origin = origin
+        self.name = name
+        self.const = None
+        self.decltype = None #for objects, the inferred type from the verifier if any
+
+    #for debugging
+    def __str__(self):
+        return self.name if self.name else super(Variable, self).__str__()
+
+    def __repr__(self):
+        name =  self.name if self.name else "@" + hex(id(self))
+        return "Var {}".format(name)
 
 #This class is the main IR for bytecode level methods. It consists of a control
 #flow graph (CFG) in static single assignment form (SSA). Each node in the
@@ -506,7 +525,7 @@ class SSA_Graph(object):
     #assign variable names for debugging
     varnum = collections.defaultdict(itertools.count)
     def makeVariable(self, *args, **kwargs):
-        var = Variable(*args, **kwargs)
+        var = SSA_Variable(*args, **kwargs)
         pref = args[0][0][0]
         # var.name = pref + str(next(self.varnum[pref]))
         return var

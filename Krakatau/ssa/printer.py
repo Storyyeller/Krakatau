@@ -2,8 +2,9 @@ import itertools, collections
 import re
 
 from ..namegen import NameGen
-from .ssa_types import *
 from . import ssa_ops, ssa_jumps, subproc
+from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT, SSA_MONAD
+
 
 '''Prints out SSA graphs, mostly for debugging purposes'''
 

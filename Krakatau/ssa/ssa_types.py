@@ -43,6 +43,8 @@ class BasicBlock(object):
         self.unaryConstraints = collections.OrderedDict()
         #temp vars used during graph creation
         self.sourceStates = collections.OrderedDict()
+        # List of predecessor pairs in deterministic order
+        self.predecessors = None
 
     def getOps(self):
         return self.phis + self.lines
@@ -53,6 +55,17 @@ class BasicBlock(object):
     def filterVarConstraints(self, keepvars):
         pairs = [t for t in self.unaryConstraints.items() if t[0] in keepvars]
         self.unaryConstraints = collections.OrderedDict(pairs)
+
+    def removePredPair(self, pair):
+        self.predecessors.remove(pair)
+        for phi in self.phis:
+            del phi.dict[pair]
+
+    def replacePredPair(self, oldp, newp):
+        self.predecessors[self.predecessors.index(oldp)] = newp
+        for phi in self.phis:
+            phi.dict[newp] = phi.dict[oldp]
+            del phi.dict[oldp]
 
     def __str__(self):
         return 'Block ' + str(self.key)

@@ -39,8 +39,8 @@ def makeCallback(funcs):
             func(graph=s)
 
         if s.procs:
-            s.mergeSingleSuccessorBlocks()
-            s.removeUnusedVariables()
+            # s.mergeSingleSuccessorBlocks()
+            # s.removeUnusedVariables()
             s.inlineSubprocs()
 
         # print _stats(s)

@@ -90,9 +90,9 @@ class SSA_Graph(object):
             kept = set(self.blocks)
 
             for block in self.blocks:
-                for phi in block.phis:
-                    pairs = [(k,v) for k,v in phi.odict.items() if k[0] in kept]
-                    phi.updateDict(pairs)
+                for pair in block.predecessors[:]:
+                    if pair[0] not in kept:
+                        block.removePredPair(pair)
 
             if self.returnBlock not in kept:
                 self.returnBlock = None
@@ -110,14 +110,7 @@ class SSA_Graph(object):
             self.procs = [proc for proc in self.procs if proc.callops]
 
     def removeUnusedVariables(self):
-        for proc in self.procs:
-            keys = proc.callops.keys()[0].out.keys()
-            for key in keys:
-                if all(op.out[key] is None for op in proc.callops):
-                    for op in proc.callops:
-                        del op.out[key]
-                    del proc.retop.input[key]
-        #################################################################
+        assert(not self.procs)
         roots = [x for x in self.inputArgs if x is not None]
         for block in self.blocks:
             roots += block.jump.params
@@ -143,17 +136,6 @@ class SSA_Graph(object):
             block.phis = filterOps(block.phis)
             block.lines = filterOps(block.lines)
             block.filterVarConstraints(keepset)
-        #################################################################
-        for proc in self.procs:
-            for op in proc.callops:
-                for k, v in op.out.items():
-                    if v not in keepset:
-                        op.out[k] = None
-            phis = proc.target.phis
-            for op, block in proc.callops.items():
-                pvars = set(phi.odict[block,False] for phi in phis)
-                op.input = ODict((k,v) for k,v in op.input.items() if v in pvars)
-            assert(len(set(tuple(op.input.keys()) for op in proc.callops)) == 1)
 
     def _getSources(self):
         sources = collections.defaultdict(set)
@@ -163,12 +145,10 @@ class SSA_Graph(object):
         return sources
 
     def mergeSingleSuccessorBlocks(self):
+        assert(not self.procs) # Make sure that all single jsr procs are inlined first
+
         replace = {}
         removed = set()
-
-        # Make sure that all single jsr procs are inlined first
-        self.inlineSubprocs(onlySingle=True)
-
         sources = self._getSources()
         for block in self.blocks:
             if block in removed:
@@ -182,15 +162,15 @@ class SSA_Graph(object):
                     break
 
                 #We don't bother modifying sources upon merging since the only property we care about is number of successors, which will be unchanged
-                child = successors.pop()[0]
+                child, jtype = successors.pop()
                 if len(sources[child]) != 1:
                     break
 
                 #We've decided to merge the blocks, now do it
                 block.unaryConstraints.update(child.unaryConstraints)
-
                 for phi in child.phis:
-                    old, new = phi.rval, phi.params[0]
+                    assert(len(phi.dict) == 1)
+                    old, new = phi.rval, phi.get((block, jtype))
                     new = replace.get(new,new)
                     replace[old] = new
 
@@ -210,10 +190,8 @@ class SSA_Graph(object):
                     proc.callops = ODict((op, (block if old==child else old)) for op, old in proc.callops.items())
 
                 #remember to update phis of blocks referring to old child!
-                for successor in block.jump.getSuccessors():
-                    for phi in successor.phis:
-                        phi.replaceBlocks({child:block})
-
+                for successor,t in block.jump.getSuccessorPairs():
+                    successor.replacePredPair((child,t), (block,t))
                 removed.add(child)
         self.blocks = [b for b in self.blocks if b not in removed]
         #Fix up replace dict so it can handle multiple chained replacements
@@ -249,17 +227,11 @@ class SSA_Graph(object):
         '''Sanity check'''
         sources = self._getSources()
         for block in self.blocks:
+            assert(sources[block] == {k for k,t in block.predecessors})
             for phi in block.phis:
-                if not phi.odict:
-                    assert(not sources[block])
-                else:
-                    parents = zip(*phi.odict)[0]
-                    assert(set(parents) == sources[block])
-
                 assert(phi.rval is None or phi.rval in block.unaryConstraints)
-                for k,v in phi.odict.items():
-                    assert(v.origin is None or v in k[0].unaryConstraints)
-
+                for k,v in phi.dict.items():
+                    assert((v.origin is None or v in k[0].unaryConstraints))
         for proc in self.procs:
             for callop in proc.callops:
                 assert(set(proc.retop.input) == set(callop.out))
@@ -303,8 +275,7 @@ class SSA_Graph(object):
         for block in self.blocks:
             if usesInvalidVar(block):
                 for (child,t) in block.jump.getSuccessorPairs():
-                    for phi in child.phis:
-                        phi.removeKey((block,t))
+                    child.removePredPair((block,t))
                 block.jump = None
 
         #Determine if any jumps are impossible based on known constraints of params: if(0 == 0) etc
@@ -324,8 +295,7 @@ class SSA_Graph(object):
                 if newEdges != oldEdges:
                     pruned = [x for x in oldEdges if x not in newEdges]
                     for (child,t) in pruned:
-                        for phi in child.phis:
-                            phi.removeKey((block,t))
+                        child.removePredPair((block,t))
 
         #Unreachable blocks may not automatically be removed by jump.constrainJumps
         #Because it only looks at its own params
@@ -346,179 +316,159 @@ class SSA_Graph(object):
         self._conscheck()
 
     # Subprocedure stuff #####################################################
-    def _duplicateRegion(self, region, callblock, target, retblock):
-        blockmap = {}
-        varmap = {}
-        opmap = {None:None}
+    def _copyVar(self, var): return copy.copy(var)
 
-        newblocks = []
-        #create blocks and variables
+    def _splitSubProc(self, proc):
+        assert(len(proc.callops) > 1)
+        callop, callblock = proc.callops.items()[0]
+        retblock, retop = proc.retblock, proc.retop
+        target = proc.target
+        ftblock = callop.fallthrough
+
+        getpreds = lambda block:(zip(*block.predecessors)[0] if block.predecessors and block != target else [])
+        region = graph_util.topologicalSort([retblock], getpreds)
+        assert(target in region and retblock in region and callblock not in region and ftblock not in region)
+        assert(self.entryBlock not in region)
+
+        varmap = {}
+        blockmap = {}
         for block in region:
-            newb = BasicBlock(key=(block.key, callblock.key), lines=None, jump=None)
+            newb = BasicBlock(key=(block.key, callblock.key), lines=[], jump=None)
             del newb.sourceStates
             blockmap[block] = newb
-            newblocks.append(newb)
+            self.blocks.append(newb)
 
             for var, UC in block.unaryConstraints.items():
-                new = copy.copy(var)
-                varmap[var] = new
+                varmap[var] = self._copyVar(var)
             newb.unaryConstraints = ODict((varmap[var],UC) for var,UC in block.unaryConstraints.items())
 
-        #now fill in phis, ops, and jump
+        #fix up successors for edges that jump outside the subproc (absconding)
         for block in region:
             newb = blockmap[block]
+            for block2, t in block.jump.getSuccessorPairs():
+                if block2 not in blockmap:
+                    block2.predecessors.append((newb, t))
+                    for phi in block2.phis:
+                        phi.dict[newb, t] = varmap[phi.dict[block, t]]
+
+        for block in region:
+            newb = blockmap[block]
+            newb.predecessors = [(blockmap.get(sb,sb),t) for sb,t in block.predecessors]
 
             newb.phis = []
             for phi in block.phis:
-                pairs = [((blockmap.get(sb,sb),t),varmap.get(var,var)) for (sb,t),var in phi.odict.items()]
-                new = ssa_ops.Phi(self, ODict(pairs), varmap[phi.rval])
-                new.block = newb
+                vals = {(blockmap.get(sb,sb),t):varmap.get(var,var) for (sb,t),var in phi.dict.items()}
+                rval = varmap[phi.rval] #origin fixed later
+                rval.origin = new = ssa_ops.Phi(self, newb, vals, rval)
                 newb.phis.append(new)
-                opmap[phi] = new
 
-            newb.lines = []
             for op in block.lines:
                 new = copy.copy(op)
                 new.replaceVars(varmap)
                 new.replaceOutVars(varmap)
                 newb.lines.append(new)
-                opmap[op] = new
+                for outVar in new.getOutputs():
+                    if outVar is not None:
+                        outVar.origin = new
 
-            if block != retblock:
-                assert(not isinstance(block.jump, (subproc.ProcCallOp, subproc.DummyRet)))
-                new = block.jump.clone()
-                new.replaceVars(varmap)
-                #jump.replaceBlocks expects to have a valid mapping for every existing block
-                #quick hack, create temp dictionary
-                tempmap = {b:b for b in new.getSuccessors()}
-                tempmap.update(blockmap)
-                new.replaceBlocks(tempmap)
-                newb.jump = new
+            assert(not isinstance(block.jump, subproc.ProcCallOp))
+            new = block.jump.clone()
+            new.replaceVars(varmap)
+            #jump.replaceBlocks expects to have a valid mapping for every existing block
+            #quick hack, create temp dictionary
+            tempmap = {b:b for b in new.getSuccessors()}
+            tempmap.update(blockmap)
+            new.replaceBlocks(tempmap)
+            newb.jump = new
 
             for var in newb.unaryConstraints:
-                var.origin = opmap[var.origin]
+                assert(var.origin is None or var.origin in (newb.lines + newb.phis))
 
-        #now add new blocks into phi dicts of abscond successors
-        dupedSet = frozenset(newblocks) | frozenset(region)
-        for block in region:
-            if block != retblock:
-                newb = blockmap[block]
-                temp = block.jump.getSuccessorPairs()
-                temp = [(k,v) for k,v in temp if k not in dupedSet]
+        #Fix up callop and ft
+        target.removePredPair((callblock, False))
+        for pair in target.predecessors:
+            blockmap[target].removePredPair(pair)
 
-                for child,t in temp:
-                    for phi in child.phis:
-                        assert((newb,t) not in phi.odict)
-                        var = varmap[phi.odict[block,t]]
-                        phi.updateDict(phi.odict.items() + [((newb,t), var)])
+        blockmap[retblock].target = callop.target = blockmap[target]
+        del proc.callops[callop]
+        proc2 = subproc.ProcInfo(blockmap[retblock], callop.target)
+        proc2.callops[callop] = callblock
+        self.procs.append(proc2)
+        assert(len(self.blocks) == len({b.key for b in self.blocks}))
 
-        #disconnect from existing jsr target
-        for phi in target.phis:
-            pairs = [(k,v) for k,v in phi.odict.items() if k[0] != callblock]
-            phi.updateDict(pairs)
-        return newblocks, blockmap, varmap
+    def _inlineSubProc(self, proc):
+        assert(len(proc.callops) == 1)
+        callop, callblock = proc.callops.items()[0]
+        retblock, retop = proc.retblock, proc.retop
+        target = proc.target
+        ftblock = callop.fallthrough
 
-    def inlineSubprocs(self, onlySingle=False):
+        getpreds = lambda block:(zip(*block.predecessors)[0] if block.predecessors and block != target else [])
+        region = graph_util.topologicalSort([retblock], getpreds)
+        assert(target in region and retblock in region and callblock not in region and ftblock not in region)
+        assert(self.entryBlock not in region)
+
+        #first we find any vars that bypass the proc since we have to pass them through the new blocks
+        skipvars = [phi.get((callblock,False)) for phi in callop.fallthrough.phis]
+        skipvars = [var for var in skipvars if var.origin is not callop]
+
+        svarcopy = {(var, block):self._copyVar(var) for var, block in itertools.product(skipvars, region)}
+        for var, block in itertools.product(skipvars, region):
+            if block == target:
+                assert(block.predecessors == [(callblock, False)])
+                vals = {k:var for k in block.predecessors}
+            else:
+                vals = {k:svarcopy[var, k[0]] for k in block.predecessors}
+            rval = svarcopy[var, block]
+            rval.origin = phi = ssa_ops.Phi(self, block, vals, rval)
+            block.phis.append(phi)
+            block.unaryConstraints[rval] = callblock.unaryConstraints[var]
+
+        outreplace = {v:svarcopy[v, retblock] for v in skipvars}
+        for k, v in callop.out.items():
+            outreplace[v] = retop.input[k]
+            del callblock.unaryConstraints[v]
+
+        callblock.jump = ssa_jumps.Goto(self, target)
+        retblock.jump = ssa_jumps.Goto(self, ftblock)
+
+        ftblock.replacePredPair((callblock, False), (retblock, False))
+        for phi in ftblock.phis:
+            phi.replaceVars(outreplace)
+
+    def inlineSubprocs(self):
+        # TODO: make this actually work
         self._conscheck()
         if not self.procs:
             return
-        counter = 0
-        #establish DAG of subproc callstacks if we're doing nontrivial inlining, since we can only inline leaf procs
-        if not onlySingle:
-            sources = self._getSources()
-            regions = {}
-            for proc in self.procs:
-                region = graph_util.topologicalSort([proc.retblock], lambda block:([] if block == proc.target else sources[block]))
-                assert(self.entryBlock not in region)
-                regions[proc] = frozenset(region)
 
-            parents = {proc:[] for proc in self.procs}
-            for x,y in itertools.product(self.procs, repeat=2):
-                if regions[x] < regions[y]:
-                    parents[x].append(y)
-            self.procs = graph_util.topologicalSort(self.procs, parents.get)
-            if any(parents.values()):
-                print 'Warning, nesting subprocedures detected! This method may take forever to decompile.'
+        #establish DAG of subproc callstacks if we're doing nontrivial inlining, since we can only inline leaf procs
+        sources = self._getSources()
+        regions = {}
+        for proc in self.procs:
+            region = graph_util.topologicalSort([proc.retblock], lambda block:([] if block == proc.target else sources[block]))
+            assert(self.entryBlock not in region)
+            regions[proc] = frozenset(region)
+
+        parents = {proc:[] for proc in self.procs}
+        for x,y in itertools.product(self.procs, repeat=2):
+            # if regions[x] < regions[y]:
+            if not regions[y].isdisjoint(x.callops.values()):
+                parents[x].append(y)
+        print 'parents', parents
+
+        self.procs = graph_util.topologicalSort(self.procs, parents.get)
+        if any(parents.values()):
+            print 'Warning, nesting subprocedures detected! This method may take forever to decompile.'
 
         #now inline the procs
-        for proc in reversed(self.procs):
-            sources = self._getSources()
-            region = graph_util.topologicalSort([proc.retblock], lambda block:([] if block == proc.target else sources[block]))
-
-            pairs = proc.callops.items()
-            while (len(pairs) == 1) or (not onlySingle and len(pairs) >= 1):
-                callop, callblock = pairs.pop()
-
-                if pairs:
-                    assert(not onlySingle)
-                    newblocks, blockmap, varmap = self._duplicateRegion(region, callblock, proc.target, proc.retblock)
-                    self.blocks += newblocks
-
-                    newregion = newblocks
-                    newEntryBlock = blockmap[proc.target]
-                    newExitBlock = blockmap[proc.retblock]
-                    print 'Inlining subroutine with {} blocks'.format(len(newregion))
-                else: #if there's only one call left, don't duplicate, just inline in place
-                    newregion = region
-                    newEntryBlock = proc.target
-                    newExitBlock = proc.retblock
-                    varmap = {}
-
-                #now fill in JSR specific stuff and insert it
-                #add jump to newexit first so it can safely be accessed in skipvar loop
-                newExitBlock.jump = ssa_jumps.Goto(self, callop.fallthrough)
-
-                #first we find any vars that bypass the proc since we have to pass them through the new blocks
-                skipvars = [phi.odict[callblock,False] for phi in callop.fallthrough.phis]
-                skipvars = [var for var in skipvars if var.origin is not callop]
-
-                svarcopy = {}
-                newphis = {}
-                for var, block in itertools.product(skipvars, newregion):
-                    svarcopy[var, block] = new = copy.copy(var)
-                    phi = ssa_ops.Phi(self, [], new)
-                    phi.block = block
-                    new.origin = phi
-                    block.phis.append(phi)
-                    newphis[var, block] = phi
-                    block.unaryConstraints[new] = callblock.unaryConstraints[var]
-
-                for var, block in itertools.product(skipvars, newregion):
-                    for child, t in block.jump.getSuccessorPairs():
-                        if child in newregion:
-                            phi = newphis[var, child]
-                            phi.updateDict(phi.odict.items() + [((block,t), svarcopy[var,block])])
-
-                #Fix phis of entryblock
-                for phi in newEntryBlock.phis:
-                    if phi.odict:
-                        pair = (callblock,False), phi.odict[callblock,False]
-                        phi.updateDict([pair])
-                for var in skipvars:
-                    phi = newphis[var, newEntryBlock]
-                    pair = (callblock,False), var
-                    phi.updateDict([pair])
-
-                ftblock = callop.fallthrough
-                callblock.jump = ssa_jumps.Goto(self, newEntryBlock)
-
-                #Now handle exit
-                retVarMap = {}
-                for key, var in callop.out.items():
-                    old = proc.retop.input[key]
-                    retVarMap[var] = varmap.get(old,old) #for inplace inlining, varmap is empty
-                for var in skipvars:
-                    retVarMap[var] = svarcopy[var, newExitBlock]
-
-                for phi in callop.fallthrough.phis:
-                    pair = (newExitBlock,False), retVarMap[phi.odict[callblock, False]]
-                    phi.updateDict([pair])
-                counter += 1
-
-            proc.callops = ODict(pairs)
-        self.procs = [proc for proc in self.procs if proc.callops]
-        if counter:
-            print counter, 'subprocedure calls inlined'
+        while self.procs:
+            proc = self.procs.pop()
+            while len(proc.callops) > 1:
+                print 'splitting', proc
+                self._splitSubProc(proc)
+            print 'inlining', proc
+            self._inlineSubProc(proc)
         self._conscheck()
     ##########################################################################
 
@@ -562,9 +512,9 @@ class SSA_Graph(object):
         rethrow_handler = (0, self.code.codelen, self.rethrowKey, 0)
         return self.code.except_raw + [rethrow_handler]
 
-def makePhiFromODict(parent, outvar, d, getter):
-    pairs = [(k,getter(v)) for k,v in d.items()]
-    return ssa_ops.Phi(parent, ODict(pairs), outvar)
+def makePhiFromODict(parent, block, outvar, d, getter):
+    pairs = {k:getter(v) for k,v in d.items()}
+    return ssa_ops.Phi(parent, block, pairs, outvar)
 
 def isTerminal(parent, block):
     return block is parent.returnBlock or block is parent.rethrowBlock
@@ -603,9 +553,9 @@ def ssaFromVerified(code, iNodes):
         #Create new variables (will have origin set to callop in registerOuts)
         #Even for skip vars, we temporarily create a variable coming from the ret
         #But it won't be used, and will be later pruned anyway
-        newstack = map(copy.copy, retslots.stack)
-        newlocals = map(copy.copy, retslots.locals)
-        newmonad = copy.copy(retslots.monad)
+        newstack = map(parent._copyVar, retslots.stack)
+        newlocals = map(parent._copyVar, retslots.locals)
+        newmonad = parent._copyVar(retslots.monad)
         newslots = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
         callop.registerOuts(newslots)
         block.tempvars += callop.out.values()
@@ -655,27 +605,26 @@ def ssaFromVerified(code, iNodes):
     for block in blocks:
         if block is parent.entryBlock:
             block.phis = []
+            block.predecessors = []
             continue
+        block.predecessors = block.sourceStates.keys()
         ins = block.inslots
 
-        ins.monad.origin = makePhiFromODict(parent, ins.monad, block.sourceStates, (lambda i: i.monad))
+        ins.monad.origin = makePhiFromODict(parent, block, ins.monad, block.sourceStates, (lambda i: i.monad))
         for k, v in enumerate(ins.stack):
             if v is not None:
-                v.origin = makePhiFromODict(parent, v, block.sourceStates, (lambda i: i.stack[k]))
+                v.origin = makePhiFromODict(parent, block, v, block.sourceStates, (lambda i: i.stack[k]))
         for k, v in enumerate(ins.locals):
             if v is not None:
-                v.origin = makePhiFromODict(parent, v, block.sourceStates, (lambda i: i.locals[k]))
+                v.origin = makePhiFromODict(parent, block, v, block.sourceStates, (lambda i: i.locals[k]))
                 assert(v.origin.rval is v)
 
         del block.sourceStates, block.inslots
         phivars = [ins.monad] + ins.stack + ins.locals
         block.phis = [var.origin for var in phivars if var is not None]
 
-        for phi in block.phis: #??
-            phi.block = block
-
         for phi in block.phis:
-            types = [var.type for var in phi.odict.values()]
+            types = [var.type for var in phi.params]
             assert(not types or set(types) == set([phi.rval.type]))
 
     #Important to intern constraints to save memory on aforementioned excessively long methods

@@ -5,8 +5,8 @@ from ..ssa import ssa_types
 def unique(seq): return len(set(seq)) == len(seq)
 
 # This module provides a view of the ssa graph that can be modified without
-# touching the underlying graph. This proxy is tailored towards the need of 
-# cfg structuring, so it allows easy duplication and indirection of nodes, 
+# touching the underlying graph. This proxy is tailored towards the need of
+# cfg structuring, so it allows easy duplication and indirection of nodes,
 # but assumes that the underlying variables and statements are immutable
 
 class BlockProxy(object):
@@ -30,7 +30,7 @@ class BlockProxy(object):
         self.outvars = {update(k):v for k,v in self.outvars.items()}
         if self.block is not None:
             d1 = self.blockdict
-            self.blockdict = {(b.key,t):update(d1[b.key,t]) for (b,t) in self.block.jump.getSuccessorPairs()}        
+            self.blockdict = {(b.key,t):update(d1[b.key,t]) for (b,t) in self.block.jump.getSuccessorPairs()}
 
     def newIndirect(self): #for use during graph creation
         new = BlockProxy(self.bkey, self.counter)
@@ -39,7 +39,7 @@ class BlockProxy(object):
         new.blockdict = None
         new.successors = [self]
         self.predecessors.append(new)
-        return new      
+        return new
 
     def newDuplicate(self): #for use by duplicateNodes
         new = BlockProxy(self.bkey, self.counter, self.block)
@@ -79,7 +79,7 @@ def duplicateNodes(reachable, scc_set):
 
     for n in innodes:
         n.replaceSuccessors(dupmap)
-    
+
     S = set(innodes)
     for old, new in dups:
         for p in old.predecessors[:]:
@@ -134,7 +134,7 @@ def createGraphProxy(ssagraph):
         n.blockdict = lookup
         block = n.block
         for (block2, t) in block.jump.getSuccessorPairs():
-            out = [phi.odict[block, t] for phi in block2.phis]
+            out = [phi.get((block, t)) for phi in block2.phis]
             out = [v for v in out if v.type != ssa_types.SSA_MONAD]
 
             n2 = lookup[block2.key, t]

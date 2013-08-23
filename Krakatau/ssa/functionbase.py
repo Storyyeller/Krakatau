@@ -1,10 +1,10 @@
 class SSAFunctionBase(object):
     def __init__(self, parent, arguments):
         self.parent = parent
-        self.params = list(arguments)
+        self._params = list(arguments)
 
-    def updateParams(self, new):
-        self.params = new
+    @property
+    def params(self): return self._params
 
     def replaceVars(self, rdict):
-        self.params = [rdict.get(x,x) for x in self.params]
+        self._params = [rdict.get(x,x) for x in self._params]

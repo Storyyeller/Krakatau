@@ -102,9 +102,8 @@ def makeGraph(env, blocks):
     for phi in phis:
         n = BaseNode(philamb, True)
         block = phi.block
-
-        for (source, exc), var in phi.odict.items():
-            n.sources.append(getJumpNode((block, exc), source, var, lookup.get, jumplookup))
+        for (source, exc) in block.predecessors:
+            n.sources.append(getJumpNode((block, exc), source, phi.get((source, exc)), lookup.get, jumplookup))
         registerUses(n, n.sources)
 
         outnode = lookup[phi.rval]
@@ -147,7 +146,6 @@ def makeGraph(env, blocks):
                 assert(node in source.uses)
         for use in node.uses:
             assert(node in zip(*use.sources)[0])
-
     return lookup
 
 def processGraph(graph, iterlimit=5):

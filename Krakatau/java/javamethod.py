@@ -353,7 +353,6 @@ def _mergeVariables(root, predeclared):
             if len(info[var].defs) > 1:
                 forbidden.add(var)
     _preorder(root, partial(_replaceExpressions, rdict=varmap))
-    _preorder(root, partial(_replaceExpressions, rdict=varmap))
 
 def _inlineVariables(root):
     #first find all variables with a single def and use

@@ -36,6 +36,17 @@ class SSA_Variable(object):
 #explicitly in the graph with the OnException jump. Each block also keeps track
 #of the unary constraints on the variables in that block.
 
+#Handling of subprocedures is rather annoying. Each complete subproc has an associated
+#ProcInfo while jsrs and rets are represented by ProcCallOp and DummyRet respectively.
+#The callblock has the target and fallthrough as successors, while the fallthrough has
+#the callblock as predecessor, but not the retblock. Control flow paths where the proc
+#never returns are represented by ordinary jumps from blocks in the procedure to outside
+#Successful completion of the proc is represented by the fallthrough edge. The fallthrough
+#block gets its variables from callblock, including skip vars which don't depend on the
+#proc, and variables from callop.out which represent what would have been returned
+#Every proc has a reachable retblock. Jsrs with no associated ret are simply turned
+#into gotos.
+
 class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3
 
@@ -319,6 +330,8 @@ class SSA_Graph(object):
     def _copyVar(self, var): return copy.copy(var)
 
     def _splitSubProc(self, proc):
+        #Splits a proc into two, with one callsite using the new proc instead
+        #this involved duplicating the body of the procedure
         assert(len(proc.callops) > 1)
         callop, callblock = proc.callops.items()[0]
         retblock, retop = proc.retblock, proc.retop
@@ -397,6 +410,7 @@ class SSA_Graph(object):
         assert(len(self.blocks) == len({b.key for b in self.blocks}))
 
     def _inlineSubProc(self, proc):
+        #Inline a proc with single callsite in place
         assert(len(proc.callops) == 1)
         callop, callblock = proc.callops.items()[0]
         retblock, retop = proc.retblock, proc.retop

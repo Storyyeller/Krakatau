@@ -451,7 +451,6 @@ class SSA_Graph(object):
             phi.replaceVars(outreplace)
 
     def inlineSubprocs(self):
-        # TODO: make this actually work
         self._conscheck()
         if not self.procs:
             return

@@ -22,7 +22,7 @@ class CatchSetManager(object):
 
     def newMask(self, mask):
         for k in self.sets:
-            self.sets[k] &= mask 
+            self.sets[k] &= mask
         self.mask &= mask
         self._conscheck()
 
@@ -50,13 +50,14 @@ class CatchSetManager(object):
         assert(temp == self.mask)
 
 class ExceptionSet(ValueType):
+    __slots__ = "env pairs".split()
     def __init__(self, env, pairs): #assumes arguments are in reduced form
         self.env = env
         self.pairs = frozenset([(x,frozenset(y)) for x,y in pairs])
         assert(not pairs or '.null' not in zip(*pairs)[0])
         #We allow env to be None for the empty set so we can construct empty sets easily
         #Any operation resulting in a nonempty set will get its env from the nonempty argument
-        assert(self.env or self.empty()) 
+        assert(self.env or self.empty())
 
         #make sure set is fully reduced
         parts = []
@@ -94,12 +95,12 @@ class ExceptionSet(ValueType):
             #TypeError: type object argument after * must be a sequence, not generator
             #This can be worked around by using a list comprehension instead of a genexpr after the *
             pairs = itertools.chain(*[ExceptionSet.diffPair(subtest, pair1, pair2) for pair1 in pairs])
-        return ExceptionSet.reduce(self.env, pairs)    
+        return ExceptionSet.reduce(self.env, pairs)
 
     def __or__(self, other):
-        assert(type(self) == type(other))        
+        assert(type(self) == type(other))
         if other.empty() or self == other:
-            return self 
+            return self
         if self.empty():
             return other
         return ExceptionSet.reduce(self.env, self.pairs | other.pairs)
@@ -112,7 +113,7 @@ class ExceptionSet(ValueType):
     def isdisjoint(self, other):
         return (self-other) == self
 
-    def __str__(self): 
+    def __str__(self):
         parts = [('{} - [{}]'.format(top, ', '.join(sorted(holes))) if holes else top) for top, holes in self.pairs]
         return 'ES[{}]'.format(', '.join(parts))
     __repr__ = __str__
@@ -193,7 +194,7 @@ class ExceptionSet(ValueType):
             top, holes = pair = pairs.pop()
 
             #look for an existing top to merge into
-            for epair in newpairs[:]: 
+            for epair in newpairs[:]:
                 etop, eholes = epair
                 #new pair can be merged into existing pair
                 if subtest(top, etop) and (top in eholes or not any(subtest(top, ehole) for ehole in eholes)):
@@ -204,7 +205,7 @@ class ExceptionSet(ValueType):
                 elif subtest(etop, top) and (etop in holes or not any(subtest(etop, hole) for hole in holes)):
                     new = ExceptionSet.mergePair(subtest, pair, epair)
                     newpairs, pairs = [new], [p for p in newpairs if p is not epair] + pairs
-                    break                
+                    break
             #pair is incomparable to all existing pairs
             else:
                 holes = ExceptionSet.reduceHoles(subtest, holes)

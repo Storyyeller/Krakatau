@@ -6,15 +6,17 @@ from .. import objtypes
 #Possible array lengths
 nonnegative = IntConstraint(32, 0, (1<<31)-1)
 array_supers = 'java/lang/Object','java/lang/Cloneable','java/io/Serializable'
+obj_fset = frozenset([objtypes.ObjectTT])
 
 def isAnySubtype(env, x, seq):
     return any(objtypes.isSubtype(env,x,y) for y in seq)
 
 class TypeConstraint(ValueType):
+    __slots__ = "env supers exact isBot".split()
     def __init__(self, env, supers, exact):
         self.env, self.supers, self.exact = env, frozenset(supers), frozenset(exact)
         self.isBot = objtypes.ObjectTT in supers
-        
+
         temp = self.supers | self.exact
         assert(not temp or min(zip(*temp)[1]) >= 0)
         assert(objtypes.NullTT not in temp)
@@ -42,7 +44,7 @@ class TypeConstraint(ValueType):
 
     def isBoolOrByteArray(self):
         if self.supers or len(self.exact) != 2:
-            return False 
+            return False
         bases, dims = zip(*self.exact)
         return dims[0] == dims[1] and sorted(bases) == ['.boolean','.byte']
 
@@ -64,7 +66,7 @@ class TypeConstraint(ValueType):
         #optimize for the common case of joining with itself or with bot
         cons = set(c for c in cons if not c.isBot)
         if not cons:
-            return TypeConstraint(env, [objtypes.ObjectTT], [])
+            return TypeConstraint(env, obj_fset, [])
         elif len(cons) == 1:
             return cons.pop()
         assert(len(cons) == 2) #joining more than 2 not currently supported
@@ -93,6 +95,7 @@ class TypeConstraint(ValueType):
         return TypeConstraint.reduce(cons[0].env, supers, exact)
 
 class ObjectConstraint(ValueType):
+    __slots__ = "null types arrlen isBot".split()
     def __init__(self, null, types, arrlen):
         self.null, self.types = null, types
         self.arrlen = arrlen

@@ -1,11 +1,13 @@
 from ..mixin import ValueType
 
 class IntConstraint(ValueType):
+    __slots__ = "width min max".split()
+
     def __init__(self, width, min_, max_):
         self.width = width
         self.min = min_
         self.max = max_
-        self.isBot = (-min_ == max_+1 == (1<<width)//2)
+        # self.isBot = (-min_ == max_+1 == (1<<width)//2)
 
     @staticmethod
     def range(width, min_, max_):

@@ -1,4 +1,5 @@
 import collections
+import operator
 from functools import partial
 
 from ..ssa import objtypes
@@ -201,8 +202,6 @@ def _whileCondition_cb(item):
     body = item.getScopes()[0]
     if not body.statements or not isinstance(body.statements[0], ast.IfStatement):
         return failure
-    if item.expr != ast.Literal.TRUE: #don't use && conditions for now
-        return failure
 
     head = body.statements[0]
     cond = head.expr
@@ -218,10 +217,15 @@ def _whileCondition_cb(item):
             return failure
     assert(not mayBreakTo(trueb, badjumps1))
 
+
+    trivial = not trueb.statements and trueb.jumpKey == item.breakKey
+    #If we already have a condition, only a simple break is allowed
+    if not trivial and item.expr != ast.Literal.TRUE:
+        return failure
+
     #If break body is nontrival, we can't insert this after the end of the loop unless
     #We're sure that nothing else in the loop breaks out
     badjumps2 = frozenset([item.breakKey]) - NONE_SET
-    trivial = not trueb.statements and trueb.jumpKey == item.breakKey
     if not trivial:
         restloop = [falseb] if falseb is not None else []
         restloop += body.statements[1:]
@@ -229,7 +233,7 @@ def _whileCondition_cb(item):
             return failure
 
     #Now inline everything
-    item.expr = reverseBoolExpr(cond)
+    item.expr = _simplifyExpressions(ast.BinaryInfix('&&', [item.expr, reverseBoolExpr(cond)]))
     if falseb is None:
         body.statements.pop(0)
     else:
@@ -295,6 +299,82 @@ def _simplifyBlocks(scope):
         vals = _simplifyBlocksSub(scope, item, isLast)
         newitems += reversed(vals)
     scope.statements = newitems[::-1]
+
+def _simplifyExpressions(expr):
+    TRUE, FALSE = ast.Literal.TRUE, ast.Literal.FALSE
+    bools = {True:TRUE, False:FALSE}
+    opfuncs = {'<': operator.lt, '<=': operator.le, '>': operator.gt, '>=': operator.ge}
+
+    simplify = _simplifyExpressions
+    expr.params = map(simplify, expr.params)
+
+    if isinstance(expr, ast.BinaryInfix):
+        left, right = expr.params
+        op = expr.opstr
+        if op in ('==','!=','<','<=','>','>=') and isinstance(right, ast.Literal):
+            # la cmp lb -> result (i.e. constant propagation on literal comparisons)
+            if isinstance(left, ast.Literal):
+                if op in ('==','!='):
+                    #these could be string or class literals, but those are always nonnull so it still works
+                    res = (left == right) == (op == '==')
+                else:
+                    assert(left.dtype == right.dtype)
+                    res = opfuncs[op](left.val, right.val)
+                expr = bools[res]
+            # (a ? lb : c) cmp ld -> a ? (lb cmp ld) : (c cmp ld)
+            elif isinstance(left, ast.Ternary) and isinstance(left.params[1], ast.Literal):
+                left.params[1] = simplify(ast.BinaryInfix(op, [left.params[1], right], expr._dtype))
+                left.params[2] = simplify(ast.BinaryInfix(op, [left.params[2], right], expr._dtype))
+                expr = left
+
+    # a ? true : b -> a || b
+    # a ? false : b -> !a && b
+    if isinstance(expr, ast.Ternary) and expr.dtype == objtypes.BoolTT:
+        cond, val1, val2 = expr.params
+        if not isinstance(val1, ast.Literal): #try to get bool literal to the front
+            cond, val1, val2 = reverseBoolExpr(cond), val2, val1
+
+        if val1 == TRUE:
+            expr = ast.BinaryInfix('||', [cond, val2], objtypes.BoolTT)
+        elif val1 == FALSE:
+            expr = ast.BinaryInfix('&&', [reverseBoolExpr(cond), val2], objtypes.BoolTT)
+
+    # true && a -> a, etc.
+    if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&&','||'):
+        left, right = expr.params
+        if expr.opstr == '&&':
+            if left == TRUE:
+                expr = right
+            elif left == FALSE or right == TRUE:
+                expr = left
+        else:
+            if left == TRUE or right == FALSE:
+                expr = left
+            elif left == FALSE:
+                expr = right
+
+    # a == true -> a
+    # a == false -> !a
+    if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==, !=') and expr.params[0].dtype == objtypes.BoolTT:
+        left, right = expr.params
+        if not isinstance(left, ast.Literal): #try to get bool literal to the front
+            left, right = right, left
+        if isinstance(left, ast.Literal):
+            flip = (left == TRUE) != (expr.opstr == '==')
+            expr = reverseBoolExpr(right) if flip else right
+
+    # !a ? b : c -> a ? c : b
+    if isinstance(expr, ast.Ternary) and isinstance(expr.params[0], ast.UnaryPrefix):
+        cond, val1, val2 = expr.params
+        if cond.opstr == '!':
+            expr.params = [reverseBoolExpr(cond), val2, val1]
+
+    # 0 - a -> -a
+    if isinstance(expr, ast.BinaryInfix) and expr.opstr == '-':
+        if expr.params[0] == ast.Literal.LZERO:
+            expr = ast.UnaryPrefix('-', expr.params[1])
+
+    return expr
 
 def _setScopeParents(scope):
     for item in scope.statements:
@@ -383,12 +463,13 @@ def _inlineVariables(root):
         if not isinstance(expr, oktypes):
             return True
         #check for division by 0. If it's a float or dividing by nonzero literal, it's ok
-        elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('/','%'):
-            if expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
+        elif isinstance(expr, ast.BinaryInfix):
+            if expr.opstr in ('&&','||'):
+                return True
+            elif expr.opstr in ('/','%') and expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
                 divisor = expr.params[-1]
                 if not isinstance(divisor, ast.Literal) or divisor.val == 0:
                     return True
-        assert(not isinstance(expr, ast.BinaryInfix) or expr.opstr not in ('&&','||'))
         return False
 
     def doReplacement(item, pairs):
@@ -404,10 +485,11 @@ def _inlineVariables(root):
 
                 #For ternaries, we don't want to replace into the conditionally
                 #evaluated part, but we still need to check those parts for
-                #barriers
-                if isinstance(expr, ast.Ternary):
-                    stack.append((True, (False, expr, expr.params[2])))
-                    stack.append((True, (False, expr, expr.params[1])))
+                #barriers. For both ternaries and short circuit operators, the
+                #first param is always evaluated, so it is safe
+                if isinstance(expr, ast.Ternary) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&&','||'):
+                    for param in reversed(expr.params[1:]):
+                        stack.append((True, (False, expr, param)))
                     stack.append((True, (canReplace, expr, expr.params[0])))
                 #For assignments, we unroll the LHS arguments, because if assigning
                 #to an array or field, we don't want that to serve as a barrier
@@ -505,31 +587,6 @@ def _createDeclarations(root, predeclared):
     assert(None not in localdefs)
     for scope, ldefs in localdefs.items():
         scope.statements = ldefs + scope.statements
-
-def _simplifyExpressions(expr):
-    truefalse = (ast.Literal.TRUE, ast.Literal.FALSE)
-    expr.params = map(_simplifyExpressions, expr.params)
-
-    if isinstance(expr, ast.Ternary):
-        cond, val1, val2 = expr.params
-        if (val1, val2) == truefalse:
-            expr = cond
-        elif (val2, val1) == truefalse:
-            expr = reverseBoolExpr(cond)
-        elif isinstance(cond, ast.UnaryPrefix): # (!x)?y:z -> x?z:y
-            expr.params = reverseBoolExpr(cond), val2, val1
-
-    if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==', '!='):
-        v1, v2 = expr.params
-        if v1 in truefalse:
-            v2, v1 = v1, v2
-        if v2 in truefalse:
-            match = (v2 == ast.Literal.TRUE) == (expr.opstr == '==')
-            expr = v1 if match else reverseBoolExpr(v1)
-        # Fix Yoda comparisons (if(null == x), etc.
-        elif isinstance(v1, ast.Literal):
-            expr.params = v2, v1
-    return expr
 
 def _createTernaries(scope, item):
     if isinstance(item, ast.IfStatement) and len(item.getScopes()) == 2:

@@ -362,6 +362,7 @@ for _ops, _val in zip(_binary_ptable, range(10,20)):
 
 class BinaryInfix(JavaExpression):
     def __init__(self, opstr, params, dtype=None):
+        assert(len(params) == 2)
         self.params = params
         self.opstr = opstr
         self.fmt = '{{}} {} {{}}'.format(opstr)
@@ -487,6 +488,7 @@ Literal.N_ONE = Literal(objtypes.IntTT, -1)
 Literal.ZERO = Literal(objtypes.IntTT, 0)
 Literal.ONE = Literal(objtypes.IntTT, 1)
 
+Literal.LZERO = Literal(objtypes.LongTT, 0)
 Literal.FZERO = Literal(objtypes.FloatTT, 0.0)
 Literal.DZERO = Literal(objtypes.DoubleTT, 0.0)
 Literal.NULL = Literal(objtypes.NullTT, None)

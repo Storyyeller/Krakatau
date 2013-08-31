@@ -300,6 +300,53 @@ def _simplifyBlocks(scope):
         newitems += reversed(vals)
     scope.statements = newitems[::-1]
 
+_op2bits = {'==':2, '!=':13, '<':1, '<=':3, '>':4, '>=':6}
+_bit2ops_float = {v:k for k,v in _op2bits.items()}
+_bit2ops = {(v & 7):k for k,v in _op2bits.items()}
+
+def _getBitfield(expr):
+    if isinstance(expr, ast.BinaryInfix):
+        if expr.opstr in ('==','!=','<','<=','>','>='):
+            # We don't want to merge expressions if they could have side effects
+            # so only allow literals and locals
+            if all(isinstance(p, (ast.Literal, ast.Local)) for p in expr.params):
+                return _op2bits[expr.opstr], tuple(expr.params)
+        elif expr.opstr in ('&','&&','|','||'):
+            bits1, args1 = _getBitfield(expr.params[0])
+            bits2, args2 = _getBitfield(expr.params[1])
+            if args1 == args2:
+                bits = (bits1 & bits2) if '&' in expr.opstr else (bits1 | bits2)
+                return bits, args1
+    elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
+        bits, args = _getBitfield(expr.params[0])
+        return ~bits, args
+    return 0, None
+
+def _mergeComparisons(expr):
+    # a <= b && a != b -> a < b, etc.
+    bits, args = _getBitfield(expr)
+    if args is None:
+        return expr
+
+    assert(not hasSideEffects(args[0]) and not hasSideEffects(args[1]))
+    if args[0].dtype in (objtypes.FloatTT, objtypes.DoubleTT):
+        mask, d = 15, _bit2ops_float
+    else:
+        mask, d = 7, _bit2ops
+
+    bits &= mask
+    notbits = (~bits) & mask
+
+    if bits == 0:
+        return ast.Literal.TRUE
+    elif notbits == 0:
+        return ast.Literal.FALSE
+    elif bits in d:
+        return ast.BinaryInfix(d[bits], args, objtypes.BoolTT)
+    elif notbits in d:
+        return ast.UnaryInfix('!', ast.BinaryInfix(d[notbits], args, objtypes.BoolTT))
+    return expr
+
 def _simplifyExpressions(expr):
     TRUE, FALSE = ast.Literal.TRUE, ast.Literal.FALSE
     bools = {True:TRUE, False:FALSE}
@@ -343,15 +390,17 @@ def _simplifyExpressions(expr):
     if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&&','||'):
         left, right = expr.params
         if expr.opstr == '&&':
-            if left == TRUE:
+            if left == TRUE or (right == FALSE and not hasSideEffects(left)):
                 expr = right
             elif left == FALSE or right == TRUE:
                 expr = left
         else:
             if left == TRUE or right == FALSE:
                 expr = left
-            elif left == FALSE:
+            elif left == FALSE or (right == TRUE and not hasSideEffects(left)):
                 expr = right
+        # a > b || a == b -> a >= b, etc.
+        expr = _mergeComparisons(expr)
 
     # a == true -> a
     # a == false -> !a
@@ -434,6 +483,18 @@ def _mergeVariables(root, predeclared):
                 forbidden.add(var)
     _preorder(root, partial(_replaceExpressions, rdict=varmap))
 
+_oktypes = ast.BinaryInfix, ast.Local, ast.Literal, ast.Parenthesis, ast.Ternary, ast.TypeName, ast.UnaryPrefix
+def hasSideEffects(expr):
+    if not isinstance(expr, _oktypes):
+        return True
+    #check for division by 0. If it's a float or dividing by nonzero literal, it's ok
+    elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('/','%'):
+        if expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
+            divisor = expr.params[-1]
+            if not isinstance(divisor, ast.Literal) or divisor.val == 0:
+                return True
+    return False
+
 def _inlineVariables(root):
     #first find all variables with a single def and use
     defs = collections.defaultdict(list)
@@ -456,22 +517,6 @@ def _inlineVariables(root):
     _preorder(root, visitFindDefs)
     #These should have 2 uses since the initial assignment also counts
     replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
-
-    #Avoid reordering past expressions that potentially have side effects or depend on external state
-    oktypes = ast.BinaryInfix, ast.Local, ast.Literal, ast.Parenthesis, ast.TypeName, ast.UnaryPrefix
-    def isBarrier(expr):
-        if not isinstance(expr, oktypes):
-            return True
-        #check for division by 0. If it's a float or dividing by nonzero literal, it's ok
-        elif isinstance(expr, ast.BinaryInfix):
-            if expr.opstr in ('&&','||'):
-                return True
-            elif expr.opstr in ('/','%') and expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
-                divisor = expr.params[-1]
-                if not isinstance(divisor, ast.Literal) or divisor.val == 0:
-                    return True
-        return False
-
     def doReplacement(item, pairs):
         old, new = item.expr.params
         assert(isinstance(old, ast.Local) and old.dtype == new.dtype)
@@ -516,7 +561,7 @@ def _inlineVariables(root):
                     return canReplace
             else:
                 expr = args
-                if isBarrier(expr):
+                if hasSideEffects(expr):
                     return False
         return False
 

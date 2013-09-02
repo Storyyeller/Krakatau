@@ -45,7 +45,7 @@ class Environment(object):
                     with open(path, 'rb') as file_:
                         return file_.read()
                 except IOError:
-                    pass
+                    print 'failed to open', path
             else: #zip archive
                 try:
                     return archive.read(name)

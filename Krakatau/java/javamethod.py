@@ -194,6 +194,15 @@ def _pruneIfElse_cb(item):
         elif isinstance(item.expr, ast.UnaryPrefix) and item.expr.opstr == '!':
             item.expr = reverseBoolExpr(item.expr)
             item.scopes = fblock, tblock
+
+    # if(A) {if(B) {C}} -> if(A && B) {C}
+    tblock = item.scopes[0]
+    if len(item.scopes) == 1 and len(tblock.statements) == 1 and tblock.doesFallthrough():
+        first = tblock.statements[0]
+        if isinstance(first, ast.IfStatement) and len(first.scopes) == 1:
+            item.expr = ast.BinaryInfix('&&',[item.expr, first.expr], objtypes.BoolTT)
+            item.scopes = first.scopes
+
     return item
 
 def _whileCondition_cb(item):
@@ -344,7 +353,7 @@ def _mergeComparisons(expr):
     elif bits in d:
         return ast.BinaryInfix(d[bits], args, objtypes.BoolTT)
     elif notbits in d:
-        return ast.UnaryInfix('!', ast.BinaryInfix(d[notbits], args, objtypes.BoolTT))
+        return ast.UnaryPrefix('!', ast.BinaryInfix(d[notbits], args, objtypes.BoolTT))
     return expr
 
 def _simplifyExpressions(expr):

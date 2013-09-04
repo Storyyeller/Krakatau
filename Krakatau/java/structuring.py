@@ -1,4 +1,4 @@
-import collections, itertools
+import collections, itertools, functools
 ddict = collections.defaultdict
 
 from .. import graph_util
@@ -146,11 +146,17 @@ def structureLoops(nodes):
                 print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
                 print '({} entry points, {} blocks)'.format(len(entries), len(scc))
 
-                reaches = [(n, graph_util.topologicalSort(entries,
-                    lambda block:[x for x in block.successors if x in scc_set and x is not n]))
-                    for n in scc]
+                def loopSuccessors(head, block):
+                    if block == head:
+                        return []
+                    return [x for x in block.successors if x in scc_set]
+
+                reaches = [(n, graph_util.topologicalSort(entries, functools.partial(loopSuccessors, n))) for n in scc]
+                for head, reachable in reaches:
+                    reachable.remove(head)
 
                 head, reachable = min(reaches, key=lambda t:(len(t[1]), -len(t[0].predecessors)))
+                assert(head not in reachable)
                 print 'Duplicating {} nodes'.format(len(reachable))
                 newnodes = graphproxy.duplicateNodes(reachable, scc_set)
                 newtodo += newnodes
@@ -1080,16 +1086,20 @@ def _checkNested(ctree_children):
         for c1, c2 in itertools.combinations(children, 2):
             assert(c1.lbound.isdisjoint(c2.lbound))
 
-def _debug_draw(nodes):
+def _debug_draw(nodes, outn=''):
     import pygraphviz as pgv
     G=pgv.AGraph(directed=True)
     G.add_nodes_from(nodes)
     for n in nodes:
         for n2 in n.successors:
-            color = 'black' if n2 in n.outvars else 'gray'
+            color = 'black'
+            if isinstance(n.block.jump, ssa_jumps.OnException):
+                if any(b.key == n2.bkey for b in n.block.jump.getExceptSuccessors()):
+                    color = 'grey'
+            # color = 'black' if n2 in n.outvars else 'gray'
             G.add_edge(n, n2, color=color)
     G.layout(prog='dot')
-    G.draw('file.png')
+    G.draw('file{}.png'.format(outn))
 
 def structure(entryNode, nodes, isClinit):
     # print 'structuring'

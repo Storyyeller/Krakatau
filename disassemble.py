@@ -13,8 +13,7 @@ def readFile(filename):
         return f.read()
 
 def disassembleClass(readTarget, targets=None, outpath=None):
-    if outpath is None:
-        outpath = os.getcwd()
+    writeout = script_util.fileDirOut(outpath, '.java')
 
     # targets = targets[::-1]
     start_time = time.time()
@@ -28,7 +27,7 @@ def disassembleClass(readTarget, targets=None, outpath=None):
         class_.loadElements(keepRaw=True)
 
         source = Krakatau.assembler.disassembler.disassemble(class_)
-        filename = script_util.writeFile(outpath, class_.name, '.j', source)
+        filename = writeout(class_.name, source)
         print 'Class written to', filename
         print time.time() - start_time, ' seconds elapsed'
 

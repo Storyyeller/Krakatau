@@ -70,8 +70,7 @@ def deleteUnusued(cls):
     del cls.attributes
 
 def decompileClass(path=[], targets=None, outpath=None, plugins=[]):
-    if outpath is None:
-        outpath = os.getcwd()
+    writeout = script_util.fileDirOut(outpath, '.java')
 
     e = Environment()
     for part in path:
@@ -90,7 +89,7 @@ def decompileClass(path=[], targets=None, outpath=None, plugins=[]):
                 package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
                 source = package + source
 
-            filename = script_util.writeFile(outpath, c.name, '.java', source)
+            filename = writeout(c.name, source)
             print 'Class written to', filename
             print time.time() - start_time, ' seconds elapsed'
             deleteUnusued(c)

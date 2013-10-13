@@ -27,7 +27,7 @@ if __name__== "__main__":
     args = parser.parse_args()
 
     targets = script_util.findFiles(args.target, args.r, '.j')
-    base_path = args.out if args.out is not None else os.getcwd()
+    writeout = script_util.fileDirOut(args.out, '.class')
 
     for i, target in enumerate(targets):
         print 'Processing file {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
@@ -38,5 +38,5 @@ if __name__== "__main__":
         #     continue
 
         for name, data in pairs:
-            filename = script_util.writeFile(base_path, name, '.class', data)
+            filename = writeout(name, data)
             print 'Class written to', filename

@@ -18,13 +18,13 @@ class CatchSetManager(object):
                 sofar = sofar | new
             self.mask = sofar
             self.pruneKeys()
-        self._conscheck()
+        assert(not self._conscheck())
 
     def newMask(self, mask):
         for k in self.sets:
             self.sets[k] &= mask
         self.mask &= mask
-        self._conscheck()
+        assert(not self._conscheck())
 
     def pruneKeys(self):
         for handler, catchset in list(self.sets.items()):
@@ -57,7 +57,7 @@ class ExceptionSet(ValueType):
         assert(not pairs or '.null' not in zip(*pairs)[0])
         #We allow env to be None for the empty set so we can construct empty sets easily
         #Any operation resulting in a nonempty set will get its env from the nonempty argument
-        assert(self.env or self.empty())
+        assert(self.empty() or self.env is not None)
 
         #make sure set is fully reduced
         parts = []

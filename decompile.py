@@ -130,9 +130,6 @@ if __name__== "__main__":
     if args.target.endswith('.jar'):
         path.append(args.target)
 
-    if not os.path.exists(args.out):
-        os.makedirs(args.out)
-
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
     decompileClass(path, targets, args.out, plugins)

@@ -74,7 +74,8 @@ def fileDirOut(base_path, suffix):
     else:
         base_path = os.path.abspath(base_path)
 
-    if 'win' in platform.system().lower():
+    osname = platform.system().lower()
+    if 'win' in osname and 'darwin' not in osname:
         prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
         makepath = lambda s:winSanitizePath(base_path, s, suffix, prevs)
     else:

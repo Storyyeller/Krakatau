@@ -13,7 +13,7 @@ def readFile(filename):
         return f.read()
 
 def disassembleClass(readTarget, targets=None, outpath=None):
-    writeout = script_util.fileDirOut(outpath, '.java')
+    writeout = script_util.fileDirOut(outpath, '.j')
 
     # targets = targets[::-1]
     start_time = time.time()

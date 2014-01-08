@@ -1,0 +1,88 @@
+Krakatau Assembler Syntax
+
+This guide is intended to help write bytecode assembly files for use with the Krakatau assembler. It assumes that you are already familiar with the JVM classfile format and how to write bytecode. If not, you can find a simple tutorial to writing bytecode at https://greyhat.gatech.edu/wiki/index.php?title=Java_Bytecode_Tutorial. You can also find some examples of assembler files in the examples directory.
+
+Krakatau syntax is largely backwards compatible with the classic Jasmin assembler syntax. In a couple of places, backwards compatibility is broken either by the introduction of new keywords or to fix ambiguities in the Jasmin syntax. However, Krakatau is not necessarily compatible with the extensions introduced by JasminXT.
+
+The basic format for an assembler file consists of a list of classfile entries. Each entry will result in the generation of a seperate classfile, so a single assembly file can contain multiple classes where convienent. These entries are completely independent - mutiple classes never share constant pool entries, fields, methods, or directives, even the version directive. Each one has the format
+
+.bytecode major minor  (optional)
+class directives
+.class classref
+.super classref
+interface declarations
+class directives
+topitems
+.end class
+
+The .end class on the final entry may be ommitted. So the simplest possible assembler file to declare a class named Foo would be
+
+.class Foo
+.super java/lang/Object
+
+To declare three classes A, B, and C in the same file with B and C inheriting from A and different versions, you could do
+
+.class A
+.super java/lang/Object
+.end class
+.class B
+.super A
+.end class
+.class C
+.super A
+
+The classfile version is specified by the .bytecode directive. It is specified by major, minor, a pair of decimal integers. If ommitted, the default is version 49.0. So the following is equivalent to the earlier example
+
+.bytecode 49 0
+.class Foo
+.super java/lang/Object
+
+Other class directives include .runtimevisible, .runtimeinvisible, .signature, .attribute, .source, .inner, .innerlength, and .enclosing. These are used to control the attributes of the class and will be covered later.
+
+Topitems are the actual meat of the class. There are three types: fields, methods, and constant definitions. The last is unique to Krakatau and is closely related to the rest of the syntax. In Krakatau, there are multiple ways to specify a constant pool entry. The most common are via WORD tokens, symbolic references and numerical references. The later constist of square brackets with lowercase alphanumerics and underscores inside.
+
+When you specify .class Foo, the string Foo isn't directly included in the output. The classfile format says that the class field is actually a two byte index into the constant pool of the classfile. This points to a Class_info which points to a Utf8_info which holds the actual name of the class. Therefore, Krakatau implicitly creates constant pool entries and inserts the appropriate references. But this process can be controlled more directly.
+
+Instead of writing
+.class Foo
+.super java/lang/Object
+
+You could explicitly write out all the classfile references as follows
+
+.class [foocls]
+.super [objcls]
+
+.const [foocls] = Class [fooutf]
+.const [fooutf] = Utf8 Foo
+.const [objcls] = Class [objutf]
+.const [objutf] = Utf8 java/lang/Object
+
+There are two types of references. If the contents are a decimal int, then it is a direct numerical reference to a particular slot in the constant pool. You are responsible for making sure that everything is consistent and that the contents of that slot are valid. This option is most useful for specifiying the null entry [0]. For example, to express the Object class itself, one would do
+
+.class java/lang/Object
+.super [0]
+
+If the contents are any other nonempty lowercase alphanumeric + underscores string, it is interperted as a symbolic reference. This is a reference to some slot but you don't care which one. Krakatau will pick an available slot and fill it in automatically. Symbolic references may be ommitted from the generated classfile if unused or merged with identical entries, including automatically generated entries.
+
+With that out of the way, the basic form of a constant definition is
+
+.const ref = entrytype arguments
+
+You can also just define one reference in terms of another. You are responsible for making sure there are no circular references or duplicated definitions. If not, unpredictable results may occur.
+
+Examples include
+
+.const [1] = Class Foo
+.const [1] = Class [fooutf]
+.const [89] = Long 1234567L
+.const [mynat] = NameAndType main ([Ljava/lang/String;)V
+.const [myref] = [myotherref]
+.const [really42] = [42]
+
+
+
+
+
+
+
+

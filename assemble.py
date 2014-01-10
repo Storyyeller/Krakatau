@@ -7,8 +7,12 @@ from Krakatau import script_util
 def assembleClass(filename, makeLineNumbers, jasmode, debug=0):
     basename = os.path.basename(filename)
     assembly = open(filename, 'rb').read()
-    assembly = '\n'+assembly+'\n' #parser expects newlines at beginning and end
+    if assembly.startswith('\xca\xfe') or assembly.startswith('\x50\x4b\x03\x04'):
+        print 'Error: You appear to have passed a jar or classfile instead of an assembly file'
+        print 'Perhaps you meant to invoke the disassembler instead?'
+        return []
 
+    assembly = '\n'+assembly+'\n' #parser expects newlines at beginning and end
     lexer = tokenize.makeLexer(debug=debug)
     parser = parse.makeParser(debug=debug)
     parse_trees = parser.parse(assembly, lexer=lexer)

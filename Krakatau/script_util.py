@@ -30,8 +30,17 @@ def normalizeClassname(name):
 #Windows stuff
 illegal_win_chars = frozenset('<>;:|?*\\/"')
 pref_disp_chars = frozenset('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$0123456789')
+
+#Prevent creating filename parts matching the legacy device filenames. While Krakatau can create these files
+#just fine thanks to using \\?\ paths, the resulting files are impossible to open or delete in Windows Explore
+#or with similar tools, so they are a huge pain to deal with. Therefore, we don't generate them at all.
+illegal_parts = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8',
+    'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']
+
 def isPartOk(s, prev):
     if not 1 <= len(s) <= 200:
+        return False
+    if s.upper() in illegal_parts:
         return False
     if s.lower() in prev:
         return prev[s.lower()] == s

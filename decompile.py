@@ -3,6 +3,7 @@ import time, random
 
 import Krakatau
 import Krakatau.ssa
+from Krakatau.error import ClassLoaderError
 from Krakatau.environment import Environment
 from Krakatau.java import javaclass
 from Krakatau.verifier.inference_verifier import verifyBytecode
@@ -69,7 +70,7 @@ def deleteUnusued(cls):
     del cls.interfaces_raw, cls.cpool
     del cls.attributes
 
-def decompileClass(path=[], targets=None, outpath=None, plugins=[]):
+def decompileClass(path=[], targets=None, outpath=None, plugins=[], skipMissing=False):
     writeout = script_util.fileDirOut(outpath, '.java')
 
     e = Environment()
@@ -82,8 +83,17 @@ def decompileClass(path=[], targets=None, outpath=None, plugins=[]):
     with e: #keep jars open
         for i,target in enumerate(targets):
             print 'processing target {}, {} remaining'.format(target, len(targets)-i)
-            c = e.getClass(target)
-            source = javaclass.generateAST(c, makeGraph).print_()
+
+            try:
+                c = e.getClass(target)
+                source = javaclass.generateAST(c, makeGraph).print_()
+            except ClassLoaderError as err:
+                if skipMissing:
+                    print 'failed to decompile {} due to missing or invalid class {}'.format(target, err.data)
+                    continue
+                else:
+                    raise
+
             #The single class decompiler doesn't add package declaration currently so we add it here
             if '/' in target:
                 package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
@@ -104,6 +114,7 @@ if __name__== "__main__":
     parser.add_argument('-out',help='Path to generate source files in')
     parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
+    parser.add_argument('-skip', action='store_true', help="Skip classes when an error occurs due to missing dependencies")
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -132,4 +143,4 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
-    decompileClass(path, targets, args.out, plugins)
+    decompileClass(path, targets, args.out, plugins, args.skip)

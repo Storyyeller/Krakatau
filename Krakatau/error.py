@@ -3,7 +3,7 @@ class ClassLoaderError(Exception):
         self.type = typen
         self.data = data
 
-        message = "\n{}: {}".format(typen, data) if typen else str(data)
+        message = u"\n{}: {}".format(typen, data) if typen else unicode(data)
         super(ClassLoaderError, self).__init__(message)
 
 class VerificationError(Exception):

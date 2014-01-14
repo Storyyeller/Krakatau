@@ -45,7 +45,7 @@ class Environment(object):
                     with open(path, 'rb') as file_:
                         return file_.read()
                 except IOError:
-                    print 'failed to open', path
+                    print 'failed to open', path.encode('utf8')
             else: #zip archive
                 try:
                     return archive.read(name)
@@ -53,7 +53,7 @@ class Environment(object):
                     pass
 
     def _loadClass(self, name, subclasses):
-        print "Loading", name[:70]
+        print "Loading", name.encode('utf8')[:70]
         data = self._searchForFile(name)
 
         if data is None:

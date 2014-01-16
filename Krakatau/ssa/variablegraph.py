@@ -14,7 +14,8 @@ class BaseNode(object):
         self.propagateInvalid = not isphi
         self.filterNone = filterNone
         self.upInvalid = False
-        #self.output, self.upOutput to be filled in
+        self.output = self.upOutput = None #to be filled in later
+        self.lastInput = self.lastUpInput = []
 
         self.root = None #for debugging purposes, store the SSA object this node corresponds to
 
@@ -36,23 +37,27 @@ class BaseNode(object):
 
         changed = False
         if self.iters < iterlimit:
-            new = self._propagate([node.output[key] for node,key in self.sources])
-            if new != self.output:
-                self.output = new
-                self.iters += 1
-                changed = True
+            old, self.lastInput = self.lastInput, [node.output[key] for node,key in self.sources]
+            if old != self.lastInput:
+                new = self._propagate(self.lastInput)
+                if new != self.output:
+                    self.output = new
+                    self.iters += 1
+                    changed = True
 
         if self.upIters < iterlimit:
             self.upInvalid = False
-            new = self._propagate([node.upOutput[key] for node,key in self.sources])
-            if new != self.upOutput:
-                self.upOutput = new
-                #don't increase upiters if changed was possibly due to change in lower bound
-                self.upIters += 1 if not changed else 0
-                changed = True
+            old, self.lastUpInput = self.lastUpInput, [node.upOutput[key] for node,key in self.sources]
+            if old != self.lastUpInput:
+                new = self._propagate(self.lastUpInput)
+                if new != self.upOutput:
+                    self.upOutput = new
+                    #don't increase upiters if changed was possibly due to change in lower bound
+                    self.upIters += 1 if not changed else 0
+                    changed = True
 
-                for node in self.uses:
-                    node.upInvalid = True
+                    for node in self.uses:
+                        node.upInvalid = True
         return changed
 
 def registerUses(use, sources):

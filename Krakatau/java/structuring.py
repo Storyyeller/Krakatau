@@ -56,18 +56,86 @@ class DominatorInfo(object):
     def dominators(self, node):
         return self._doms[node]
 
-    def dominator(self, nodes):
+    def dominator(self, *nodes):
         '''Get the common dominator of nodes'''
         return [x for x in zip(*map(self._doms.get, nodes)) if len(set(x))==1][-1][0]
 
-    def area(self, node):
-        #Note, if changed to store a set, make sure to copy it, as returned sets are mutated
-        return set(k for k,v in self._doms.items() if node in v)
+    def set_extend(self, dom, nodes):
+        nodes = list(nodes) + [dom]
+        if hasattr(dom, 'predecessors_nl'):
+            pred_nl_func = lambda x:x.predecessors_nl if x is not dom else []
+        else: #slower fallback for if we're called before the _noloop information is generated
+            pred_nl_func = lambda x:[y for y in x.predecessors if x is not dom and x not in self._doms[y]]
+        return frozenset(graph_util.topologicalSort(nodes, pred_nl_func))
 
-    def extend(self, nodes):
-        dom = self.dominator(nodes)
-        temp = graph_util.topologicalSort(nodes, lambda x:([] if x is dom else x.predecessors))
-        return set(temp)
+    def area(self, node): return ClosedSet([k for k,v in self._doms.items() if node in v], node, self)
+    def extend(self, dom, nodes): return ClosedSet(self.set_extend(dom, nodes), dom, self)
+    def extend2(self, nodes): return self.extend(self.dominator(*nodes), nodes)
+    def single(self, head): return ClosedSet([head], head, self)
+
+#Immutable class representing a dominator closed set of nodes
+#TODO clean up usage (remove copy() calls, etc.)
+class ClosedSet(object):
+    __slots__ = "nodes", "head", "info"
+
+    def __init__(self, nodes, head, info):
+        self.nodes = frozenset(nodes)
+        self.head = head
+        self.info = info
+        if nodes:
+            assert(head in nodes)
+            assert(info.dominator(*nodes) == head)
+
+    def copy(self): return self
+    def touches(self, other): return not self.nodes.isdisjoint(other.nodes)
+    def isdisjoint(self, other): return self.nodes.isdisjoint(other.nodes)
+    def issuperset(self, other): return self.nodes.issuperset(other.nodes)
+    def issubset(self, other): return self.nodes.issubset(other.nodes)
+
+    def __or__(self, other):
+        assert(type(self) == type(other))
+
+        if not other.nodes or self is other:
+            return self
+        elif not self.nodes:
+            return other
+        assert(self.head is not None and other.head is not None)
+        assert(self.info is other.info)
+
+        if self.head in other.nodes:
+            self, other = other, self
+
+        nodes, head, info = self.nodes, self.head, self.info
+        nodes |= other.nodes
+        if other.head not in self.nodes:
+            head = info.dominator(head, other.head)
+            nodes = info.set_extend(head, nodes)
+        return ClosedSet(nodes, head, info)
+
+    def __and__(self, other):
+        assert(type(self) == type(other))
+
+        nodes = self.nodes & other.nodes
+        if not nodes:
+            return ClosedSet.EMPTY
+
+        if self.head in other.nodes:
+            self, other = other, self
+        if other.head in self.nodes:
+            head = other.head
+        else:
+            head = self.info.dominator(*nodes)
+        return ClosedSet(nodes, head, self.info)
+
+    @staticmethod
+    def union(*sets):
+        return reduce(ClosedSet.__or__, sets, ClosedSet.EMPTY)
+
+    def __lt__(self, other): return self.nodes < other.nodes
+    def __le__(self, other): return self.nodes <= other.nodes
+    def __gt__(self, other): return self.nodes > other.nodes
+    def __ge__(self, other): return self.nodes >= other.nodes
+ClosedSet.EMPTY = ClosedSet(frozenset(), None, None)
 
 #########################################################################################
 class ScopeConstraint(object):
@@ -83,15 +151,16 @@ class CompoundConstraint(object):
         self.tag = tag
         self.scopes = scopes
         self.head = head
-        self.heads = frozenset([head]) if head is not None else frozenset()
+        # self.heads = frozenset([head]) if head is not None else frozenset()
         #only used by try constraints, but we leave dummy sets for the rest
         self.forcedup = self.forceddown = frozenset()
 
-        self.lbound = set().union(*[scope.lbound for scope in self.scopes])
-        self.ubound = set().union(*[scope.ubound for scope in self.scopes])
+        self.lbound = ClosedSet.union(*[scope.lbound for scope in self.scopes])
+        self.ubound = ClosedSet.union(*[scope.ubound for scope in self.scopes])
         if head is not None:
-            self.lbound.add(head)
-            self.ubound.add(head)
+            assert(head in self.lbound.nodes and head in self.ubound.nodes)
+            # self.lbound.add(head)
+            # self.ubound.add(head)
         assert(self.ubound >= self.lbound)
         self.id = next(_count) #for debugging purposes
 
@@ -100,12 +169,11 @@ class CompoundConstraint(object):
 
 def WhileCon(dom, head):
     ubound = dom.area(head)
-    lbound = dom.extend([head] + [n2 for n2 in head.predecessors if n2 in ubound])
-    assert(len(lbound)>1)
+    lbound = dom.extend(head, [n2 for n2 in head.predecessors if head in dom.dominators(n2)])
     return CompoundConstraint('while', None, [ScopeConstraint(lbound, ubound)])
 
-def TryCon(trynode, target, cset, catchvar):
-    trybound = set([trynode])
+def TryCon(dom, trynode, target, cset, catchvar):
+    trybound = dom.single(trynode)
     tryscope = ScopeConstraint(trybound, trybound.copy())
 
     #Catch scopes are added later, once all the merging is finished
@@ -216,17 +284,18 @@ def structureConditionals(entryNode, nodes):
     switchnodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.Switch)]
     ifnodes = [n for n in nodes if n.block and isinstance(n.block.jump, ssa_jumps.If)]
 
-    #For switch statements, we can't just blithley indirect all targets as that interferes with fallthrough behavior
+    #For switch statements, we can't just blithely indirect all targets as that interferes with fallthrough behavior
     switchinfos = []
     for n in switchnodes:
-        # import pdb;pdb.set_trace()
         targets = n.successors
+        #a proper switch block must be dominated by its entry point
         bad = [x for x in targets if n not in dom.dominators(x)]
         good = [x for x in targets if x not in bad]
 
-        domains = {x:dom.area(x) for x in good}
+        domains = {x:dom.area(x).nodes for x in good}
         parents = {}
         for x in good:
+            #find all other switch blocks whose entry points dominate one of our predecessors
             parents[x] = [k for k,v in domains.items() if not v.isdisjoint(x.predecessors)]
             if x in parents[x]:
                 parents[x].remove(x)
@@ -266,10 +335,10 @@ def structureConditionals(entryNode, nodes):
         assert(len(ordered) == len(targets) == (len(good) + len(bad)))
         switchinfos.append((n, ordered))
 
+    #Now handle if statements. This is much simpler since we can just indirect everything
     ifinfos = []
     for n in ifnodes:
-        targets = n.successors[:]
-        targets = [x.indirectEdges([n]) for x in targets]
+        targets = [x.indirectEdges([n]) for x in n.successors[:]]
         nodes.extend(targets)
         ifinfos.append((n, targets))
 
@@ -291,7 +360,7 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
                 del forbid[k]
 
     for n, mask, csets, tryinfos in newtryinfos:
-        cons = [TryCon(n, target, top, caughtvar) for top, target, caughtvar in tryinfos]
+        cons = [TryCon(dom, n, target, top, caughtvar) for top, target, caughtvar in tryinfos]
 
         for con, con2 in itertools.product(cons, repeat=2):
             if con is con2:
@@ -310,7 +379,6 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
                 assert(con.cset.isdisjoint(con.forbidden[n]))
                 if not con.forbidden[n]:
                     del con.forbidden[n]
-
             assert(all(con.forbidden.values()))
         constraints.extend(cons)
 
@@ -318,13 +386,15 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
         last = []
         scopes = []
         for target in reversed(ordered):
+            #find all nodes which fallthrough to the next switch block
+            #these must be included in the current switch block
             fallthroughs = [x for x in last if target in dom.dominators(x)]
             assert(n not in fallthroughs)
             last = target.predecessors
 
-            lbound = dom.extend([target] + fallthroughs)
+            lbound = dom.extend(target, fallthroughs)
             ubound = dom.area(target)
-            assert(lbound <= ubound and n not in ubound)
+            assert(lbound <= ubound and n not in ubound.nodes)
             scopes.append(ScopeConstraint(lbound, ubound))
         con = CompoundConstraint('switch', n, list(reversed(scopes)))
         constraints.append(con)
@@ -332,7 +402,7 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
     for n, targets in ifinfos:
         scopes = []
         for target in targets:
-            lbound = set([target])
+            lbound = dom.single(target)
             ubound = dom.area(target)
             scopes.append(ScopeConstraint(lbound, ubound))
         con = CompoundConstraint('if', n, scopes)
@@ -345,8 +415,8 @@ def orderConstraints(dom, constraints, nodes):
     children = ddict(list)
     frozen = set()
 
-    node_set = set(nodes)
-    assert(set(dom._doms) == node_set)
+    node_set = ClosedSet(nodes, dom.root, dom)
+    assert(set(dom._doms) == node_set.nodes)
     for item in constraints:
         assert(item.lbound <= node_set)
         assert(item.ubound <= node_set)
@@ -359,9 +429,10 @@ def orderConstraints(dom, constraints, nodes):
         items = []
         queue = [todo[0]]
         iset = set(queue) #set of items to skip when expanding connected component
-        nset = set()
-        parents = set()
+        nset = ClosedSet.EMPTY
+        parents = set() #items that must be above the entire component
 
+        #Find a connected component of non frozen constraints based on intersecting lbounds
         while queue:
             item = queue.pop()
             if item in frozen:
@@ -375,25 +446,25 @@ def orderConstraints(dom, constraints, nodes):
 
             if not item.lbound.issubset(nset):
                 nset |= item.lbound
-                nset = dom.extend(nset)
-                hits = [i2 for i2 in constraints if nset & i2.lbound]
+                hits = [i2 for i2 in constraints if nset.touches(i2.lbound)]
                 queue += [i2 for i2 in hits if not i2 in iset and not iset.add(i2)]
-        assert(nset <= node_set)
-        assert(nset and nset == dom.extend(nset))
-        #items is now a connected component
+        assert(nset <= node_set and nset.nodes)
+
+        #Find candidates for the new root of the connected component.
+        #It must have a big enough ubound and also can't have nonfrozen forced parents
         candidates = [i for i in items if i.ubound.issuperset(nset)]
         candidates = [i for i in items if i.forcedup.issubset(frozen)]
 
-        #make sure for each candidates that all of the nested items fall within a single scope
+        #make sure for each candidate that all of the nested items fall within a single scope
         cscope_assigns = []
         for cnode in candidates:
-            svals = ddict(set)
+            svals = ddict(lambda:ClosedSet.EMPTY)
             bad = False
             for item in items:
                 if item is cnode:
                     continue
 
-                scopes = [s for s in cnode.scopes if item.lbound & s.ubound]
+                scopes = [s for s in cnode.scopes if item.lbound.touches(s.ubound)]
                 if len(scopes) != 1 or not scopes[0].ubound.issuperset(item.lbound):
                     bad = True
                     break
@@ -407,11 +478,10 @@ def orderConstraints(dom, constraints, nodes):
         for scope, ext in svals.items():
             scope.lbound |= ext
             assert(scope.lbound <= scope.ubound)
-            assert(dom.extend(scope.lbound) == scope.lbound)
 
-        cnode.lbound |= nset
+        cnode.lbound |= nset #should be extended too
         assert(cnode.lbound <= cnode.ubound)
-        assert(cnode.lbound == (cnode.heads.union(*[s.lbound for s in cnode.scopes])))
+        # assert(cnode.lbound == (cnode.heads.union(*[s.lbound for s in cnode.scopes]))) TODO
 
         #find lowest parent
         parent = DummyParent
@@ -431,12 +501,12 @@ def orderConstraints(dom, constraints, nodes):
     for k, v in children.items():
         temp = set()
         for child in v:
-            assert(temp.isdisjoint(child.lbound))
-            temp |= child.lbound
-        assert(k is None or temp <= k.lbound)
+            assert(temp.isdisjoint(child.lbound.nodes))
+            temp |= child.lbound.nodes
+        assert(k is None or temp <= k.lbound.nodes)
 
     #Add a root so it is a tree, not a forest
-    croot = FixedScopeCon(set(nodes))
+    croot = FixedScopeCon(node_set)
     children[croot] = children[None]
     del children[None]
     return croot, children
@@ -445,7 +515,7 @@ def mergeExceptions(dom, children, constraints, nodes):
     parents = {} # con -> parent, parentscope
     for k, cs in children.items():
         for child in cs:
-            scopes = [s for s in k.scopes if s.lbound & child.lbound]
+            scopes = [s for s in k.scopes if s.lbound.touches(child.lbound)]
             assert(child not in parents and len(scopes) == 1)
             parents[child] = k, scopes[0]
     assert(set(parents) == set(constraints))
@@ -454,19 +524,19 @@ def mergeExceptions(dom, children, constraints, nodes):
         parent, pscope = parents[con]
         children[parent] += children[con]
         for x in children[con]:
-            scopes = [s for s in parent.scopes if s.lbound & x.lbound]
+            scopes = [s for s in parent.scopes if s.lbound.touches(x.lbound)]
             parents[x] = parent, scopes[0]
         children[parent].remove(con)
         del children[con]
         del parents[con]
 
     def insertInTree(con, parent):
-        scopes = [s for s in parent.scopes if s.lbound & con.lbound]
+        scopes = [s for s in parent.scopes if s.lbound.touches(con.lbound)]
         parents[con] = parent, scopes[0]
         children[con] = []
 
         for scope in con.scopes:
-            hits = [c for c in children[parent] if c.lbound & scope.lbound]
+            hits = [c for c in children[parent] if c.lbound.touches(scope.lbound)]
             for child in hits:
                 assert(parents[child][0] == parent)
                 parents[child] = con, scope
@@ -475,7 +545,7 @@ def mergeExceptions(dom, children, constraints, nodes):
         children[parent].append(con)
 
     def unforbid(forbidden, newdown):
-        for n in newdown.lbound:
+        for n in newdown.lbound.nodes:
             if n in forbidden:
                 forbidden[n] -= newdown.cset
                 if not forbidden[n]:
@@ -489,8 +559,8 @@ def mergeExceptions(dom, children, constraints, nodes):
         if forcedup & forceddown:
             return False
 
-        body = dom.extend(con.lbound | newblocks)
-        ubound = set(con.ubound)
+        body = con.lbound | newblocks
+        ubound = con.ubound
         for tcon in forcedup:
             ubound &= tcon.lbound
 
@@ -516,9 +586,8 @@ def mergeExceptions(dom, children, constraints, nodes):
                 break
 
         for child in children[parent]:
-            if child.lbound & body:
+            if child.lbound.touches(body):
                 body |= child.lbound
-
         if not body <= ubound:
             return False
 
@@ -528,13 +597,13 @@ def mergeExceptions(dom, children, constraints, nodes):
             unforbid(forbidden, newdown)
         assert(all(forbidden.values()))
 
-        for node in body:
+        for node in body.nodes:
             if node in forbidden and (cset & forbidden[node]):
                 #The current cset is not compatible with the current partial order
                 #Try to find some cons to force down in order to fix this
                 bad = cset & forbidden[node]
                 candidates = [c for c in trycons if c not in removed]
-                candidates = [c for c in candidates if node in c.lbound and c.lbound.issubset(body)]
+                candidates = [c for c in candidates if node in c.lbound.nodes and c.lbound.issubset(body)]
                 candidates = [c for c in candidates if (c.cset & bad)]
                 candidates = [c for c in candidates if c not in forcedup and c is not con]
 
@@ -553,7 +622,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                     if not bad:
                         break
                 if bad:
-                    assert(node not in con.lbound or cset - con.cset)
+                    assert(node not in con.lbound.nodes or cset - con.cset)
                     return False
         assert(forceddown.isdisjoint(forcedup))
         assert(all(forbidden.values()))
@@ -598,13 +667,15 @@ def mergeExceptions(dom, children, constraints, nodes):
         if con in removed:
             continue
 
-        #First find the actual upper bound for the try scope
-        #Nodes dominated by the tryblocks but not reachable from the catch target
-        assert(len(con.lbound) == 1)
-        tryhead = min(con.lbound)
+        #First find the actual upper bound for the try scope, since it's only the one node on creation
+        #However, for now we set ubound to be all nodes not reachable from catch, instead of only those
+        #dominated by the try node. That way we can expand and merge it. We'll fix it up once we're done
+        assert(len(con.lbound.nodes) == 1)
+        tryhead = con.lbound.head
         backnodes = dom.dominators(tryhead)
         catchreach = graph_util.topologicalSort([con.target], lambda node:[x for x in node.successors if x not in backnodes])
-        con.ubound = set(nodes) - set(catchreach)
+        ubound_s = set(nodes) - set(catchreach)
+        con.ubound = ClosedSet(ubound_s, dom.root, dom)
 
         #Now find which cons we can try to merge with
         candidates = [c for c in trycons if c not in removed and c.orig_target == con.orig_target]
@@ -641,6 +712,7 @@ def mergeExceptions(dom, children, constraints, nodes):
                     assert(con in tcon.forcedup or con2 not in tcon.forcedup)
                 tcon.forcedup.discard(con2)
                 tcon.forceddown.discard(con2)
+
             assert(con not in removed)
             removeFromTree(con2)
 
@@ -648,13 +720,6 @@ def mergeExceptions(dom, children, constraints, nodes):
     removed_nodes = frozenset(c.target for c in removed)
     constraints = [c for c in constraints if c not in removed]
     trycons = [c for c in trycons if c not in removed]
-
-    for con in constraints:
-        con.lbound -= removed_nodes
-        con.ubound -= removed_nodes
-        for scope in con.scopes:
-            scope.lbound -= removed_nodes
-            scope.ubound -= removed_nodes
 
     for con in trycons:
         assert(not con.forcedup & removed)
@@ -668,7 +733,8 @@ def mergeExceptions(dom, children, constraints, nodes):
     # print 'Merging done'
     # print dict(collections.Counter(con.tag for con in constraints))
 
-    #Now fix up the nodes. This is a little tricky
+    #Now fix up the nodes. This is a little tricky.
+    #Note, the _nl lists are also invalidated. They're fixed below once we create the new dom info
     nodes = [n for n in nodes if n not in removed_nodes]
     for node in nodes:
         node.predecessors = [x for x in node.predecessors if x not in removed_nodes]
@@ -680,7 +746,7 @@ def mergeExceptions(dom, children, constraints, nodes):
             node.eassigns = ea = {}
 
             for con in trycons:
-                if node in con.lbound and con.orig_target in temp:
+                if node in con.lbound.nodes and con.orig_target in temp:
                     ea[con.target] = temp[con.orig_target]
                     if node not in con.target.predecessors:
                         con.target.predecessors.append(node)
@@ -689,17 +755,23 @@ def mergeExceptions(dom, children, constraints, nodes):
         assert(removed_nodes.isdisjoint(node.successors))
     assert(dom.root not in removed_nodes)
 
-    node_set = set(nodes)
-    for item in constraints:
-        assert(item.lbound <= node_set)
-        assert(item.ubound <= node_set)
-        for scope in item.scopes:
-            assert(scope.lbound <= node_set)
-            assert(scope.ubound <= node_set)
-
     #Regenerate dominator info to take removed nodes into account
+    node_set = set(nodes)
     dom = DominatorInfo(dom.root)
     assert(set(dom._doms) == node_set)
+    calcNoLoopNeighbors(dom, nodes)
+
+    def fixBounds(item):
+        #note, we have to recalculate heads here too due to the altered graph
+        oldl, oldu = item.lbound, item.ubound
+        item.lbound = dom.extend2(item.lbound.nodes - removed_nodes)
+        item.ubound = _dominatorUBoundClosure(dom, item.ubound.nodes - removed_nodes, item.ubound.head)
+        assert(item.lbound.nodes <= oldl.nodes and item.ubound.nodes <= oldu.nodes)
+
+    for con in constraints:
+        fixBounds(con)
+        for scope in con.scopes:
+            fixBounds(scope)
     return dom, constraints, nodes
 
 def fixTryConstraints(dom, constraints):
@@ -708,9 +780,8 @@ def fixTryConstraints(dom, constraints):
         if con.tag != 'try':
             continue
 
-        lbound = set([con.target])
+        lbound = dom.single(con.target)
         ubound = dom.area(con.target)
-
         cscope = ScopeConstraint(lbound, ubound)
         con.scopes.append(cscope)
 
@@ -720,7 +791,9 @@ def fixTryConstraints(dom, constraints):
         tscope = con.scopes[0]
 
         empty = ExceptionSet.EMPTY
-        tscope.ubound = set(x for x in tscope.ubound if not (cset & con.forbidden.get(x, empty)))
+        ubound_s = set(x for x in tscope.ubound.nodes if not (cset & con.forbidden.get(x, empty)))
+        #Note, we use lbound head, not ubound head! The part dominated by lbound is what we actually care about
+        tscope.ubound = _dominatorUBoundClosure(dom, ubound_s, tscope.lbound.head)
         del con.forbidden
 
         con.lbound = tscope.lbound | cscope.lbound
@@ -728,27 +801,21 @@ def fixTryConstraints(dom, constraints):
         assert(tscope.lbound.issubset(tscope.ubound))
         assert(tscope.ubound.isdisjoint(cscope.ubound))
 
-def _dominatorUBoundClosure(dom, lbound, ubound):
-    #Make sure ubound is dominator closed
-    #For now, we keep original dominator since the min cut stuff gets messed up otherwise
-    udom = dom.dominator(lbound)
-    ubound &= dom.area(udom)
-
-    done = (ubound == lbound)
+def _dominatorUBoundClosure(dom, ubound_s, head):
+    #Make sure ubound is dominator closed by removing nodes
+    ubound_s = set(x for x in ubound_s if head in dom.dominators(x))
+    assert(head in ubound_s)
+    done = len(ubound_s) <= 1
     while not done:
         done = True
-        for x in list(ubound):
-            if x == udom:
-                continue
-            for y in x.predecessors_nl:
-                if y not in ubound:
-                    done = False
-                    ubound.remove(x)
-                    break
-    assert(ubound == dom.extend(ubound))
-    assert(ubound.issuperset(lbound))
-    assert(udom == dom.dominator(ubound))
-    return ubound
+        for x in list(ubound_s):
+            xpreds_nl = [y for y in x.predecessors if x not in dom.dominators(y)] #pred nl list may not have been created yet
+            if x != head and not ubound_s.issuperset(xpreds_nl):
+                done = False
+                ubound_s.remove(x)
+                break
+    assert(ubound_s == dom.extend(head, ubound_s).nodes)
+    return ClosedSet(ubound_s, head, dom)
 
 def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
     #Find augmenting path via BFS
@@ -817,7 +884,7 @@ def completeScopes(dom, croot, children, isClinit):
         #The problem is that when processing one child, we may want to extend it to include another child
         #We solve this by freezing already processed children and ordering them heuristically
         # TODO - find a better way to handle this
-        revorder = sorted(children[parent], key=lambda cnode:(-nodeorder[dom.dominator(cnode.lbound)], len(cnode.ubound)))
+        revorder = sorted(children[parent], key=lambda cnode:(-nodeorder[cnode.lbound.head], len(cnode.ubound.nodes)))
         frozen_nodes = set()
 
         while revorder:
@@ -825,60 +892,62 @@ def completeScopes(dom, croot, children, isClinit):
             if cnode not in children[parent]: #may have been made a child of a previously processed child
                 continue
 
-            scopes = [s for s in parent.scopes if s.lbound & cnode.lbound]
+            scopes = [s for s in parent.scopes if s.lbound.touches(cnode.lbound)]
             assert(len(scopes)==1)
 
             ubound = cnode.ubound & scopes[0].lbound
-            ubound -= frozen_nodes
+            ubound_s = ubound.nodes - frozen_nodes
             for other in revorder:
-                if not ubound.issuperset(other.lbound):
-                    ubound -= other.lbound
+                if not ubound_s.issuperset(other.lbound.nodes):
+                    ubound_s -= other.lbound.nodes
             if isClinit:
                 # Avoid inlining return block so that it's always at the end and can be pruned later
-                ubound = set(n for n in ubound if n.block is None or not isinstance(n.block.jump, ssa_jumps.Return))
+                ubound_s = set(n for n in ubound_s if n.block is None or not isinstance(n.block.jump, ssa_jumps.Return))
 
+            ubound = _dominatorUBoundClosure(dom, ubound_s, cnode.lbound.head)
             assert(ubound.issuperset(cnode.lbound))
-            ubound = _dominatorUBoundClosure(dom, cnode.lbound, ubound)
             body = cnode.lbound.copy()
 
             #Be careful to make sure the order is deterministic
-            temp = set(body)
-            parts = [n.norm_suc_nl for n in sorted(body, key=nodeorder.get)]
+            temp = set(body.nodes)
+            parts = [n.norm_suc_nl for n in sorted(body.nodes, key=nodeorder.get)]
             startnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]
 
-            temp = set(ubound)
-            parts = [n.norm_suc_nl for n in sorted(ubound, key=nodeorder.get)]
+            temp = set(ubound.nodes)
+            parts = [n.norm_suc_nl for n in sorted(ubound.nodes, key=nodeorder.get)]
             endnodes = [n for n in itertools.chain(*parts) if not n in temp and not temp.add(n)]
 
             #Now use Edmonds-Karp, modified to find min vertex cut
-            lastseen = _mincut(startnodes, endnodes, frozenset(ubound))
+            lastseen = _mincut(startnodes, endnodes, ubound.nodes)
 
             #Now we have the max flow, try to find the min cut
             #Just use the set of nodes visited during the final BFS
-            interior = [x for x in (lastseen & ubound) if lastseen.issuperset(x.norm_suc_nl)]
+            interior = [x for x in (lastseen & ubound.nodes) if lastseen.issuperset(x.norm_suc_nl)]
 
-            body.update(interior)
-            body = dom.extend(body) #TODO - figure out a cleaner way to do this
-            assert(body.issubset(ubound) and body==dom.extend(body))
+            #TODO - figure out a cleaner way to do this
+            if interior:
+                body |= dom.extend(dom.dominator(*interior), interior)
+            assert(body.issubset(ubound))
             #The new cut may get messed up by the inclusion of extra children. But this seems unlikely
             newchildren = []
             for child in revorder:
-                if child.lbound & body:
+                if child.lbound.touches(body):
                     body |= child.lbound
                     newchildren.append(child)
 
-            assert(body.issubset(ubound) and body == dom.extend(body))
+            assert(body.issubset(ubound))
             cnode.lbound = body
             for scope in cnode.scopes:
                 scope.lbound |= (body & scope.ubound)
 
             children[cnode].extend(newchildren)
             children[parent] = [c for c in children[parent] if c not in newchildren]
-            frozen_nodes |= body
+            frozen_nodes |= body.nodes
 
         #Note this is only the immediate children, after some may have been moved down the tree during previous processing
         stack.extend(children[parent])
 
+#Class used for the trees created internally while deciding where to create scopes
 class _mnode(object):
     def __init__(self, head):
         self.head = head
@@ -910,9 +979,9 @@ def _addBreak_sub(dom, rno_get, body, childcons):
     for n in body:
         mdata[domC[n][-1]].nodes.add(n)
     for item in childcons:
-        head = domC[dom.dominator(item.lbound)][-1]
+        head = domC[item.lbound.head][-1]
         mdata[head].items.append(item)
-        mdata[head].nodes |= item.lbound
+        mdata[head].nodes |= item.lbound.nodes
 
     # Now merge nodes until they no longer cross item boundaries
     for h in heads:
@@ -999,15 +1068,18 @@ def addBreakScopes(dom, croot, constraints, children):
         for scope in cnode.scopes:
             subcons = [c for c in oldchildren if c.lbound <= scope.lbound]
 
-            results = _addBreak_sub(dom, rno_get, scope.lbound, subcons)
+            results = _addBreak_sub(dom, rno_get, scope.lbound.nodes, subcons)
             results = [t for t in results if len(t[0]) > 1]
 
             for nodes, items in results:
-                assert(dom.extend(nodes) == nodes)
-                if len(items) == 1 and items[0].lbound == nodes:
+                if len(items) == 1 and items[0].lbound.nodes == nodes:
                     new = items[0] #no point wrapping it in a scope if it already has identical body
                 else:
-                    new = FixedScopeCon(nodes)
+                    head = dom.dominator(*nodes)
+                    body = dom.extend(head, nodes)
+                    assert(body.nodes == nodes)
+
+                    new = FixedScopeCon(body)
                     constraints.append(new)
                     children[new] = items
                 newchildren.append(new)
@@ -1022,8 +1094,7 @@ def constraintsToSETree(dom, croot, children, nodes):
     for cnode in revorder:
         sescopes = []
         for scope in cnode.scopes:
-            body = scope.lbound
-            pos = dom.dominator(body)
+            pos, body = scope.lbound.head, scope.lbound.nodes
             items = []
             while pos is not None:
                 item = seitems[pos]
@@ -1062,7 +1133,7 @@ def constraintsToSETree(dom, croot, children, nodes):
         elif cnode.tag == 'scope':
             new = sescopes[0]
 
-        assert(new.nodes == frozenset(cnode.lbound))
+        assert(new.nodes == cnode.lbound.nodes)
         assert(new.entryBlock not in seitems)
         seitems[new.entryBlock] = new
 
@@ -1076,7 +1147,7 @@ def _checkNested(ctree_children):
         for child in children:
             assert(child.lbound <= k.lbound)
             assert(child.lbound <= child.ubound)
-            scopes = [s for s in k.scopes if s.ubound & child.lbound]
+            scopes = [s for s in k.scopes if s.ubound.touches(child.lbound)]
             assert(len(scopes) == 1)
 
             for c1, c2 in itertools.combinations(child.scopes, 2):
@@ -1101,9 +1172,20 @@ def _debug_draw(nodes, outn=''):
     G.layout(prog='dot')
     G.draw('file{}.png'.format(outn))
 
+def calcNoLoopNeighbors(dom, nodes):
+    for n in nodes:
+        temp = set(dom.dominators(n))
+        n.successors_nl = [x for x in n.successors if x not in temp]
+        n.predecessors_nl = [x for x in n.predecessors if n not in dom.dominators(x)]
+        n.norm_suc_nl = [x for x in n.successors_nl if x in n.outvars]
+    for n in nodes:
+        for n2 in n.successors_nl:
+            assert(n in n2.predecessors_nl)
+        for n2 in n.predecessors_nl:
+            assert(n in n2.successors_nl)
+
 def structure(entryNode, nodes, isClinit):
     # print 'structuring'
-
     #eliminate self loops
     for n in nodes[:]:
         if n in n.successors:
@@ -1132,7 +1214,12 @@ def structure(entryNode, nodes, isClinit):
     while_heads = structureLoops(nodes)
     newtryinfos = structureExceptions(nodes)
     switchinfos, ifinfos = structureConditionals(entryNode, nodes)
-    dom = DominatorInfo(entryNode) #no new nodes should be created, so we're free to keep dom info around
+
+    #At this point graph modification is largely done so we can calculate and store dominator info
+    #this will be invalidated and recalculated near the end of mergeExceptions
+    dom = DominatorInfo(entryNode)
+    calcNoLoopNeighbors(dom, nodes)
+
     constraints = createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos)
     croot, ctree_children = orderConstraints(dom, constraints, nodes)
 
@@ -1140,28 +1227,11 @@ def structure(entryNode, nodes, isClinit):
     #May remove nodes (and update dominator info)
     dom, constraints, nodes = mergeExceptions(dom, ctree_children, constraints, nodes)
 
-    # handles = [c.orig_target for c in constraints if c.tag=='try']
-    # assert(len(handles) == len(set(handles)))
-
     #TODO - parallelize exceptions
-
     fixTryConstraints(dom, constraints)
 
     #After freezing the try constraints we need to regenerate the tree
     croot, ctree_children = orderConstraints(dom, constraints, nodes)
-
-    #now that no more nodes will be changed, create lists of backedge free edges
-    for n in nodes:
-        temp = set(dom.dominators(n))
-        temp2 = dom.area(n)
-        n.successors_nl = [x for x in n.successors if x not in temp]
-        n.predecessors_nl = [x for x in n.predecessors if x not in temp2]
-        n.norm_suc_nl = [x for x in n.successors_nl if x in n.outvars]
-    for n in nodes:
-        for n2 in n.successors_nl:
-            assert(n in n2.predecessors_nl)
-        for n2 in n.predecessors_nl:
-            assert(n in n2.successors_nl)
 
     # print 'completing scopes'
     _checkNested(ctree_children)

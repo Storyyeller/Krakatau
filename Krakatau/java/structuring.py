@@ -32,20 +32,19 @@ from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 #########################################################################################
 class DominatorInfo(object):
     def __init__(self, root):
-        self._doms = doms = {root:(root,)}
+        self._doms = doms = {root:frozenset([root])}
         stack = [root]
         while stack:
             cur = stack.pop()
             assert(cur not in stack)
             for child in cur.successors:
-                new = doms[cur] + (child,)
+                new = doms[cur] | frozenset([child])
                 old = doms.get(child)
                 if new != old:
-                    new = new if old is None else tuple(x for x in old if x in new)
-                    assert(child == new[-1])
+                    new = new if old is None else (old & new)
+                    assert(child in new)
                 if old is not None:
                     assert(new == old or len(new) < len(old))
-                    assert(new[0] == root and new[-1] == child)
                 if new != old:
                     doms[child] = new
                     if child not in stack:
@@ -58,7 +57,8 @@ class DominatorInfo(object):
 
     def dominator(self, *nodes):
         '''Get the common dominator of nodes'''
-        return [x for x in zip(*map(self._doms.get, nodes)) if len(set(x))==1][-1][0]
+        doms = reduce(frozenset.intersection, map(self._doms.get, nodes))
+        return max(doms, key=lambda n:len(self._doms[n]))
 
     def set_extend(self, dom, nodes):
         nodes = list(nodes) + [dom]
@@ -86,7 +86,6 @@ class ClosedSet(object):
             assert(head in nodes)
             assert(info.dominator(*nodes) == head)
 
-    def copy(self): return self
     def touches(self, other): return not self.nodes.isdisjoint(other.nodes)
     def isdisjoint(self, other): return self.nodes.isdisjoint(other.nodes)
     def issuperset(self, other): return self.nodes.issuperset(other.nodes)
@@ -174,7 +173,7 @@ def WhileCon(dom, head):
 
 def TryCon(dom, trynode, target, cset, catchvar):
     trybound = dom.single(trynode)
-    tryscope = ScopeConstraint(trybound, trybound.copy())
+    tryscope = ScopeConstraint(trybound, trybound)
 
     #Catch scopes are added later, once all the merging is finished
     new = CompoundConstraint('try', None, [tryscope])
@@ -189,7 +188,7 @@ def TryCon(dom, trynode, target, cset, catchvar):
     return new
 
 def FixedScopeCon(lbound):
-    return CompoundConstraint('scope', None, [ScopeConstraint(lbound, lbound.copy())])
+    return CompoundConstraint('scope', None, [ScopeConstraint(lbound, lbound)])
 #########################################################################################
 
 def structureLoops(nodes):
@@ -635,10 +634,8 @@ def mergeExceptions(dom, children, constraints, nodes):
         con.forbidden = forbidden
         con.forcedup = forcedup
         con.forceddown = forceddown
-
-        #These copies aren't necessary, but it's easier to just keep all the mutable sets seperate
-        con.scopes[0].lbound = body.copy()
-        con.scopes[0].ubound = ubound.copy()
+        con.scopes[0].lbound = body
+        con.scopes[0].ubound = ubound
 
         for new in con.forceddown:
             new.forcedup.add(con)
@@ -728,8 +725,8 @@ def mergeExceptions(dom, children, constraints, nodes):
         #For convienence, we were previously storing the try scope bounds in the main constraint bounds
         assert(len(con.scopes)==1)
         tryscope = con.scopes[0]
-        tryscope.lbound = con.lbound.copy()
-        tryscope.ubound = con.ubound.copy()
+        tryscope.lbound = con.lbound
+        tryscope.ubound = con.ubound
     # print 'Merging done'
     # print dict(collections.Counter(con.tag for con in constraints))
 
@@ -906,7 +903,7 @@ def completeScopes(dom, croot, children, isClinit):
 
             ubound = _dominatorUBoundClosure(dom, ubound_s, cnode.lbound.head)
             assert(ubound.issuperset(cnode.lbound))
-            body = cnode.lbound.copy()
+            body = cnode.lbound
 
             #Be careful to make sure the order is deterministic
             temp = set(body.nodes)
@@ -953,37 +950,40 @@ class _mnode(object):
         self.head = head
         self.nodes = set()
         self.items = []
-        #children top selected subtree depth
-
-    def __str__(self): return 'M'+str(self.head)[3:]
-    __repr__ = __str__
+        #externally set fields: children top selected subtree depth
+    # def __str__(self): return 'M'+str(self.head)[3:]
+    # __repr__ = __str__
 
 def _addBreak_sub(dom, rno_get, body, childcons):
     # Create dom* tree
     # This is a subset of dominators that dominate all nodes reachable from themselves
+    # These "super dominators" are the places where it is possible to create a break scope
+
     domC = {n:dom.dominators(n) for n in body}
     for n in sorted(body, key=rno_get): #reverse topo order
         for n2 in n.successors_nl:
             if n2 not in body:
                 continue
-            match = len([x for x,y in zip(domC[n], domC[n2]) if x==y])
-            assert(match and domC[n][:match] == domC[n2][:match])
-            domC[n] = domC[n][:match]
+            domC[n] &= domC[n2]
+            assert(domC[n])
 
-    heads = set(n for n in body if domC[n][-1] == n)
-    for n in body:
-        domC[n] = [x for x in domC[n] if x in heads]
+    heads = set(n for n in body if n in domC[n]) #find the super dominators
+    depths = {n:len(v) for n,v in domC.items()}
+    parentC = {n:max(v & heads, key=depths.get) for n,v in domC.items()} #find the last dom* parent
+    assert(all((n == parentC[n]) == (n in heads) for n in body))
 
     #Make sure this is deterministicly ordered
     mdata = collections.OrderedDict((k,_mnode(k)) for k in sorted(heads, key=rno_get))
     for n in body:
-        mdata[domC[n][-1]].nodes.add(n)
+        mdata[parentC[n]].nodes.add(n)
     for item in childcons:
-        head = domC[item.lbound.head][-1]
+        head = parentC[item.lbound.head]
         mdata[head].items.append(item)
         mdata[head].nodes |= item.lbound.nodes
+        assert(mdata[head].nodes <= body)
+    assert(set(mdata) <= heads)
 
-    # Now merge nodes until they no longer cross item boundaries
+    # Now merge nodes until they no longer cross item boundaries, i.e. they don't intersect
     for h in heads:
         if h not in mdata:
             continue
@@ -1000,8 +1000,9 @@ def _addBreak_sub(dom, rno_get, body, childcons):
         assert(hits == set([h]))
 
     #Now that we have the final set of heads, fill in the tree data
-    #add a dummy to the front so [-1] always works
-    domPruned = {h:[None]+[h2 for h2 in domC[h][:-1] if h2 in mdata] for h in mdata}
+    #for each mnode, we need to find its immediate parent
+    ancestors = {h:domC[h].intersection(mdata) for h in mdata}
+    mparents = {h:(sorted(v,key=depths.get)[-2] if len(v) > 1 else None) for h,v in ancestors.items()}
 
     for h, mnode in mdata.items():
         mnode.top = True
@@ -1014,7 +1015,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
         mnode.tiebreak = rno_get(h)
 
         assert(h in mnode.nodes and len(mnode.nodes) >= len(mnode.items))
-        mnode.children = [mnode2 for h2, mnode2 in mdata.items() if domPruned[h2][-1] == h]
+        mnode.children = [mnode2 for h2, mnode2 in mdata.items() if mparents[h2] == h]
 
     revorder = graph_util.topologicalSort(mdata.values(), lambda mn:mn.children)
     assert(len(revorder) == len(mdata))
@@ -1174,8 +1175,7 @@ def _debug_draw(nodes, outn=''):
 
 def calcNoLoopNeighbors(dom, nodes):
     for n in nodes:
-        temp = set(dom.dominators(n))
-        n.successors_nl = [x for x in n.successors if x not in temp]
+        n.successors_nl = [x for x in n.successors if x not in dom.dominators(n)]
         n.predecessors_nl = [x for x in n.predecessors if n not in dom.dominators(x)]
         n.norm_suc_nl = [x for x in n.successors_nl if x in n.outvars]
     for n in nodes:

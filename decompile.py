@@ -143,4 +143,5 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
+    # targets = sorted(targets)[::8]
     decompileClass(path, targets, args.out, plugins, args.skip)

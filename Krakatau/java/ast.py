@@ -1,4 +1,4 @@
-import itertools
+import itertools, math
 
 from ..ssa import objtypes
 from .stringescape import escapeString
@@ -434,15 +434,14 @@ class FieldAccess(JavaExpression):
             self.params[0] = Parenthesis(p0)
 
 def printFloat(x, isSingle):
-    import math
-    name = 'Float' if isSingle else 'Double'
-    if math.isnan(x):
-        return name + '.NaN'
-    elif math.isinf(x):
-        if x < 0:
-            return name + '.NEGATIVE_INFINITY'
-        return name + '.POSITIVE_INFINITY'
+    if math.copysign(1.0, x) == -1.0: #TODO make this less hackish. We only really need the parens if it's preceded by unary minus
+        return '(-{})'.format(printFloat(math.copysign(x, 1.0), isSingle))
+
     suffix = 'f' if isSingle else ''
+    if math.isnan(x):
+        return '(0.0{0}/0.0{0})'.format(suffix)
+    elif math.isinf(x):
+        return '(1.0{0}/0.0{0})'.format(suffix)
     return repr(x) + suffix
 
 class Literal(JavaExpression):

@@ -442,6 +442,17 @@ def printFloat(x, isSingle):
         return '(0.0{0}/0.0{0})'.format(suffix)
     elif math.isinf(x):
         return '(1.0{0}/0.0{0})'.format(suffix)
+
+    if isSingle and x > 0.0:
+        #Try to find more compract representation for floats, since repr treats everything as doubles
+        m, e = math.frexp(x)
+        half_ulp2 = math.ldexp(1.0, max(e - 25, -150)) #don't bother doubling when near the upper range of a given e value
+        half_ulp1 = (half_ulp2/2) if m == 0.5 and e >= -125 else half_ulp2
+        lbound, ubound = x-half_ulp1, x+half_ulp2
+        assert(lbound < x < ubound)
+        s = '{:g}'.format(x).replace('+','')
+        if lbound < float(s) < ubound: #strict ineq to avoid potential double rounding issues
+            return s + suffix
     return repr(x) + suffix
 
 class Literal(JavaExpression):

@@ -31,6 +31,8 @@ abstract public class floattest {
 	    System.out.println(Float);
 	    System.out.println(-.0F);
 	    System.out.println(-.0);
+	    System.out.println(1e29f);
+	    System.out.println(129f);
 	    System.out.println(_);
 	    System.out.println(x);
 	    System.out.println(x == (_ = (float)x));

@@ -71,7 +71,7 @@ def fixArrays(root, arg_vars):
         return None
 
     def addSourceArray(item, expr):
-        root = None if expr is None else visitExprArray(expr)
+        root = visitExprArray(expr)
         if isinstance(item, ast.ReturnStatement):
             forced_val = (item.tt[0] == BoolTT[0])
             sets.union(forced_val, root)
@@ -116,7 +116,7 @@ def fixScalars(root, arg_vars):
         return None
 
     def addSourceScalar(item, expr):
-        root = None if expr is None else visitExprScalar(expr)
+        root = visitExprScalar(expr)
         if isinstance(item, ast.ReturnStatement):
             forced_val = (item.tt[0] == BoolTT[0])
             sets.union(forced_val, root)

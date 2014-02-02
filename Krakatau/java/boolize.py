@@ -4,22 +4,36 @@ from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT
 from . import ast
 from .. import graph_util
 
-mask_t = collections.namedtuple('mask_t', ('consts', 'vars'))
-BOT, BOOL, BYTE, TOP = 0,1,2,3
+#Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
+#Also, booleans are forced to be seperate roots
+FORCED_ROOTS = True, False
+class UnionFind(object):
+    def __init__(self):
+        self.d = {}
 
-def visitLeaf(expr, mask, arg_vars):
-    #designed to handle both array and scalar case so doesn't do type checking
-    if isinstance(expr, ast.Local):
-        if expr in arg_vars or (expr.dtype[0] != '.bexpr' and expr.dtype[1]>0):
-            isbool = (expr.dtype[0] == BoolTT[0])
-            mask.consts.append(BOOL if isbool else BYTE)
-        else:
-            mask.vars.append(expr)
-    else:
-        assert(isinstance(expr, ast.Literal))
-        if expr.dtype == IntTT and expr.val not in (0,1):
-            mask.consts.append(BYTE)
+    def find(self, x):
+        if x not in self.d:
+            return x
+        path = [x]
+        while path[-1] in self.d:
+            path.append(self.d[path[-1]])
+        root = path.pop()
+        for y in path:
+            self.d[y] = root
+        return root
 
+    def union(self, x, x2):
+        if x is None or x2 is None:
+            return
+        root1, root2 = self.find(x), self.find(x2)
+        if root2 in FORCED_ROOTS:
+            root1, root2 = root2, root1
+        if root1 != root2 and root2 not in FORCED_ROOTS:
+        # if root1 != root2:
+        #     assert(root2 not in FORCED_ROOTS)
+            self.d[root2] = root1
+
+##############################################################
 def visitExprs(scope, callback):
     for item in scope.statements:
         for sub in item.getScopes():
@@ -27,118 +41,99 @@ def visitExprs(scope, callback):
         if item.expr is not None:
             callback(item, item.expr)
 
-def propagate(varlist, sources):
-    vals = {}
-    ordered = graph_util.tarjanSCC(varlist, lambda v:sources[v].vars)
-    for scc in ordered: #make sure this is in topological order
-        val = TOP
-        for var in scc:
-            for c in sources[var].consts:
-                val &= c
-            for v in sources[var].vars:
-                if v not in scc:
-                    val &= vals[v]
-        for var in scc:
-            vals[var] = val
-    return vals
-
-def backPropagate(varlist, sources, vals):
-    #Propagate backwards to vars that are undecided
-    ordered = graph_util.topologicalSort(varlist, lambda v:sources[v].vars)
-    revorder = [v for v in reversed(ordered) if vals[v] != BOT]
-
-    for var in revorder:
-        for v2 in sources[var].vars:
-            if vals[v2] == TOP:
-                vals[v2] = vals[var]
-
+int_tts = IntTT, ShortTT, CharTT, ByteTT, BoolTT
 def fixArrays(root, arg_vars):
     varlist = []
-    sources = collections.defaultdict(lambda:mask_t([], []))
+    sets = UnionFind()
+
+    for expr in arg_vars:
+        forced_val = (expr.dtype[0] == BoolTT[0])
+        sets.union(forced_val, expr)
+
+    def visitExprArray(expr):
+        #see if we have to merge
+        if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!='):
+            subs = [visitExprArray(param) for param in expr.params]
+            sets.union(*subs)
+
+        if isinstance(expr, ast.Local):
+            if expr.dtype[1] == 0:
+                return None
+            if expr.dtype[0] == '.bexpr' and expr.dtype[1] > 0:
+                varlist.append(expr)
+            return sets.find(expr)
+        elif isinstance(expr, ast.Literal):
+            return None
+        elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
+            return visitExprArray(expr.params[0])
+        elif expr.dtype is not None and expr.dtype[0] != '.bexpr':
+            return expr.dtype[0] == BoolTT[0]
+        return None
 
     def addSourceArray(item, expr):
-        if expr.isLocalAssign():
-            left, right = expr.params
-            if left.dtype[0] == '.bexpr':
-                assert(left not in arg_vars)
-                varlist.append(left) # Note, may have duplicates, but this shouldn't really matter
-
-                if isinstance(right, (ast.Local, ast.Literal)):
-                    visitLeaf(right, sources[left], arg_vars)
-                elif isinstance(right, (ast.ArrayCreation, ast.Cast, ast.FieldAccess, ast.MethodInvocation)):
-                    isbool = (right.dtype[0] == BoolTT[0])
-                    sources[left].consts.append(BOOL if isbool else BYTE)
-                elif isinstance(right, ast.ArrayAccess):
-                    visitLeaf(right.params[0], sources[left], arg_vars)
-                else:
-                    assert(0)
-        elif isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
-            if expr.dtype[0] == '.bexpr':
-                isbool = (item.tt[0] == BoolTT[0])
-                sources[expr].consts.append(BOOL if isbool else BYTE)
+        root = None if expr is None else visitExprArray(expr)
+        if isinstance(item, ast.ReturnStatement):
+            forced_val = (item.tt[0] == BoolTT[0])
+            sets.union(forced_val, root)
 
     visitExprs(root, addSourceArray)
-    vals = propagate(varlist, sources)
-    backPropagate(varlist, sources, vals)
-
-    bases = {BOT:'.bexpr', BOOL:BoolTT[0], BYTE:ByteTT[0]}
+    bases = {True:BoolTT[0], False:ByteTT[0]}
     for var in set(varlist):
         assert(var.dtype[0] == '.bexpr' and var.dtype[1] > 0)
-        var.dtype = bases[vals[var]], var.dtype[1]
-
+        var.dtype = bases[sets.find(var)], var.dtype[1]
 
 def fixScalars(root, arg_vars):
     varlist = []
-    sources = collections.defaultdict(lambda:mask_t([], []))
+    sets = UnionFind()
 
-    int_tts = IntTT, ShortTT, CharTT, ByteTT, BoolTT
-    instanceofs = []
+    for expr in arg_vars:
+        forced_val = (expr.dtype[0] == BoolTT[0])
+        sets.union(forced_val, expr)
+
+    def visitExprScalar(expr):
+        #see if we have to merge
+        if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!=','&','|','^'):
+            subs = [visitExprScalar(param) for param in expr.params]
+            sets.union(*subs)
+            if isinstance(expr, ast.Assignment) or expr.opstr in ('&','|','^'):
+                return subs[0]
+        elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('* / % + - << >> >>>'):
+            sets.union(False, visitExprScalar(expr.params[0]))
+            sets.union(False, visitExprScalar(expr.params[1]))
+
+        if isinstance(expr, ast.Local):
+            if expr.dtype in int_tts:
+                varlist.append(expr)
+            return sets.find(expr)
+        elif isinstance(expr, ast.Literal):
+            if expr.dtype == IntTT and expr.val not in (0,1):
+                return False
+            return None
+        elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
+            return visitExprScalar(expr.params[0])
+        elif expr.dtype is not None and expr.dtype[0] != '.bexpr':
+            return expr.dtype[0] == BoolTT[0]
+        return None
 
     def addSourceScalar(item, expr):
-        if expr.isLocalAssign():
-            left, right = expr.params
-            if left.dtype in int_tts and left not in arg_vars:
-                varlist.append(left) # Note, may have duplicates, but this shouldn't really matter
-
-                if isinstance(right, (ast.Local, ast.Literal)):
-                    visitLeaf(right, sources[left], arg_vars)
-                elif isinstance(right, (ast.ArrayCreation, ast.ArrayAccess, ast.Cast, ast.FieldAccess, ast.MethodInvocation)):
-                    isbool = (right.dtype[0] == BoolTT[0])
-                    sources[left].consts.append(BOOL if isbool else BYTE)
-                elif isinstance(right, ast.Ternary): #at this point, only ternaries should be from float/long comparisons
-                    sources[left].consts.append(BYTE)
-                elif isinstance(right, ast.BinaryInfix):
-                    if right.opstr in '&^|':
-                        visitLeaf(right.params[0], sources[left], arg_vars)
-                        visitLeaf(right.params[1], sources[left], arg_vars)
-                    elif right.opstr == 'instanceof':
-                        instanceofs.append(left)
-                    else:
-                        assert(right.opstr in '* / % + - << >> >>>')
-                        sources[left].consts.append(BYTE)
-                else:
-                    assert(0)
-        elif isinstance(item, ast.ReturnStatement) and isinstance(expr, ast.Local):
-            if expr.dtype in int_tts and expr not in arg_vars:
-                isbool = (item.tt[0] == BoolTT[0])
-                sources[expr].consts.append(BOOL if isbool else BYTE)
+        root = None if expr is None else visitExprScalar(expr)
+        if isinstance(item, ast.ReturnStatement):
+            forced_val = (item.tt[0] == BoolTT[0])
+            sets.union(forced_val, root)
 
     visitExprs(root, addSourceScalar)
-    vals = propagate(varlist, sources)
-
-    #Make instanceof results bool if it doesn't conflict with previous assignments
-    for var in instanceofs:
-        if vals[var] & BOOL:
-           vals[var] = BOOL
-    backPropagate(varlist, sources, vals)
 
     #Fix the propagated types
     for var in set(varlist):
-        if vals[var] == BOOL:
+        assert(var.dtype in int_tts)
+        if sets.find(var) != False:
             var.dtype = BoolTT
 
     #Fix everything else back up
     def fixExpr(item, expr):
+        for param in expr.params:
+            fixExpr(None, param)
+
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
             if left.dtype in int_tts:
@@ -146,8 +141,8 @@ def fixScalars(root, arg_vars):
                     expr.params = left, ast.makeCastExpr(left.dtype, right)
         elif isinstance(expr, ast.BinaryInfix):
             a,b = expr.params
-            if a.dtype == BoolTT or b.dtype == BoolTT:
-                assert(expr.opstr in '== != & | ^')
+            if expr.opstr in '== != & | ^' and a.dtype == BoolTT or b.dtype == BoolTT:
+                # assert(expr.opstr in '== != & | ^')
                 expr.params = [ast.makeCastExpr(BoolTT, v) for v in expr.params]
     visitExprs(root, fixExpr)
 

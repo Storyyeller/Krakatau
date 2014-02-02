@@ -144,20 +144,19 @@ def _fixObjectCreations(scope, item):
     '''Combines new/invokeinit pairs into Java constructor calls'''
 
     #Thanks to the copy propagation pass prior to AST generation, as well as the fact that
-    #unitialized types never merge, we can safely assume there are no copies to worry about
+    #uninitialized types never merge, we can safely assume there are no copies to worry about
     expr = item.expr
     if isinstance(expr, ast.Assignment):
         left, right = expr.params
         if isinstance(right, ast.Dummy) and right.isNew:
             return [] #remove item
-
     elif isinstance(expr, ast.MethodInvocation) and expr.name == '<init>':
         left = expr.params[0]
         newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
         item.expr = ast.Assignment(left, newexpr)
 
 def _pruneRethrow_cb(item):
-    '''Convert try{A} catch(T e) {throw t;} to {A}'''
+    '''Convert try{A} catch(T t) {throw t;} to {A}'''
     while item.pairs:
         decl, body = item.pairs[-1]
         caught, lines = decl.local, body.statements
@@ -202,7 +201,6 @@ def _pruneIfElse_cb(item):
         if isinstance(first, ast.IfStatement) and len(first.scopes) == 1:
             item.expr = ast.BinaryInfix('&&',[item.expr, first.expr], objtypes.BoolTT)
             item.scopes = first.scopes
-
     return item
 
 def _whileCondition_cb(item):

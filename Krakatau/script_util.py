@@ -81,7 +81,7 @@ def winSanitizePath(base, suffix, prevs, s):
     return '\\\\?\\{}\\{}{}'.format(base, path, suffix)
 
 def otherMakePath(base, suffix, s):
-    return os.path.join(base_path, *s.split('/')) + suffix
+    return os.path.join(base, *s.split('/')) + suffix
 
 def fileDirOut(base_path, suffix):
     if base_path is None:

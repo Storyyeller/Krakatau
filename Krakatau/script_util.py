@@ -1,5 +1,6 @@
 import platform, os, os.path, zipfile
 import collections, hashlib
+from functools import partial
 
 #Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
 
@@ -67,7 +68,7 @@ def sanitizePart(s, suffix, prev):
     ok = ''.join(c for c in s if c in pref_disp_chars)
     return ok[:8] + '__' + hashlib.md5(s).hexdigest()
 
-def winSanitizePath(base, s, suffix, prevs):
+def winSanitizePath(base, suffix, prevs, s):
     if isPathOk(s, prevs):
         parts = s.split('/')
         sparts = [sanitizePart(p, suffix, prevs[i]) for i,p in enumerate(parts)]
@@ -79,6 +80,9 @@ def winSanitizePath(base, s, suffix, prevs):
         prevs[0][path.lower()] = path
     return '\\\\?\\{}\\{}{}'.format(base, path, suffix)
 
+def otherMakePath(base, suffix, s):
+    return os.path.join(base_path, *s.split('/')) + suffix
+
 def fileDirOut(base_path, suffix):
     if base_path is None:
         base_path = os.getcwdu()
@@ -89,9 +93,9 @@ def fileDirOut(base_path, suffix):
     osname = platform.system().lower()
     if 'win' in osname and 'darwin' not in osname:
         prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
-        makepath = lambda s:winSanitizePath(base_path, s, suffix, prevs)
+        makepath = partial(winSanitizePath, base_path, suffix, prevs)
     else:
-        makepath = lambda s:os.path.join(base_path, *s.split('/')) + suffix
+        makepath = partial(otherMakePath, base_path, suffix)
 
     def write(cname, data):
         out = makepath(cname)

@@ -31,7 +31,7 @@ def rstring(s, allowWord=True):
         if s.encode('ascii') == s:
             return repr(str(s))
     except (UnicodeEncodeError, UnicodeDecodeError):
-        pass 
+        pass
     return repr(s)
 
 class PoolManager(object):
@@ -46,15 +46,15 @@ class PoolManager(object):
         temp2 = lambda ind: self.utfref(self.cparg1(ind))
 
         self.cpref_table = {
-            "Utf8": temp1, 
-            
-            "Class": temp2, 
-            "String": temp2, 
-            "MethodType": temp2, 
+            "Utf8": temp1,
 
-            "NameAndType": self.multiref, 
-            "Field": self.multiref, 
-            "Method": self.multiref, 
+            "Class": temp2,
+            "String": temp2,
+            "MethodType": temp2,
+
+            "NameAndType": self.multiref,
+            "Field": self.multiref,
+            "Method": self.multiref,
             "InterfaceMethod": self.multiref,
 
             "Int": self.ldc,
@@ -62,8 +62,8 @@ class PoolManager(object):
             "Float": self.ldc,
             "Double": self.ldc,
 
-            "MethodHandle": self.methodhandle_notref, 
-            "InvokeDynamic": self.invokedynamic_notref, 
+            "MethodHandle": self.methodhandle_notref,
+            "InvokeDynamic": self.invokedynamic_notref,
             }
 
     def cparg1(self, ind):
@@ -80,24 +80,24 @@ class PoolManager(object):
     def ref(self, ind):
         self.used.add(ind)
         return '[_{}]'.format(ind)
-    
+
     def utfref(self, ind):
         if ind == 0:
-            return '[0]'         
-        inline = self.inlineutf(ind) 
-        return inline if inline is not None else self.ref(ind) 
+            return '[0]'
+        inline = self.inlineutf(ind)
+        return inline if inline is not None else self.ref(ind)
 
     #Also works for Strings and MethodTypes
     def classref(self, ind):
         if ind == 0:
-            return '[0]'  
-        inline = self.inlineutf(self.cparg1(ind)) 
+            return '[0]'
+        inline = self.inlineutf(self.cparg1(ind))
         return inline if inline is not None else self.ref(ind)
 
     #For Field, Method, IMethod, and NameAndType. Effectively notref
     def multiref(self, ind):
         if ind == 0:
-            return '[0]' 
+            return '[0]'
         typen, args = self.pool[ind]
         if typen == "Utf8":
             return self.utfref(ind)
@@ -109,7 +109,7 @@ class PoolManager(object):
     def notjasref(self, ind):
         typen, args = self.pool[ind]
         cind = self.cparg1(ind)
-        inline = self.inlineutf(self.cparg1(cind)) 
+        inline = self.inlineutf(self.cparg1(cind))
         if inline is None:
             return self.ref(ind)
         return inline + ' ' + self.multiref(args[1])
@@ -120,7 +120,7 @@ class PoolManager(object):
 
         if typen == 'String':
             inline = self.inlineutf(arg, allowWord=False)
-            return inline if inline is not None else self.ref(ind) 
+            return inline if inline is not None else self.ref(ind)
         elif typen in ('Int','Long','Float','Double'):
             if typen == "Float" or typen == "Double":
                 arg = self.const_pool.getArgs(ind)[0]
@@ -135,7 +135,7 @@ class PoolManager(object):
     def methodhandle_notref(self, ind):
         typen, args = self.pool[ind]
         code = rhandle_codes[args[0]]
-        return code + ' ' + self.ref(args[1])    
+        return code + ' ' + self.ref(args[1])
 
     def invokedynamic_notref(self, ind):
         typen, args = self.pool[ind]
@@ -205,18 +205,18 @@ def getInstruction(b, getlbl, poolm):
         args = list(b.get(fmt_lookup[name], forceTuple=True))
         #remove extra padding 0
         if name in ('invokeinterface','invokedynamic'):
-            args = args[:-1] 
+            args = args[:-1]
 
         funcs = {
-                'OP_CLASS': poolm.classref, 
-                'OP_CLASS_INT': poolm.classref, 
+                'OP_CLASS': poolm.classref,
+                'OP_CLASS_INT': poolm.classref,
                 'OP_FIELD': poolm.notjasref, #this is a special case due to the jasmin thing
-                'OP_METHOD': poolm.multiref, 
-                'OP_METHOD_INT': poolm.multiref, 
-                'OP_DYNAMIC': poolm.ref, 
-                'OP_LDC1': poolm.ldc, 
-                'OP_LDC2': poolm.ldc, 
-                'OP_NEWARR': rnewarr_codes.get, 
+                'OP_METHOD': poolm.multiref,
+                'OP_METHOD_INT': poolm.multiref,
+                'OP_DYNAMIC': poolm.ref,
+                'OP_LDC1': poolm.ldc,
+                'OP_LDC2': poolm.ldc,
+                'OP_NEWARR': rnewarr_codes.get,
             }
 
         token_t = tokenize.wordget[name]
@@ -232,6 +232,7 @@ def getInstruction(b, getlbl, poolm):
 def disMethodCode(code, add, poolm):
     if code is None:
         return
+    add('\t; method code size: {} bytes'.format(code.codelen))
     add('\t.limit stack {}'.format(code.stack))
     add('\t.limit locals {}'.format(code.locals))
 
@@ -285,7 +286,7 @@ def getVerificationType(bytes_, poolm, getLbl):
 
 def getStackMapTable(code_attributes, poolm, getLbl):
     smt_attrs = code_attributes['StackMapTable']
-    
+
     frames = {}
     offset = 0
 
@@ -305,28 +306,28 @@ def getStackMapTable(code_attributes, poolm, getLbl):
             elif 64 <= tag <= 127:
                 offset += tag - 64
                 header = 'same_locals_1_stack_item'
-                contents.append('\tstack ' + getVT())            
+                contents.append('\tstack ' + getVT())
             elif tag == 247:
                 offset += bytes_.get('>H')
                 header = 'same_locals_1_stack_item_extended'
                 contents.append('\tstack ' + getVT())
             elif 248 <= tag <= 250:
                 offset += bytes_.get('>H')
-                header = 'chop ' + str(251-tag)            
+                header = 'chop ' + str(251-tag)
             elif tag == 251:
                 offset += bytes_.get('>H')
                 header = 'same_extended'
             elif 252 <= tag <= 254:
                 offset += bytes_.get('>H')
-                header = 'append'     
-                contents.append('\tlocals ' + ' '.join(getVT() for _ in range(tag-251)))  
+                header = 'append'
+                contents.append('\tlocals ' + ' '.join(getVT() for _ in range(tag-251)))
             elif tag == 255:
                 offset += bytes_.get('>H')
                 header = 'full'
-                local_count = bytes_.get('>H')    
-                contents.append('\tlocals ' + ' '.join(getVT() for _ in range(local_count))) 
-                stack_count = bytes_.get('>H')    
-                contents.append('\tstack ' + ' '.join(getVT() for _ in range(stack_count))) 
+                local_count = bytes_.get('>H')
+                contents.append('\tlocals ' + ' '.join(getVT() for _ in range(local_count)))
+                stack_count = bytes_.get('>H')
+                contents.append('\tstack ' + ' '.join(getVT() for _ in range(stack_count)))
 
             if contents:
                 contents.append('.end stack')
@@ -338,7 +339,7 @@ def getStackMapTable(code_attributes, poolm, getLbl):
 
 def disCFMAttribute(name_ind, name, bytes_, add, poolm):
     for vis in ('Visible', 'Invisible'):
-        if name == 'Runtime{}Annotations'.format(vis):        
+        if name == 'Runtime{}Annotations'.format(vis):
             count = bytes_.get('>H')
             for _ in range(count):
                 disAnnotation(bytes_, '.runtime{} '.format(vis.lower()), add, poolm, '')
@@ -365,7 +366,7 @@ def disMethodAttribute(name_ind, name, bytes_, add, poolm):
             return
 
     for vis in ('Visible', 'Invisible'):
-        if name == 'Runtime{}ParameterAnnotations'.format(vis):        
+        if name == 'Runtime{}ParameterAnnotations'.format(vis):
             for i in range(bytes_.get('>B')):
                 for _ in range(bytes_.get('>H')):
                     disAnnotation(bytes_, '.runtime{} parameter {} '.format(vis.lower(), i), add, poolm, '')
@@ -376,7 +377,7 @@ def disMethodAttribute(name_ind, name, bytes_, add, poolm):
 def disMethod(method, add, poolm):
     mflags = ' '.join(map(str.lower, method.flags))
     add('.method {} {} : {}'.format(mflags, poolm.utfref(method.name_id), poolm.utfref(method.desc_id)))
-    
+
     for name_ind, name, attr in getAttributeTriples(method):
         disMethodAttribute(name_ind, name, binUnpacker(attr), add, poolm)
 
@@ -399,7 +400,7 @@ def _disEVorAnnotationSub(bytes_, add, poolm, isAnnot, init_prefix, init_indent)
 
         elif callt == C_ANNOT2:
             key = poolm.utfref(bytes_.get('>H'))
-            stack.append((C_EV, key + ' = ', indent+'\t'))    
+            stack.append((C_EV, key + ' = ', indent+'\t'))
 
         elif callt == C_ANNOT3:
             add(indent + '.end annotation')
@@ -412,9 +413,9 @@ def _disEVorAnnotationSub(bytes_, add, poolm, isAnnot, init_prefix, init_indent)
                 if tag in ('byte','char','double','int','float','long','short','boolean','string'):
                     val = poolm.ldc(bytes_.get('>H'))
                 elif tag == 'class':
-                    val = poolm.utfref(bytes_.get('>H'))        
+                    val = poolm.utfref(bytes_.get('>H'))
                 elif tag == 'enum':
-                    val = poolm.utfref(bytes_.get('>H')) + ' ' + poolm.utfref(bytes_.get('>H'))        
+                    val = poolm.utfref(bytes_.get('>H')) + ' ' + poolm.utfref(bytes_.get('>H'))
                 elif tag == 'array':
                     val = ''
 
@@ -503,7 +504,7 @@ def disassemble(cls):
         if name == "InnerClasses":
             assert(len(class_attributes[name]) == 1)
             for name_ind, (length, attr) in class_attributes[name]:
-                disInnerClassesAttribute(name_ind, length, binUnpacker(attr), add, poolm)            
+                disInnerClassesAttribute(name_ind, length, binUnpacker(attr), add, poolm)
         else:
             for name_ind, attr in class_attributes[name]:
                 disOtherClassAttribute(name_ind, name, binUnpacker(attr), add, poolm)

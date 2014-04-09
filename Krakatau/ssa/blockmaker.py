@@ -2,6 +2,7 @@ import collections
 
 from . import ssa_ops, ssa_jumps, objtypes, subproc
 from .. import opnames as vops
+from ..verifier import verifier_types
 from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
 from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT, SSA_MONAD
 from .ssa_types import slots_t, BasicBlock
@@ -424,14 +425,27 @@ def getOnNoExceptionTarget(parent, iNode):
         return iNode.successors[0]
     return None
 
-def fromInstruction(parent, iNode, initMap):
+def fromInstruction(parent, block, iNode, initMap):
     assert(iNode.visited)
     instr = iNode.instruction
 
-    monad = parent.makeVariable(SSA_MONAD)
-    stack = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.stack]
-    locals_ = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.locals]
-    inslots = slots_t(monad=monad, locals=locals_, stack=stack)
+    if block is None:
+        #create new partially constructed block (jump is none)
+        block = BasicBlock(iNode.key, [], None)
+
+        #now make inslots for the block
+        monad = parent.makeVariable(SSA_MONAD)
+        stack = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.stack]
+        locals_ = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.locals]
+        inslots = block.inslots = slots_t(monad=monad, locals=locals_, stack=stack)
+    else:
+        skey, inslots = block.successorStates[0]
+        assert(skey == (iNode.key, False) and len(block.successorStates) == 1)
+        block.successorStates = None #make sure we don't accidently access stale data
+        #have to keep track of internal keys for predecessor tracking later
+        block.keys.append(iNode.key)
+
+
 
     if iNode.before is not None and '1' in iNode.before:
         func = genericStackUpdate
@@ -439,18 +453,21 @@ def fromInstruction(parent, iNode, initMap):
         func = _instructionHandlers[instr[0]]
     vals = func(parent, inslots, iNode)
 
+
     line, jump = map(vals.get, ('line','jump'))
-    newstack = vals.get('newstack', stack)
-    newlocals = vals.get('newlocals', locals_)
-    newmonad = line.outMonad if (line and line.outMonad) else monad
+    newstack = vals.get('newstack', inslots.stack)
+    newlocals = vals.get('newlocals', inslots.locals)
+    newmonad = line.outMonad if (line and line.outMonad) else inslots.monad
     outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
 
-    lines = [line] if line is not None else []
-    successorStates = [((nodekey, False), outslot_norm) for nodekey in iNode.successors]
+
+    if line is not None:
+        block.lines.append(line)
+    block.successorStates = [((nodekey, False), outslot_norm) for nodekey in iNode.successors]
 
     #Return iNodes obviously don't have our synethetic return node as a normal successor
     if instr[0] == vops.RETURN:
-        successorStates.append(((parent.returnKey, False), outslot_norm))
+        block.successorStates.append(((parent.returnKey, False), outslot_norm))
 
     if line and line.outException:
         assert(not jump)
@@ -458,15 +475,56 @@ def fromInstruction(parent, iNode, initMap):
 
         jump = ssa_jumps.OnException(parent, iNode.key, line, parent.rawExceptionHandlers(), fallthrough)
         outslot_except = slots_t(monad=newmonad, locals=newlocals, stack=[line.outException])
-        successorStates += [((nodekey, True), outslot_except) for nodekey in jump.getExceptSuccessors()]
+        block.successorStates += [((nodekey, True), outslot_except) for nodekey in jump.getExceptSuccessors()]
 
     if not jump:
         assert(instr[0] == vops.RETURN or len(iNode.successors) == 1)
         jump = ssa_jumps.Goto(parent, getOnNoExceptionTarget(parent, iNode))
+    block.jump = jump
 
-    block = BasicBlock(iNode.key, lines=lines, jump=jump)
-    block.inslots = inslots
-    block.successorStates = collections.OrderedDict(successorStates)
-    #store these vars in case we created any constants in the block that won't show up later
-    block.tempvars = [var for var in newstack + newlocals if var is not None]
+    block.tempvars.extend(newstack + newlocals + [newmonad])
     return block
+
+_jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
+def makeBlocks(parent, iNodes, myclsname):
+    iNodes = [n for n in iNodes if n.visited]
+
+    #create map of uninitialized -> initialized types so we can convert them
+    initMap = {}
+    for node in iNodes:
+        if node.op == vops.NEW:
+            initMap[node.push_type] = node.target_type
+    initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(myclsname)
+
+    #The purpose of this function is to create blocks containing multiple instructions
+    #of linear code where possible. Blocks for invidual instructions will get merged
+    #by later analysis anyway but it's a lot faster to merge them during creation
+    jump_targets = set()
+    for node in iNodes:
+        if node.instruction[0] in _jump_instrs:
+            jump_targets.update(node.successors)
+
+    blocks = []
+    curblock = None
+    for node in iNodes:
+        #check if we need to start a new block
+        if curblock is not None:
+            keep = node.key not in jump_targets
+            keep = keep and isinstance(curblock.jump, ssa_jumps.Goto)
+            keep = keep and node.key == curblock.jump.getNormalSuccessors()[0]
+            #for simplicity, keep jsr stuff in individual instruction blocks.
+            #Note that subproc.py will need to be modified if this is changed
+            keep = keep and node.instruction[0] not in (vops.JSR, vops.RET)
+
+            if not keep:
+                blocks.append(curblock)
+                curblock = None
+
+        curblock = fromInstruction(parent, curblock, node, initMap)
+        assert(curblock.jump)
+    blocks.append(curblock)
+
+    for block in blocks:
+        block.successorStates = collections.OrderedDict(block.successorStates)
+        block.tempvars = [t for t in block.tempvars if t is not None]
+    return blocks

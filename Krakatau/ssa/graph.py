@@ -535,16 +535,15 @@ def isTerminal(parent, block):
 def ssaFromVerified(code, iNodes):
     parent = SSA_Graph(code)
 
-    #create map of uninitialized -> initialized types so we can convert them
-    initMap = {}
-    for node in iNodes:
-        if node.op == opnames.NEW:
-            initMap[node.push_type] = node.target_type
-    initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(code.class_.name)
-
-    blocks = [blockmaker.fromInstruction(parent, iNode, initMap) for iNode in iNodes if iNode.visited]
+    blocks = blockmaker.makeBlocks(parent, iNodes, code.class_.name)
     blocks = [parent.entryBlock] + blocks + [parent.returnBlock, parent.rethrowBlock]
-    blockDict = {b.key:b for b in blocks}
+
+    #each block can correspond to multiple instructions. We want all the keys of the contained instructions to refer to that block
+    blockDict = {}
+    for b in blocks:
+        for k in b.keys:
+            blockDict[k] = b
+
 
     #fixup proc info
     jsrs = [block for block in blocks if isinstance(block.jump, subproc.ProcCallOp)]
@@ -585,7 +584,7 @@ def ssaFromVerified(code, iNodes):
         proc.callops[callop] = block
         assert(proc.target == target.key and proc.retblock == retblock and proc.retop == retop)
         del callop.iNode
-    #Now delete iNodes and fix extra input variables
+    #Now delete references to iNodes and fix extra input variables
     procs = procs.values()
     for proc in procs:
         del proc.retop.iNode
@@ -608,7 +607,7 @@ def ssaFromVerified(code, iNodes):
 
         #replace the placeholder keys with actual blocks now
         block.jump.replaceBlocks(blockDict)
-        for (key, exc),outstate in block.successorStates.items():
+        for (key, exc), outstate in block.successorStates.items():
             dest = blockDict[key]
             assert(dest.sourceStates.get((block,exc), outstate) == outstate)
             dest.sourceStates[block,exc] = outstate
@@ -661,7 +660,7 @@ def ssaFromVerified(code, iNodes):
             bvars += [x for x in op.getOutputs() if x is not None]
         bvars += block.jump.params
 
-        for var in bvars:
+        for var in set(bvars):
             block.unaryConstraints[var] = makeConstraint(var)
 
     #Make sure that branch targets are distinct, since this is assumed everywhere

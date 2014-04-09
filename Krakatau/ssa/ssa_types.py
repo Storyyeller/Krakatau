@@ -41,10 +41,15 @@ class BasicBlock(object):
         # Holds constraints (range and type information) for each variable in the block.
         # If the value is None, this variable cannot be reached
         self.unaryConstraints = collections.OrderedDict()
-        #temp vars used during graph creation
-        self.sourceStates = collections.OrderedDict()
         # List of predecessor pairs in deterministic order
         self.predecessors = None
+
+        #temp vars used during graph creation
+        self.sourceStates = collections.OrderedDict()
+        self.successorStates = None
+        self.tempvars = []
+        self.inslots = None
+        self.keys = [key]
 
     def getOps(self):
         return self.phis + self.lines

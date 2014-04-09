@@ -1,4 +1,5 @@
 from ..verifier import verifier_types as vtypes
+from ..error import ClassLoaderError
 
 #types are represented by classname, dimension
 #primative types are .int, etc since these cannot be valid classnames since periods are forbidden
@@ -87,12 +88,20 @@ def declTypeToActual(env, decltype):
         return [], [(ByteTT[0], dim), (BoolTT[0], dim)]
     elif name[0] == '.': #primative types can't be subclassed anyway
         return [], [decltype]
+
+    try:
+        flags = env.getFlags(name)
+    except ClassLoaderError: #assume the worst if we can't find the class
+        flags = set(['INTERFACE'])
+
     #Verifier doesn't fully verify interfaces so they could be anything
-    elif 'INTERFACE' in env.getFlags(name):
+    if 'INTERFACE' in flags:
         return [(ObjectTT[0],dim)], []
     else:
-        exact = 'FINAL' in env.getFlags(name)
+        exact = 'FINAL' in flags
         if exact:
             return [], [decltype]
         else:
             return [decltype], []
+
+

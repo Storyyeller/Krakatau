@@ -816,6 +816,9 @@ def _dominatorUBoundClosure(dom, ubound_s, head):
 
 def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
     #Find augmenting path via BFS
+    #To make sure each node is used only once we treat it as if it were two nodes connected
+    #by an internal edge of capacity 1. However, to save time we don't explicitly model this
+    #instead it is encoded by the used set and rules on when we can go forward and backwards
     queue = collections.deque([(n,True,(n,)) for n in startnodes if n not in used])
 
     seen = set((n,True) for n in startnodes)
@@ -828,7 +831,7 @@ def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
         if canfwd:
             if pos in endset: #success!
                 return path, None
-            successors = [x for x in pos.successors_nl if x in bound]
+            successors = [x for x in pos.norm_suc_nl if x in bound]
             for pos2 in successors:
                 if (pos2, True) not in seen:
                     seen.add((pos2, True))
@@ -849,19 +852,22 @@ def _mincut(startnodes, endnodes, bound):
     backedge = {}
 
     while 1:
+        oldlen = len(used)
         path, lastseen = _augmentingPath(startnodes, startset, endset, used, backedge, bound)
         if path is None:
             return lastseen | (startset & used)
 
         assert(path[0] in startset and path[-1] in endset)
+        assert(path[0] not in used)
+
         for pos, last in zip(path, (None,)+path):
-            if last in pos.norm_suc_nl:
-                assert(pos in used)
-                assert(backedge[pos] != last)
-            else:
-                used.add(pos)
+            #In the case of a backward edge, there's nothing to do since it was already part of a used path
+            used.add(pos)
+            if last is not None and pos in last.norm_suc_nl: #normal forward edge
                 backedge[pos] = last
-                assert((backedge[pos] is None) == (pos in startset))
+
+        assert(len(used) > oldlen)
+        assert(set(backedge) == (used - startset))
 
 def completeScopes(dom, croot, children, isClinit):
     parentscope = {}

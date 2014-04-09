@@ -16,7 +16,7 @@ class Truncate(BaseOp):
         assert(w < intw)
         M = 1<<w
 
-        mask = IntConstraint(intw, M-1, M-1)
+        mask = IntConstraint.const(intw, M-1)
         x = bitwise_util.propagateAnd(x,mask)
 
         #We have the mods in the range [0,M-1], but we want it in the range
@@ -26,7 +26,7 @@ class Truncate(BaseOp):
 
             parts = [(i-M if i>=HM else i) for i in (x.min, x.max)]
             if x.min <= HM-1 <= x.max:
-                parts.append(HM-1)            
+                parts.append(HM-1)
             if x.min <= HM <= x.max:
                 parts.append(-HM)
 

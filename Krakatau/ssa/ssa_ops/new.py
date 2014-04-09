@@ -35,7 +35,7 @@ class NewArray(BaseOp):
         if i.min < 0:
             etypes += (excepttypes.NegArrSize,)
 
-        arrlen = IntConstraint(i.width, max(i.min, 0), i.max)
+        arrlen = IntConstraint.range(i.width, max(i.min, 0), i.max)
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         rout = ObjectConstraint.fromTops(self.env, [], [self.tt], nonnull=True, arrlen=arrlen)
         return rout, eout, DUMMY
@@ -59,7 +59,7 @@ class MultiNewArray(BaseOp):
                 etypes += (excepttypes.NegArrSize,)
                 break
 
-        arrlen = IntConstraint(i.width, max(dims[0].min, 0), dims[0].max)
+        arrlen = IntConstraint.range(i.width, max(dims[0].min, 0), dims[0].max)
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         rout = ObjectConstraint.fromTops(self.env, [], [self.tt], nonnull=True, arrlen=arrlen)
         return rout, eout, DUMMY

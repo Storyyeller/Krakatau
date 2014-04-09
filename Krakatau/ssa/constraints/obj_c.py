@@ -4,7 +4,7 @@ from .int_c import IntConstraint
 from .. import objtypes
 
 #Possible array lengths
-nonnegative = IntConstraint(32, 0, (1<<31)-1)
+nonnegative = IntConstraint.range(32, 0, (1<<31)-1)
 array_supers = 'java/lang/Object','java/lang/Cloneable','java/io/Serializable'
 obj_fset = frozenset([objtypes.ObjectTT])
 

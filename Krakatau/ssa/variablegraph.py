@@ -10,12 +10,11 @@ class BaseNode(object):
         self.sources = []
         self.uses = []
         self.process = processfunc
-        self.iters = self.upIters = 0
+        self.iters = 0
         self.propagateInvalid = not isphi
         self.filterNone = filterNone
-        self.upInvalid = False
-        self.output = self.upOutput = None #to be filled in later
-        self.lastInput = self.lastUpInput = []
+        self.output = None #to be filled in later
+        self.lastInput = []
 
         self.root = None #for debugging purposes, store the SSA object this node corresponds to
 
@@ -32,7 +31,6 @@ class BaseNode(object):
 
     def update(self, iterlimit):
         if not self.sources:
-            assert(self.output == self.upOutput)
             return False
 
         changed = False
@@ -44,20 +42,6 @@ class BaseNode(object):
                     self.output = new
                     self.iters += 1
                     changed = True
-
-        if self.upIters < iterlimit:
-            self.upInvalid = False
-            old, self.lastUpInput = self.lastUpInput, [node.upOutput[key] for node,key in self.sources]
-            if old != self.lastUpInput:
-                new = self._propagate(self.lastUpInput)
-                if new != self.upOutput:
-                    self.upOutput = new
-                    #don't increase upiters if changed was possibly due to change in lower bound
-                    self.upIters += 1 if not changed else 0
-                    changed = True
-
-                    for node in self.uses:
-                        node.upInvalid = True
         return changed
 
 def registerUses(use, sources):
@@ -76,7 +60,6 @@ def getJumpNode(pair, source, var, getVarNode, jumplookup):
             registerUses(n, n.sources)
 
             n.output = tuple(t[0].output[0] for t in n.sources)
-            n.upOutput = (None,) * len(n.output)
             n.root = jump
 
             for i, param in enumerate(jump.params):
@@ -113,7 +96,6 @@ def makeGraph(env, blocks):
 
         outnode = lookup[phi.rval]
         n.output = (outnode.output[0],)
-        n.upOutput = (None,)
         outnode.sources = [(n,0)]
         n.uses.append(outnode)
         n.root = phi
@@ -136,13 +118,10 @@ def makeGraph(env, blocks):
                 n.uses.append(vnode)
                 vnode.sources = [(n,i)]
         n.output = tuple(output)
-        n.upOutput = (None,None,None) if n.sources else n.output
         n.root = op
         assert(len(output) == 3)
 
     vnodes = lookup.values()
-    for node in vnodes:
-        node.upOutput = node.output if not node.sources else (None,)*len(node.output)
 
     #sanity check
     for node in vnodes:
@@ -166,12 +145,3 @@ def processGraph(graph, iterlimit=5):
             changed = node.update(iterlimit)
             if changed:
                 worklist.extend(use for use in node.uses if use in scc_s and use not in worklist)
-
-        #check if optimistic upperbounds converged
-        converged = all((not node.upInvalid or node.output == node.upOutput) for node in scc)
-        if converged:
-            for node in scc:
-                node.output = node.upOutput
-        else:
-            for node in scc: #Have to fix upOutput as child sccs may use it
-                node.upOutput = node.output

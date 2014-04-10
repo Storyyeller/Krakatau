@@ -434,7 +434,9 @@ class FieldAccess(JavaExpression):
             self.params[0] = Parenthesis(p0)
 
 def printFloat(x, isSingle):
-    if math.copysign(1.0, x) == -1.0: #TODO make this less hackish. We only really need the parens if it's preceded by unary minus
+    #TODO make this less hackish. We only really need the parens if it's preceded by unary minus
+    #note: NaN may have arbitrary sign
+    if math.copysign(1.0, x) == -1.0 and not math.isnan(x):
         return '(-{})'.format(printFloat(math.copysign(x, 1.0), isSingle))
 
     suffix = 'f' if isSingle else ''

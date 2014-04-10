@@ -159,11 +159,13 @@ def processGraph(graph, iterlimit=5):
 
     for scc in sccs:
         worklist = list(scc)
+        scc_s = set(scc)
+
         while worklist:
             node = worklist.pop(0)
             changed = node.update(iterlimit)
             if changed:
-                worklist.extend(use for use in node.uses if use in scc and use not in worklist)
+                worklist.extend(use for use in node.uses if use in scc_s and use not in worklist)
 
         #check if optimistic upperbounds converged
         converged = all((not node.upInvalid or node.output == node.upOutput) for node in scc)

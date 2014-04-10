@@ -11,7 +11,6 @@ class BaseOp(SSAFunctionBase):
 
         if makeException:
             self.outException = parent.makeVariable(SSA_OBJECT, origin=self)
-            self.errorState = set([False, True])
         if makeMonad:
             self.outMonad = parent.makeVariable(SSA_MONAD, origin=self)
 

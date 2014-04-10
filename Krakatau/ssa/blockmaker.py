@@ -425,7 +425,41 @@ def getOnNoExceptionTarget(parent, iNode):
         return iNode.successors[0]
     return None
 
-def fromInstruction(parent, block, iNode, initMap):
+def processArrayInfo(newarray_info, iNode, vals):
+    #There is an unfortunate tendency among Java programmers to hardcode large arrays
+    #resulting in the generation of thousands of instructions simply initializing an array
+    #With naive analysis, all of the stores can throw and so won't be merged until later
+    #Optimize for this case by keeping track of all arrays created in the block with a
+    #statically known size and type so we can mark all related instructions as nothrow and
+    #hence don't have to end the block prematurely
+    op = iNode.instruction[0]
+
+    if op == vops.NEWARRAY or op == vops.ANEWARRAY:
+        line = vals['line']
+        lenvar = line.params[1]
+        assert(lenvar.type == SSA_INT)
+
+        if lenvar.const is not None and lenvar.const >= 0:
+            #has known, positive dim
+            newarray_info[line.rval] = lenvar.const, line.baset
+            line.outException = None
+
+    elif op == vops.ARRSTORE or op == vops.ARRSTORE_OBJ:
+        line = vals['line']
+        m, a, i, x = line.params
+        if a not in newarray_info:
+            return
+        arrlen, baset = newarray_info[a]
+        if i.const is None or not 0 <= i.const < arrlen:
+            return
+        #array element type test. For objects we check an exact match on decltype
+        #which is highly conservative but should be enough to handle string literals
+        if '.' not in baset[0] and baset != x.decltype:
+            return
+
+        line.outException = None
+
+def fromInstruction(parent, block, newarray_info, iNode, initMap):
     assert(iNode.visited)
     instr = iNode.instruction
 
@@ -451,7 +485,9 @@ def fromInstruction(parent, block, iNode, initMap):
         func = genericStackUpdate
     else:
         func = _instructionHandlers[instr[0]]
+
     vals = func(parent, inslots, iNode)
+    processArrayInfo(newarray_info, iNode, vals)
 
 
     line, jump = map(vals.get, ('line','jump'))
@@ -504,6 +540,7 @@ def makeBlocks(parent, iNodes, myclsname):
         if node.instruction[0] in _jump_instrs:
             jump_targets.update(node.successors)
 
+    newarray_info = {} #store info about newly created arrays in current block
     blocks = []
     curblock = None
     for node in iNodes:
@@ -519,8 +556,9 @@ def makeBlocks(parent, iNodes, myclsname):
             if not keep:
                 blocks.append(curblock)
                 curblock = None
+                newarray_info = {}
 
-        curblock = fromInstruction(parent, curblock, node, initMap)
+        curblock = fromInstruction(parent, curblock, newarray_info, node, initMap)
         assert(curblock.jump)
     blocks.append(curblock)
 

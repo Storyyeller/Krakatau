@@ -15,7 +15,7 @@ def tarjanSCC(roots, getChildren):
     subtree = []
 
     #Use iterative version to avoid stack limits for large datasets
-    stack = [(node,0) for node in roots]
+    stack = [(node, 0) for node in roots]
     while stack:
         current, state = stack.pop()
         if state == 0: #before recursing
@@ -24,8 +24,8 @@ def tarjanSCC(roots, getChildren):
                 children = [child for child in getChildren(current) if child not in removed]
                 subtree.append(current)
 
-                stack.append((current,1))
-                stack.extend((child,0) for child in children)
+                stack.append((current, 1))
+                stack.extend((child, 0) for child in children)
         else: #after recursing
             children = [child for child in getChildren(current) if child not in removed]
             for child in children:
@@ -43,7 +43,6 @@ def tarjanSCC(roots, getChildren):
                 sccs.append(tuple(scc))
                 removed.update(scc)
     return sccs
-stronglyConnectedComponents = tarjanSCC
 
 def topologicalSort(roots, getParents):
     """Return a topological sorting of nodes in a graph.

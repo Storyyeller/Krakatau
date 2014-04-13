@@ -125,3 +125,8 @@ class with the following caveats:
 
 You can disable the internal debugging checks by passing -O to Python. This
 will make Krakatau slightly faster, so it is recommended for normal usage.
+
+=== Java 8 ===
+
+Java 8 is not fully supported yet. In particular, decompilation of lambdas
+is not currently supported.

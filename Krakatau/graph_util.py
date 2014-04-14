@@ -21,11 +21,10 @@ def tarjanSCC(roots, getChildren):
         if state == 0: #before recursing
             if current not in index: #if it's in index, it was already visited (possibly earlier on the current search stack)
                 lowlink[current] = index[current] = next(indexCounter)
-                children = [child for child in getChildren(current) if child not in removed]
                 subtree.append(current)
 
                 stack.append((current, 1))
-                stack.extend((child, 0) for child in children)
+                stack.extend((child, 0) for child in getChildren(current) if child not in removed)
         else: #after recursing
             children = [child for child in getChildren(current) if child not in removed]
             for child in children:

@@ -11,7 +11,13 @@ _charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'J':SSA_LONG,
                 'B':SSA_INT, 'C':SSA_INT, 'S':SSA_INT}
 def getCategory(c): return 2 if c in 'JD' else 1
 
-def makeDict(**kwargs): return kwargs
+
+class ResultDict(object):
+    def __init__(self, line=None, jump=None, newstack=None, newlocals=None):
+        self.line = line
+        self.jump = jump
+        self.newstack = newstack
+        self.newlocals = newlocals
 
 ##############################################################################
 def makeConstVar(parent, type_, val):
@@ -33,7 +39,7 @@ def _genericStackOperation(op, stack):
     vals = stack[-num:]
     newvals = [vals[num-i-1] for i in replaceCodes]
     newstack = stack[:-num] + newvals
-    return makeDict(newstack=newstack)
+    return ResultDict(newstack=newstack)
 
 def _floatOrIntMath(fop, iop):
     def math1(parent, input_, iNode):
@@ -45,7 +51,7 @@ def _floatOrIntMath(fop, iop):
         line = op(parent, args)
 
         newstack = input_.stack[:-2*cat] + [line.rval] + [None]*(cat-1)
-        return makeDict(line=line, newstack=newstack)
+        return ResultDict(line=line, newstack=newstack)
     return math1
 
 def _intMath(op, isShift):
@@ -56,7 +62,7 @@ def _intMath(op, isShift):
         args = input_.stack[-size::cat]
         line = op(parent, args)
         newstack = input_.stack[:-size] + [line.rval] + [None]*(cat-1)
-        return makeDict(line=line, newstack=newstack)
+        return ResultDict(line=line, newstack=newstack)
     return math2
 ##############################################################################
 
@@ -65,12 +71,12 @@ def _anewarray(parent, input_, iNode):
     tt = parseArrOrClassName(name)
     line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _arrlen(parent, input_, iNode):
     line = ssa_ops.ArrLength(parent, input_.stack[-1:])
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _arrload(parent, input_, iNode):
     type_ = _charToSSAType[iNode.instruction[1]]
@@ -78,12 +84,12 @@ def _arrload(parent, input_, iNode):
 
     line = ssa_ops.ArrLoad(parent, input_.stack[-2:], type_, monad=input_.monad)
     newstack = input_.stack[:-2] + [line.rval] + [None]*(cat-1)
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _arrload_obj(parent, input_, iNode):
     line = ssa_ops.ArrLoad(parent, input_.stack[-2:], SSA_OBJECT, monad=input_.monad)
     newstack = input_.stack[:-2] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _arrstore(parent, input_, iNode):
     if getCategory(iNode.instruction[1]) > 1:
@@ -91,19 +97,19 @@ def _arrstore(parent, input_, iNode):
     else:
         newstack, args = input_.stack[:-3], input_.stack[-3:]
     line = ssa_ops.ArrStore(parent, args, monad=input_.monad)
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _arrstore_obj(parent, input_, iNode):
     line = ssa_ops.ArrStore(parent, input_.stack[-3:], monad=input_.monad)
     newstack = input_.stack[:-3]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _checkcast(parent, input_, iNode):
     index = iNode.instruction[1]
     desc = parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(desc)
     line = ssa_ops.CheckCast(parent, tt, input_.stack[-1:])
-    return makeDict(line=line)
+    return ResultDict(line=line)
 
 def _const(parent, input_, iNode):
     ctype, val = iNode.instruction[1:]
@@ -111,13 +117,13 @@ def _const(parent, input_, iNode):
     type_ = _charToSSAType[ctype]
     var = makeConstVar(parent, type_, val)
     newstack = input_.stack + [var] + [None]*(cat-1)
-    return makeDict(newstack=newstack)
+    return ResultDict(newstack=newstack)
 
 def _constnull(parent, input_, iNode):
     var = makeConstVar(parent, SSA_OBJECT, 'null')
     var.decltype = objtypes.NullTT
     newstack = input_.stack + [var]
-    return makeDict(newstack=newstack)
+    return ResultDict(newstack=newstack)
 
 def _convert(parent, input_, iNode):
     src_c, dest_c = iNode.instruction[1:]
@@ -127,7 +133,7 @@ def _convert(parent, input_, iNode):
     line = ssa_ops.Convert(parent, arg, _charToSSAType[src_c], _charToSSAType[dest_c])
 
     newstack = stack + [line.rval] + [None]*(dest_cat-1)
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _fcmp(parent, input_, iNode):
     op, c, NaN_val = iNode.instruction
@@ -136,7 +142,7 @@ def _fcmp(parent, input_, iNode):
     args = input_.stack[-cat*2::cat]
     line = ssa_ops.FCmp(parent, args, NaN_val)
     newstack = input_.stack[:-cat*2] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _field_access(parent, input_, iNode):
     index = iNode.instruction[1]
@@ -151,25 +157,25 @@ def _field_access(parent, input_, iNode):
     args = [x for x in input_.stack[splitInd:] if x is not None]
     line = ssa_ops.FieldAccess(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad)
     newstack = input_.stack[:splitInd] + line.returned
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _if_a(parent, input_, iNode):
     null = makeConstVar(parent, SSA_OBJECT, 'null')
     null.decltype = objtypes.NullTT
     jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input_.stack[-1], null))
     newstack = input_.stack[:-1]
-    return makeDict(jump=jump, newstack=newstack)
+    return ResultDict(jump=jump, newstack=newstack)
 
 def _if_i(parent, input_, iNode):
     zero = makeConstVar(parent, SSA_INT, 0)
     jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input_.stack[-1], zero))
     newstack = input_.stack[:-1]
-    return makeDict(jump=jump, newstack=newstack)
+    return ResultDict(jump=jump, newstack=newstack)
 
 def _if_icmp(parent, input_, iNode):
     jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, input_.stack[-2:])
     newstack = input_.stack[:-2]
-    return makeDict(jump=jump, newstack=newstack)
+    return ResultDict(jump=jump, newstack=newstack)
 
 def _iinc(parent, input_, iNode):
     junk, index, amount = iNode.instruction
@@ -180,7 +186,7 @@ def _iinc(parent, input_, iNode):
 
     newlocals = list(input_.locals)
     newlocals[index] = line.rval
-    return makeDict(line=line, newlocals=newlocals)
+    return ResultDict(line=line, newlocals=newlocals)
 
 def _instanceof(parent, input_, iNode):
     index = iNode.instruction[1]
@@ -188,7 +194,7 @@ def _instanceof(parent, input_, iNode):
     tt = parseArrOrClassName(desc)
     line = ssa_ops.InstanceOf(parent, tt, input_.stack[-1:])
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _invoke(parent, input_, iNode):
     index = iNode.instruction[1]
@@ -205,23 +211,23 @@ def _invoke(parent, input_, iNode):
     args = [x for x in input_.stack[splitInd:] if x is not None]
     line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad, isThisCtor=isThisCtor)
     newstack = input_.stack[:splitInd] + line.returned
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _jsr(parent, input_, iNode):
     newstack = input_.stack + [None]
 
     if iNode.returnedFrom is None:
-        return makeDict(newstack=newstack)
+        return ResultDict(newstack=newstack)
     else:
         #Simply store the data for now and fix things up once all the blocks are created
         jump = subproc.ProcCallOp(input_, iNode)
-        return makeDict(jump=jump, newstack=newstack)
+        return ResultDict(jump=jump, newstack=newstack)
 
 def _lcmp(parent, input_, iNode):
     args = input_.stack[-4::2]
     line = ssa_ops.ICmp(parent, args)
     newstack = input_.stack[:-4] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _ldc(parent, input_, iNode):
     index, cat = iNode.instruction[1:]
@@ -248,19 +254,19 @@ def _ldc(parent, input_, iNode):
 
     assert(var)
     newstack = input_.stack + [var] + [None]*(cat-1)
-    return makeDict(newstack=newstack)
+    return ResultDict(newstack=newstack)
 
 def _load(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
     newstack = input_.stack + input_.locals[index:index+cat]
-    return makeDict(newstack=newstack)
+    return ResultDict(newstack=newstack)
 
 def _monitor(parent, input_, iNode):
     isExit = 'exit' in iNode.instruction[0]
     line = ssa_ops.Monitor(parent, input_.stack[-1:], input_.monad, isExit)
     newstack = input_.stack[:-1]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _multinewarray(parent, input_, iNode):
     op, index, dim = iNode.instruction
@@ -270,7 +276,7 @@ def _multinewarray(parent, input_, iNode):
 
     line = ssa_ops.MultiNewArray(parent, input_.stack[-dim:], tt, input_.monad)
     newstack = input_.stack[:-dim] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _neg(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
@@ -283,7 +289,7 @@ def _neg(parent, input_, iNode):
         line = ssa_ops.ISub(parent, [zero,arg])
 
     newstack = input_.stack[:-cat] + [line.rval] + [None]*(cat-1)
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _new(parent, input_, iNode):
     index = iNode.instruction[1]
@@ -291,7 +297,7 @@ def _new(parent, input_, iNode):
 
     line = ssa_ops.New(parent, classname, input_.monad)
     newstack = input_.stack + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _newarray(parent, input_, iNode):
     vtypes = parseFieldDescriptor(iNode.instruction[1], unsynthesize=False)
@@ -299,14 +305,14 @@ def _newarray(parent, input_, iNode):
 
     line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _nop(parent, input_, iNode):
-    return makeDict()
+    return ResultDict()
 
 def _ret(parent, input_, iNode):
     jump = subproc.DummyRet(input_, iNode)
-    return makeDict(jump=jump)
+    return ResultDict(jump=jump)
 
 def _return(parent, input_, iNode):
     line = ssa_ops.TryReturn(parent, input_.monad)
@@ -317,7 +323,7 @@ def _return(parent, input_, iNode):
         newstack = []
     else:
         newstack = input_.stack[-getCategory(rtype):]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 def _store(parent, input_, iNode):
     cat = getCategory(iNode.instruction[1])
@@ -329,17 +335,17 @@ def _store(parent, input_, iNode):
 
     newlocals[index:index+cat] = input_.stack[-cat:]
     newstack = input_.stack[:-cat]
-    return makeDict(newstack=newstack, newlocals=newlocals)
+    return ResultDict(newstack=newstack, newlocals=newlocals)
 
 def _switch(parent, input_, iNode):
     default, table = iNode.instruction[1:3]
     jump = ssa_jumps.Switch(parent, default, table, input_.stack[-1:])
     newstack = input_.stack[:-1]
-    return makeDict(jump=jump, newstack=newstack)
+    return ResultDict(jump=jump, newstack=newstack)
 
 def _throw(parent, input_, iNode):
     line = ssa_ops.Throw(parent, input_.stack[-1:])
-    return makeDict(line=line, newstack=[])
+    return ResultDict(line=line, newstack=[])
 
 def _truncate(parent, input_, iNode):
     dest_c = iNode.instruction[1]
@@ -347,7 +353,7 @@ def _truncate(parent, input_, iNode):
 
     line = ssa_ops.Truncate(parent, input_.stack[-1], signed=signed, width=width)
     newstack = input_.stack[:-1] + [line.rval]
-    return makeDict(line=line, newstack=newstack)
+    return ResultDict(line=line, newstack=newstack)
 
 _instructionHandlers = {
                         vops.ADD: _floatOrIntMath(ssa_ops.FAdd, ssa_ops.IAdd),
@@ -415,7 +421,7 @@ def genericStackUpdate(parent, input_, iNode):
     replace = {c:v for c,v in zip(b, input_.stack[-len(b):])}
     newstack = input_.stack[:-len(b)]
     newstack += [replace[c] for c in a]
-    return makeDict(newstack=newstack)
+    return ResultDict(newstack=newstack)
 
 def getOnNoExceptionTarget(parent, iNode):
     vop = iNode.instruction[0]
@@ -435,7 +441,7 @@ def processArrayInfo(newarray_info, iNode, vals):
     op = iNode.instruction[0]
 
     if op == vops.NEWARRAY or op == vops.ANEWARRAY:
-        line = vals['line']
+        line = vals.line
         lenvar = line.params[1]
         assert(lenvar.type == SSA_INT)
 
@@ -445,7 +451,7 @@ def processArrayInfo(newarray_info, iNode, vals):
             line.outException = None
 
     elif op == vops.ARRSTORE or op == vops.ARRSTORE_OBJ:
-        line = vals['line']
+        line = vals.line
         m, a, i, x = line.params
         if a not in newarray_info:
             return
@@ -456,7 +462,6 @@ def processArrayInfo(newarray_info, iNode, vals):
         #which is highly conservative but should be enough to handle string literals
         if '.' not in baset[0] and baset != x.decltype:
             return
-
         line.outException = None
 
 def fromInstruction(parent, block, newarray_info, iNode, initMap):
@@ -490,12 +495,11 @@ def fromInstruction(parent, block, newarray_info, iNode, initMap):
     processArrayInfo(newarray_info, iNode, vals)
 
 
-    line, jump = map(vals.get, ('line','jump'))
-    newstack = vals.get('newstack', inslots.stack)
-    newlocals = vals.get('newlocals', inslots.locals)
+    line, jump = vals.line, vals.jump
+    newstack = vals.newstack if vals.newstack is not None else inslots.stack
+    newlocals = vals.newlocals if vals.newlocals is not None else inslots.locals
     newmonad = line.outMonad if (line and line.outMonad) else inslots.monad
     outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
-
 
     if line is not None:
         block.lines.append(line)

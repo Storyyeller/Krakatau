@@ -6,7 +6,7 @@ registry = {
     'BoolizeTest': ([],),
     'ControlFlow': ([], ['.Na', 'q'], ['ddKK', '-2'], ['hB7X', '-1'],
                     ['R%%X', '0', '0'], ['>OE=.K', '#FF'],
-                    ['95', ' ', 'x', 'x']),
+                    ['95', ' ', 'x', 'x'], ['Hello, Word!']),
     'DoubleEdge': ([], ['x']),
     'DuplicateInit': ([], ['5', '-7'], ['x', 'x', 'x']),
     'floattest': ([],),

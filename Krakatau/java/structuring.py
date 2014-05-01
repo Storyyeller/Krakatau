@@ -55,6 +55,9 @@ class DominatorInfo(object):
     def dominators(self, node):
         return self._doms[node]
 
+    def ordered(self, node): #for debugging
+        return sorted(self._doms[node], key=lambda n:len(self._doms[n]))
+
     def dominator(self, *nodes):
         '''Get the common dominator of nodes'''
         doms = reduce(frozenset.intersection, map(self._doms.get, nodes))
@@ -130,6 +133,10 @@ class ClosedSet(object):
     def union(*sets):
         return reduce(ClosedSet.__or__, sets, ClosedSet.EMPTY)
 
+    def __str__(self): # for debugging
+        return 'set{} ({} nodes)'.format(self.head, len(self.nodes))
+    __repr__ = __str__
+
     def __lt__(self, other): return self.nodes < other.nodes
     def __le__(self, other): return self.nodes <= other.nodes
     def __gt__(self, other): return self.nodes > other.nodes
@@ -147,6 +154,7 @@ _gcon_tags = 'while','try','switch','if','scope'
 class CompoundConstraint(object):
     def __init__(self, tag, head, scopes):
         assert(tag in _gcon_tags)
+        self.id = next(_count) #for debugging purposes
         self.tag = tag
         self.scopes = scopes
         self.head = head
@@ -158,10 +166,7 @@ class CompoundConstraint(object):
         self.ubound = ClosedSet.union(*[scope.ubound for scope in self.scopes])
         if head is not None:
             assert(head in self.lbound.nodes and head in self.ubound.nodes)
-            # self.lbound.add(head)
-            # self.ubound.add(head)
         assert(self.ubound >= self.lbound)
-        self.id = next(_count) #for debugging purposes
 
     def __str__(self): return self.tag+str(self.id)
     __repr__ = __str__
@@ -288,51 +293,73 @@ def structureConditionals(entryNode, nodes):
     for n in switchnodes:
         targets = n.successors
         #a proper switch block must be dominated by its entry point
-        bad = [x for x in targets if n not in dom.dominators(x)]
-        good = [x for x in targets if x not in bad]
-
-        domains = {x:dom.area(x).nodes for x in good}
+        #and all other nonloop predecessors must be dominated by a single other target
+        #keep track of remaining good targets, bad ones will be found later by elimination
+        target_set = frozenset(targets)
+        good = []
         parents = {}
-        for x in good:
-            #find all other switch blocks whose entry points dominate one of our predecessors
-            parents[x] = [k for k,v in domains.items() if not v.isdisjoint(x.predecessors)]
-            if x in parents[x]:
-                parents[x].remove(x)
+        for target in targets:
+            if n not in dom.dominators(target):
+                continue
 
-        #We need to make sure that the fallthrough graph consists of independent chains
-        #For targets with multiple parents, both parents must be removed
-        #For a target with multiple children, all but one of the children must be removed
-        depthfirst = graph_util.topologicalSort(good, parents.get)
-        chosenChild = {}
-        for target in depthfirst:
-            if parents[target]:
-                isOk = len(parents[target]) == 1 and parents[target][0] in parents
-                isOk = isOk and chosenChild.setdefault(parents[target][0], target) == target
-                if not isOk:
-                    bad.append(target)
+            preds = [x for x in target.predecessors if x != n and target not in dom.dominators(x)]
+            for pred in preds:
+                choices = dom.dominators(pred) & target_set
+                if len(choices) != 1:
+                    break
+                choice = min(choices)
+                if parents.setdefault(target, choice) != choice:
+                    break
+            else:
+                #passed all the tests for now, target appears valid
+                good.append(target)
+
+        while 1:
+            size = len(parents), len(good)
+            #prune bad parents and children from dict
+            for k,v in parents.items():
+                if k not in good:
+                    del parents[k]
+                elif v not in good:
+                    del parents[k]
+                    good.remove(k)
+
+            #make sure all parents are unique. In case they're not, choose one arbitrarily
+            chosen = {}
+            for target in good:
+                if target in parents and chosen.setdefault(parents[target], target) != target:
+                    del parents[target]
                     good.remove(target)
-                    del domains[target], parents[target]
+
+            if size == (len(parents), len(good)): #nothing changed this iteration
+                break
 
         #Now we need an ordering of the good blocks consistent with fallthrough
         #regular topoSort can't be used since we require chains to be immediately contiguous
         #which a topological sort doesn't garuentee
-        leaves = [x for x in good if x not in chosenChild]
+        children = {v:k for k,v in parents.items()}
+        leaves = [x for x in good if x not in children]
         ordered = []
         for leaf in leaves:
             cur = leaf
-            ordered.append(cur)
-            while parents[cur]:
-                assert(chosenChild[parents[cur][0]] == cur)
-                cur = parents[cur][0]
+            while cur is not None:
                 ordered.append(cur)
+                cur = parents.get(cur)
         ordered = ordered[::-1]
+        assert(len(ordered) == len(good))
 
-        for x in bad:
-            new = x.indirectEdges([n])
-            nodes.append(new)
-            ordered.append(new)
-        assert(len(ordered) == len(targets) == (len(good) + len(bad)))
+        #now handle the bad targets
+        for x in targets:
+            if x not in good:
+                new = x.indirectEdges([n])
+                nodes.append(new)
+                ordered.append(new)
+        assert(len(ordered) == len(targets))
         switchinfos.append((n, ordered))
+
+        #if we added new nodes, update dom info
+        if len(good) < len(targets):
+            dom = DominatorInfo(entryNode)
 
     #Now handle if statements. This is much simpler since we can just indirect everything
     ifinfos = []
@@ -340,7 +367,6 @@ def structureConditionals(entryNode, nodes):
         targets = [x.indirectEdges([n]) for x in n.successors[:]]
         nodes.extend(targets)
         ifinfos.append((n, targets))
-
     return switchinfos, ifinfos
 
 def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
@@ -389,7 +415,8 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
             #these must be included in the current switch block
             fallthroughs = [x for x in last if target in dom.dominators(x)]
             assert(n not in fallthroughs)
-            last = target.predecessors
+            assert(len(last) - len(fallthroughs) <= 1) #every predecessor should be accounted for except n itself
+            last = [x for x in target.predecessors if target not in dom.dominators(x)] #make sure not to include backedges
 
             lbound = dom.extend(target, fallthroughs)
             ubound = dom.area(target)
@@ -452,7 +479,7 @@ def orderConstraints(dom, constraints, nodes):
         #Find candidates for the new root of the connected component.
         #It must have a big enough ubound and also can't have nonfrozen forced parents
         candidates = [i for i in items if i.ubound.issuperset(nset)]
-        candidates = [i for i in items if i.forcedup.issubset(frozen)]
+        candidates = [i for i in candidates if i.forcedup.issubset(frozen)]
 
         #make sure for each candidate that all of the nested items fall within a single scope
         cscope_assigns = []

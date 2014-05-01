@@ -15,14 +15,23 @@ LSTART:
     dup
     iconst_0
     aaload
+    dup
     invokestatic ControlFlow dsm (Ljava/lang/String;)V
+
+
+    invokevirtual java/lang/String hashCode ()I
+    invokestatic ControlFlow switchtest2 (I)I
+    getstatic java/lang/System out Ljava/io/PrintStream;
+    swap
+    invokevirtual java/io/PrintStream print (I)V
+
+
 
     iconst_1
     aaload
     invokestatic java/lang/Integer decode (Ljava/lang/String;)Ljava/lang/Integer;
     invokevirtual java/lang/Integer intValue ()I
     dup
-
 
 LDEC:
 	iload_0
@@ -78,6 +87,35 @@ LEX2:
 .catch [0] from LSTART to LS2 using LEX
 .catch [0] from LEX to LEX2 using LEX
 .catch [0] from LEX to LEX2 using LEX2
+.end method
+
+.method static switchtest2 : (I)I
+	iload_0
+	iload_0
+	iload_0
+
+	iconst_2
+	irem
+
+	tableswitch 0
+		LSWITCHA
+		LSWITCHB
+		default : LSWITCHC
+LSWITCHC:
+	imul
+	ireturn
+LSWITCHA:
+	iconst_5
+	goto LMERGE
+LSWITCHB:
+	bipush -42
+LMERGE:
+	swap
+	pop
+	dup2
+	if_icmple LSWITCHC
+	ixor
+	ireturn
 .end method
 
 .method static dsm : (Ljava/lang/String;)V
@@ -158,7 +196,7 @@ LWRITE:
 
 LEND:
     getstatic java/lang/System out Ljava/io/PrintStream;
-    
+
     new java/lang/String
     dup
     aload_0

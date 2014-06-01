@@ -466,11 +466,9 @@ class Literal(JavaExpression):
         if vartype == objtypes.StringTT:
             self.str = '"' + escapeString(val) + '"'
         elif vartype == objtypes.IntTT:
-            self.str = repr(int(val))
-            assert('L' not in self.str) #if it did we were passed an invalid value anyway
+            self.str = str(val)
         elif vartype == objtypes.LongTT:
-            self.str = repr(long(val))
-            assert('L' in self.str)
+            self.str = str(val) + 'L'
         elif vartype == objtypes.FloatTT or vartype == objtypes.DoubleTT:
             assert(type(val) == float)
             self.str = printFloat(val, vartype == objtypes.FloatTT)

@@ -7,9 +7,9 @@ import struct, collections
 #Since using raw floats breaks equality testing for signed zeroes and NaNs
 #cpool.getArgs/getArgsCheck will automatically convert them into Python floats
 
-def decodeStr((s,)):
+def decodeStr(s):
     return s.replace('\xc0\x80','\0').decode('utf8'),
-def encodeStr((u,)):
+def encodeStr(u):
     return u.encode('utf8').replace('\0','\xc0\x80'),
 def strToBytes(args):
     s = encodeStr(args)[0]

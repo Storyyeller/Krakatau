@@ -11,6 +11,7 @@ def assembleClass(filename, makeLineNumbers, jasmode, debug=0):
         print 'Error: You appear to have passed a jar or classfile instead of an assembly file'
         print 'Perhaps you meant to invoke the disassembler instead?'
         return []
+    assembly = assembly.decode('utf8')
 
     assembly = '\n'+assembly+'\n' #parser expects newlines at beginning and end
     lexer = tokenize.makeLexer(debug=debug)

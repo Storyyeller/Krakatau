@@ -24,63 +24,63 @@ cpoolInfo_t = collections.namedtuple('cpoolInfo_t',
                                      ['name','tag','recoverArgs','toBytes'])
 
 Utf8 = cpoolInfo_t('Utf8',1,
-                  (lambda self,(s,):(s,)),
+                  (lambda self,s:(s,)),
                   strToBytes)
 
 Class = cpoolInfo_t('Class',7,
-                    (lambda self,(n_id,):self.getArgs(n_id)),
-                    (lambda (n_id,): struct.pack('>H',n_id)))
+                    (lambda self,n_id:self.getArgs(n_id)),
+                    (lambda n_id: struct.pack('>H',n_id)))
 
 NameAndType = cpoolInfo_t('NameAndType',12,
-                (lambda self,(n,d):self.getArgs(n) + self.getArgs(d)),
-                (lambda (n,d): struct.pack('>HH',n,d)))
+                (lambda self,n,d:self.getArgs(n) + self.getArgs(d)),
+                (lambda n,d: struct.pack('>HH',n,d)))
 
 Field = cpoolInfo_t('Field',9,
-                (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
-                (lambda (n,d): struct.pack('>HH',n,d)))
+                (lambda self,c_id,nat_id:self.getArgs(c_id) + self.getArgs(nat_id)),
+                (lambda n,d: struct.pack('>HH',n,d)))
 
 Method = cpoolInfo_t('Method',10,
-                (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
-                (lambda (n,d): struct.pack('>HH',n,d)))
+                (lambda self,c_id,nat_id:self.getArgs(c_id) + self.getArgs(nat_id)),
+                (lambda n,d: struct.pack('>HH',n,d)))
 
 InterfaceMethod = cpoolInfo_t('InterfaceMethod',11,
-                (lambda self,(c_id, nat_id):self.getArgs(c_id) + self.getArgs(nat_id)),
-                (lambda (n,d): struct.pack('>HH',n,d)))
+                (lambda self,c_id,nat_id:self.getArgs(c_id) + self.getArgs(nat_id)),
+                (lambda n,d: struct.pack('>HH',n,d)))
 
 String = cpoolInfo_t('String',8,
-                (lambda self,(n_id,):self.getArgs(n_id)),
-                (lambda (n_id,): struct.pack('>H',n_id)))
+                (lambda self,n_id:self.getArgs(n_id)),
+                (lambda n_id: struct.pack('>H',n_id)))
 
 Int = cpoolInfo_t('Int',3,
-                  (lambda self,(s,):(s,)),
-                  (lambda (val,): struct.pack('>i',val)))
+                  (lambda self,s:(s,)),
+                  (lambda val: struct.pack('>i',val)))
 
 Long = cpoolInfo_t('Long',5,
-                  (lambda self,(s,):(s,)),
-                  (lambda (val,): struct.pack('>q',val)))
+                  (lambda self,s:(s,)),
+                  (lambda val: struct.pack('>q',val)))
 
 Float = cpoolInfo_t('Float',4,
-                  (lambda self,(s,):decodeFloat(s)),
-                  (lambda (val,): struct.pack('>i',val)))
+                  (lambda self,s:decodeFloat(s)),
+                  (lambda val: struct.pack('>i',val)))
 
 Double = cpoolInfo_t('Double',6,
-                  (lambda self,(s,):decodeDouble(s)),
-                  (lambda (val,): struct.pack('>q',val)))
+                  (lambda self,s:decodeDouble(s)),
+                  (lambda val: struct.pack('>q',val)))
 
 MethodHandle = cpoolInfo_t('MethodHandle',15,
-                (lambda self,(t, n_id):(t,)+self.getArgs(n_id)),
-                (lambda (t, n_id): struct.pack('>BH',t, n_id)))
+                (lambda self,t,n_id:(t,)+self.getArgs(n_id)),
+                (lambda t,n_id: struct.pack('>BH',t, n_id)))
 
 MethodType = cpoolInfo_t('MethodType',16,
-                (lambda self,(n_id,):self.getArgs(n_id)),
-                (lambda (n_id,): struct.pack('>H',n_id)))
+                (lambda self,n_id:self.getArgs(n_id)),
+                (lambda n_id: struct.pack('>H',n_id)))
 
 InvokeDynamic = cpoolInfo_t('InvokeDynamic',18,
-                (lambda self,(bs_id, nat_id):(bs_id,) + self.getArgs(nat_id)),
-                (lambda (n,d): struct.pack('>HH',n,d)))
+                (lambda self,bs_id,nat_id:(bs_id,) + self.getArgs(nat_id)),
+                (lambda n,d: struct.pack('>HH',n,d)))
 
 cpoolTypes = [Utf8, Class, NameAndType, Field, Method, InterfaceMethod,
-              String, Int, Long, Float, Double, 
+              String, Int, Long, Float, Double,
               MethodHandle, MethodType, InvokeDynamic]
 name2Type = {t.name:t for t in cpoolTypes}
 tag2Type = {t.tag:t for t in cpoolTypes}
@@ -116,7 +116,7 @@ class ConstPool(object):
         while len(self.pool) in self.reserved:
             self.addEmptySlot()
         self.addEmptySlot()
-        return len(self.pool)-1    
+        return len(self.pool)-1
 
     def getAvailableIndex2(self):
         for i in self.available:
@@ -165,13 +165,13 @@ class ConstPool(object):
     # Accessors ######################################################################
     def getArgs(self, i):
         if not (i >= 0 and i<len(self.pool)):
-            raise IndexError('Constant pool index {} out of range'.format(i))        
+            raise IndexError('Constant pool index {} out of range'.format(i))
         if self.pool[i][0] is None:
             raise IndexError('Constant pool index {} invalid'.format(i))
-        
+
         name, val = self.pool[i]
         t = name2Type[name]
-        return t.recoverArgs(self, val)
+        return t.recoverArgs(self, *val)
 
     def getArgsCheck(self, typen, index):
         if (self.pool[index][0] != typen):
@@ -199,9 +199,9 @@ class ConstPool(object):
 
         assert(len(pool) <= 65535)
         parts.append(struct.pack('>H',len(pool)))
-        
+
         for name, vals in self.getPoolIter():
             t = name2Type[name]
             parts.append(struct.pack('>B',t.tag))
-            parts.append(t.toBytes(vals))
+            parts.append(t.toBytes(*vals))
         return ''.join(parts)

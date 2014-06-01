@@ -3,8 +3,9 @@ import itertools
 from .. import error as error_types
 from .. import opnames
 from .. import bytecode
-from .verifier_types import *
-from .descriptors import *
+from .verifier_types import T_ADDRESS, T_ARRAY, T_BYTE, T_CHAR, T_DOUBLE, T_DOUBLE2, T_FLOAT, T_INT, T_INVALID, T_LONG, T_LONG2, T_NULL, T_OBJECT, T_SHORT, T_UNINIT_OBJECT, T_UNINIT_THIS
+from .verifier_types import OBJECT_INFO, decrementDim, fullinfo_t, isAssignable, mergeTypes, objOrArray
+from .descriptors import parseFieldDescriptor, parseMethodDescriptor, parseUnboundMethodDescriptor
 
 #This verifier is intended to closely replicate the behavior of Hotspot's inference verifier
 #http://hg.openjdk.java.net/jdk7/jdk7/jdk/file/tip/src/share/native/common/check_code.c

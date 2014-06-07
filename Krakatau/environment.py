@@ -3,6 +3,7 @@ import os.path
 
 from Krakatau import binUnpacker
 from Krakatau import stdcache
+from Krakatau import script_util
 from Krakatau.classfile import ClassFile
 from Krakatau.error import ClassLoaderError
 
@@ -53,7 +54,7 @@ class Environment(object):
                     pass
 
     def _loadClass(self, name, subclasses):
-        print "Loading", name.encode('utf8')[:70]
+        script_util.printVerbose("Loading " + name.encode('utf8')[:70])
         data = self._searchForFile(name)
 
         if data is None:

@@ -77,7 +77,7 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
     # random.shuffle(targets)
     with e: #keep jars open
         for i,target in enumerate(targets):
-            print 'processing target {}, {} remaining'.format(target, len(targets)-i)
+            script_util.printVerbose('processing target {}, {} remaining'.format(target, len(targets)-i))
 
             try:
                 c = e.getClass(target)
@@ -95,29 +95,31 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
                 source = package + source
 
             filename = writeout(c.name, source)
-            print 'Class written to', filename
-            print time.time() - start_time, ' seconds elapsed'
+            script_util.printVerbose('Class written to ' + filename)
+            script_util.printVerbose('{} seconds elapsed'.format(time.time() - start_time))
             deleteUnusued(c)
 
 if __name__== "__main__":
-    print script_util.copyright
-
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
     parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
     parser.add_argument('-out',help='Path to generate source files in')
     parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
+    parser.add_argument('-q', action='store_true', help="Quiet output; only show warnings or errors")
     parser.add_argument('-skip', action='store_true', help="Skip classes when an error occurs due to missing dependencies")
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
+    script_util.setVerbose(args.q == False)
+    script_util.printVerbose(script_util.copyright)
+
     path = []
     if not args.nauto:
-        print 'Attempting to automatically locate the standard library...'
+        script_util.printVerbose('Attempting to automatically locate the standard library...')
         found = findJRE()
         if found:
-            print 'Found at ', found
+            script_util.printVerbose('Found at ' + found)
             path.append(found)
         else:
             print 'Unable to find the standard library'

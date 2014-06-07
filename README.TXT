@@ -17,7 +17,7 @@ testing the resulting classes.
 === Decompilation ===
 
 Usage:
-python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] target
+python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] [-q] target
 
 PATH : An optional list of directories, jars, or zipfiles to search for
     classes in. Krakatau will attempt to automatically detect and add the
@@ -28,6 +28,8 @@ OUT : Directory name where source files are to be written. Defaults to the
     current directory
 
 -r : Decompiles all .class files found in the directory target (recursively)
+
+-q : Quiet output; only show warnings or errors
 
 target : Class name or jar name to decompile. If a jar is specified, all
     classes in the jar will be decompiled. If -r is specified, this should
@@ -58,7 +60,7 @@ Warning: Output on Windows uses UNC-style paths, which means that depending on
 === Assembly ===
 
 Usage:
-python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] target
+python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] [-q] target
 
 OUT : Directory name where class files are to be written. Defaults to the
     current directory
@@ -78,6 +80,8 @@ OUT : Directory name where class files are to be written. Defaults to the
 
 -r : Assembles all .j files found in the directory target (recursively)
 
+-q : Quiet output; only show warnings or errors
+
 target : Name of file to assemble. If -r is specified, this should be a
     directory.
 
@@ -96,12 +100,14 @@ the current directory.
 === Disassembly ===
 
 Usage:
-python Krakatau\disassemble.py [-out OUT] [-r] target
+python Krakatau\disassemble.py [-out OUT] [-r] [-q] target
 
 OUT : File or directory name where source files are to be written. Defaults
     to the current directory
 
 -r : Disassembles all .class files found in the directory target (recursively)
+
+-q : Quiet output; only show warnings or errors
 
 target : Filename or jar name to disassemble. If a jar is specified, all
     classes in the jar will be disassembled. If -r is specified, this should

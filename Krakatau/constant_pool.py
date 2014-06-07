@@ -97,7 +97,7 @@ class ConstPool(object):
             else:
                 t = tag2Type[tag]
                 if t.name == 'Utf8':
-                    val = decodeStr(val)
+                    val = decodeStr(*val)
                 self.pool.append((t.name, val))
 
     def size(self): #Number of slots including gaps, not number of entries

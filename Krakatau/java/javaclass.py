@@ -5,6 +5,7 @@ from ..verifier.descriptors import parseFieldDescriptor
 
 from . import ast, ast2, javamethod
 from .reserved import reserved_identifiers
+from Krakatau import script_util
 
 IGNORE_EXCEPTIONS = 0
 
@@ -37,7 +38,7 @@ def _getField(field):
 def _getMethod(method, cb, forbidden_identifiers):
     try:
         graph = cb(method) if method.code is not None else None
-        print 'Decompiling method', method.name.encode('utf8'), method.descriptor.encode('utf8')
+        script_util.printVerbose('Decompiling method {} {}'.format(method.name.encode('utf8'), method.descriptor.encode('utf8')))
         code_ast = javamethod.generateAST(method, graph, forbidden_identifiers)
         return code_ast
     except Exception as e:

@@ -9,6 +9,8 @@ This program is provided as open source under the GNU General Public License.
 See LICENSE.TXT for more details.
 '''
 
+verbose = True
+
 def findFiles(target, recursive, prefix):
     if target.endswith('.jar'):
         with zipfile.ZipFile(target, 'r') as archive:
@@ -107,3 +109,12 @@ def fileDirOut(base_path, suffix):
             f.write(data)
         return out
     return write
+
+def setVerbose(flag):
+    global verbose
+    verbose = flag
+
+def printVerbose(msg):
+    global verbose
+    if verbose == True:
+        print msg

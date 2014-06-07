@@ -58,7 +58,7 @@ Warning: Output on Windows uses UNC-style paths, which means that depending on
 === Assembly ===
 
 Usage:
-python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] target
+python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] [-q] target
 
 OUT : Directory name where class files are to be written. Defaults to the
     current directory
@@ -77,6 +77,8 @@ OUT : Directory name where class files are to be written. Defaults to the
     45.3 instead of 49.0.
 
 -r : Assembles all .j files found in the directory target (recursively)
+
+-q : Quiet mode (only display warnings and errors)
 
 target : Name of file to assemble. If -r is specified, this should be a
     directory.

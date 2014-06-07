@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import platform, os, os.path, zipfile
 import collections, hashlib
 from functools import partial
@@ -107,3 +109,12 @@ def fileDirOut(base_path, suffix):
             f.write(data)
         return out
     return write
+
+def ignore(*args, **kwargs):
+    pass
+
+class Logger(object):
+    def __init__(self, level):
+        lvl = ['info','warning'].index(level)
+        self.info = print if lvl <= 0 else ignore
+        self.warn = print if lvl <= 1 else ignore

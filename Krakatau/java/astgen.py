@@ -1,5 +1,4 @@
 from . import ast
-from . import variablemerge
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 from ..ssa import ssa_types, ssa_ops, ssa_jumps
 from ..ssa import objtypes
@@ -15,7 +14,7 @@ _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
 _ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT,
             ssa_types.SSA_FLOAT:objtypes.FloatTT, ssa_types.SSA_DOUBLE:objtypes.DoubleTT}
 class VarInfo(object):
-    def __init__(self, method, blocks, namegen, replace):
+    def __init__(self, method, blocks, namegen):
         self.env = method.class_.env
         self.labelgen = LabelGen().next
 
@@ -23,8 +22,8 @@ class VarInfo(object):
         self.return_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
         self.clsname = method.class_.name
         self._namegen = namegen
-        self._replace = replace
 
+        self._uninit_vars = {}
         self._vars = {}
         self._tts = {}
         for block in blocks:
@@ -36,6 +35,7 @@ class VarInfo(object):
                     tt = uc.getSingleTType() #temp hack
                     if uc.types.isBoolOrByteArray():
                         tt = '.bexpr', tt[1]+1
+                        assert(('.boolean', tt[1]) in uc.types.exact)
                 else:
                     tt = _ssaToTT[var.type]
                 self._tts[var] = tt
@@ -48,20 +48,25 @@ class VarInfo(object):
         tt = self._tts[var]
         if var.const is not None:
             return ast.Literal(tt, var.const)
+
+        if var.name:
+            #important to not add num when it is 0, since we currently
+            #use var names to force 'this'
+            temp = '{}_{}'.format(var.name, num) if num else var.name
+            namefunc = lambda expr:temp
         else:
-            if var.name:
-                #important to not add num when it is 0, since we currently
-                #use var names to force 'this'
-                temp = '{}_{}'.format(var.name, num) if num else var.name
-                namefunc = lambda expr:temp
-            else:
-                namefunc = self._nameCallback
-            return ast.Local(tt, namefunc)
+            namefunc = self._nameCallback
+
+        result = ast.Local(tt, namefunc)
+        # merge all variables of uninitialized type to simplify fixObjectCreations in javamethod.py
+        if var.uninit_orig_num is not None:
+            result = self._uninit_vars.setdefault(var.uninit_orig_num, result)
+        return result
 
     def var(self, node, var, isCast=False):
         assert(var.type != ssa_types.SSA_MONAD)
         key = node, var, isCast
-        key = self._replace.get(key,key)
+
         try:
             return self._vars[key]
         except KeyError:
@@ -218,6 +223,7 @@ def _createASTBlock(info, endk, node):
     jumpKey = None
     if isinstance(jump, (ssa_jumps.Rethrow, ssa_jumps.Return)):
         assert(not norm_successors)
+        assert(not node.eassigns and not node.outvars)
         if isinstance(jump, ssa_jumps.Rethrow):
             param = info.var(node, jump.params[-1])
             statements.append(ast.ThrowStatement(param))
@@ -292,7 +298,6 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
     return ast.StatementBlock(info.labelgen, begink, endk, [headscope, new], endk)
 
 def createAST(method, ssagraph, seroot, namegen):
-    replace = variablemerge.mergeVariables(seroot)
-    info = VarInfo(method, ssagraph.blocks, namegen, replace)
+    info = VarInfo(method, ssagraph.blocks, namegen)
     astroot = _createASTSub(info, seroot, None)
     return astroot, info

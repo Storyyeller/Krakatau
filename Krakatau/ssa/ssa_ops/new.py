@@ -5,11 +5,12 @@ from .. import excepttypes
 from ..constraints import ObjectConstraint, IntConstraint, DUMMY
 
 class New(BaseOp):
-    def __init__(self, parent, name, monad):
+    def __init__(self, parent, name, monad, inode_key):
         super(New, self).__init__(parent, [monad], makeException=True, makeMonad=True)
+        self.env = parent.env
         self.tt = name,0
         self.rval = parent.makeVariable(SSA_OBJECT, origin=self)
-        self.env = parent.env
+        self.rval.uninit_orig_num = inode_key
 
     def propagateConstraints(self, m):
         eout = ObjectConstraint.fromTops(self.env, [], (excepttypes.OOM,), nonnull=True)

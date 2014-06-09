@@ -295,7 +295,7 @@ def _new(parent, input_, iNode):
     index = iNode.instruction[1]
     classname = parent.getConstPoolArgs(index)[0]
 
-    line = ssa_ops.New(parent, classname, input_.monad)
+    line = ssa_ops.New(parent, classname, input_.monad, iNode.key)
     newstack = input_.stack + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 

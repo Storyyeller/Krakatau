@@ -12,14 +12,15 @@ from .ssa_types import SSA_OBJECT, SSA_MONAD
 from .ssa_types import slots_t, BasicBlock, verifierToSSAType
 
 class SSA_Variable(object):
-    __slots__ = 'type','origin','name','const','decltype'
+    __slots__ = 'type','origin','name','const','decltype','uninit_orig_num'
 
     def __init__(self, type_, origin=None, name=""):
-        self.type = type_
+        self.type = type_       # SSA_INT, SSA_OBJECT, etc.
         self.origin = origin
         self.name = name
         self.const = None
         self.decltype = None #for objects, the inferred type from the verifier if any
+        self.uninit_orig_num = None #if uninitialized, the bytecode offset of the new instr
 
     #for debugging
     def __str__(self):
@@ -43,9 +44,9 @@ class SSA_Variable(object):
 #never returns are represented by ordinary jumps from blocks in the procedure to outside
 #Successful completion of the proc is represented by the fallthrough edge. The fallthrough
 #block gets its variables from callblock, including skip vars which don't depend on the
-#proc, and variables from callop.out which represent what would have been returned
+#proc, and variables from callop.out which represent what would have been returned from ret
 #Every proc has a reachable retblock. Jsrs with no associated ret are simply turned
-#into gotos.
+#into gotos during the initial basic block creation.
 
 class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3
@@ -331,7 +332,9 @@ class SSA_Graph(object):
 
     def _splitSubProc(self, proc):
         #Splits a proc into two, with one callsite using the new proc instead
-        #this involved duplicating the body of the procedure
+        #this involves duplicating the body of the procedure
+        #the new proc is appended to the list of procs so it can work properly
+        #with the stack processing in inlineSubprocs
         assert(len(proc.callops) > 1)
         callop, callblock = proc.callops.items()[0]
         retblock, retop = proc.retblock, proc.retop
@@ -494,16 +497,20 @@ class SSA_Graph(object):
         return var
 
     def makeVarFromVtype(self, vtype, initMap):
-        vtype = initMap.get(vtype, vtype)
-        type_ = verifierToSSAType(vtype)
+        vtype2 = initMap.get(vtype, vtype)
+        type_ = verifierToSSAType(vtype2)
         if type_ is not None:
             var = self.makeVariable(type_)
             if type_ == SSA_OBJECT:
                 # Intern the variable object types to save a little memory
                 # in the case of excessively long methods with large numbers
                 # of identical variables, such as sun/util/resources/TimeZoneNames_*
-                tt = objtypes.verifierToSynthetic(vtype)
+                # TODO: probably not necessary any more due to other optimizations
+                tt = objtypes.verifierToSynthetic(vtype2)
                 var.decltype = self._interned(tt)
+                #if uninitialized, record the offset of originating new instruction for later
+                if vtype.tag == '.new':
+                    var.uninit_orig_num = vtype.extra
             return var
         return None
 

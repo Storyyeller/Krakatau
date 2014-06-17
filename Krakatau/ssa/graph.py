@@ -492,7 +492,7 @@ class SSA_Graph(object):
     varnum = collections.defaultdict(itertools.count)
     def makeVariable(self, *args, **kwargs):
         var = SSA_Variable(*args, **kwargs)
-        pref = args[0][0][0]
+        # pref = args[0][0][0].replace('o','a')
         # var.name = pref + str(next(self.varnum[pref]))
         return var
 

@@ -5,7 +5,7 @@ On the first run tests/*.test files will be created with expected results for ea
 To generate a test's result file, run with `--create-only`.
 To add a new test, add the relevant classfile and an entry in tests.registry.
 '''
-import os, shutil, tempfile
+import os, shutil, tempfile, time
 import subprocess
 import cPickle as pickle
 import optparse
@@ -94,6 +94,7 @@ if __name__ == '__main__':
     targets = args if args else sorted(tests.registry)
 
     results = {}
+    start_time = time.time()
     for test in targets:
         print 'Doing test {}...'.format(test)
         try:
@@ -108,3 +109,4 @@ if __name__ == '__main__':
     for test in targets:
         print '  {}: {}'.format(test, 'Pass' if results[test] else 'Fail')
     print '{}/{} tests passed'.format(sum(results.itervalues()), len(results))
+    print 'elapsed time:', time.time()-start_time

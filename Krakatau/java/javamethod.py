@@ -8,7 +8,7 @@ from ..namegen import NameGen, LabelGen
 from ..verifier.descriptors import parseMethodDescriptor
 
 from . import ast, ast2, boolize
-from . import graphproxy, structuring, astgen
+from . import graphproxy, structuring, astgen, mergevariables
 
 class DeclInfo(object):
     __slots__ = "declScope scope defs".split()
@@ -450,7 +450,7 @@ def _replaceExpressions(scope, item, rdict):
             return []
     return [item]
 
-def _mergeVariables(root, predeclared):
+def _oldMergeVariables(root, predeclared):
     _setScopeParents(root)
     info = findVarDeclInfo(root, predeclared)
 
@@ -489,6 +489,10 @@ def _mergeVariables(root, predeclared):
             if len(info[var].defs) > 1:
                 forbidden.add(var)
     _preorder(root, partial(_replaceExpressions, rdict=varmap))
+
+def _mergeVariables(root, predeclared, isstatic):
+    rdict = mergevariables.mergeVariables(root, isstatic, predeclared)
+    _preorder(root, partial(_replaceExpressions, rdict=rdict))
 
 _oktypes = ast.BinaryInfix, ast.Local, ast.Literal, ast.Parenthesis, ast.Ternary, ast.TypeName, ast.UnaryPrefix
 def hasSideEffects(expr):
@@ -759,10 +763,10 @@ def generateAST(method, graph, forbidden_identifiers):
         assert(_generateJumps(ast_root, dryRun=True) is None)
         _preorder(ast_root, _fixObjectCreations)
         boolize.boolizeVars(ast_root, argsources)
+        _mergeVariables(ast_root, argsources, method.static)
         _simplifyBlocks(ast_root)
         assert(_generateJumps(ast_root, dryRun=True) is None)
 
-        _mergeVariables(ast_root, argsources)
         _preorder(ast_root, _createTernaries)
         _inlineVariables(ast_root)
         _simplifyBlocks(ast_root)

@@ -2,79 +2,7 @@ from collections import defaultdict as ddict
 
 from . import ast
 from ..ssa import objtypes
-
-def copySetDict(d):
-    return {k:v.copy() for k,v in d.items()}
-
-class RevocationData(object):
-    def __init__(self, eqpairs=None, revokes=None):
-        # eqpairs: set(v1,v2) - the pairs of variables known to be equal at this point
-        # revokes: v1 -> set(v2) - for each v1, the set of varaibles v2 such that a
-        #   use of v1 at this point will make v1 and v2 incompatible
-
-        # this represents the intersection of such information along all code paths
-        # reaching this point. The empty data (i.e. no paths intersected yet)
-        # is represented by None, None
-
-        # v,v in eqpairs if v defined on every path to this point
-        # v is a key in revokes if v is defined on any path to this point
-        self.eqpairs = eqpairs.copy() if eqpairs is not None else None
-        self.revokes = copySetDict(revokes) if revokes is not None else None
-
-    def initialize(self, initvars): #initialize entry point data with method parameters
-        assert(self.eqpairs is None and self.revokes is None)
-        self.eqpairs = set()
-        self.revokes = {}
-        for var in initvars:
-            self.addvar(var)
-
-    def addvar(self, var): #also called to add a caught exception var
-        self.eqpairs.add((var,var))
-        self.revokes.setdefault(var, set())
-
-    def _clobberVal(self, var): #v = expr (where expr isn't another var)
-        self.eqpairs = set(t for t in self.eqpairs if var not in t)
-        self.eqpairs.add((var,var))
-
-    def _assignVal(self, var1, var2): #v1 = v2
-        if (var1, var2) in self.eqpairs:
-            return
-
-        self._clobberVal(var1) #Important! var1 is no longer equal to anything it was equal to before
-        others = [y for x,y in self.eqpairs if x == var2] + [var2]
-        for y in others: #set var1 equal to anything that var2 is equal to
-            self.eqpairs.add((var1, y))
-            self.eqpairs.add((y, var1))
-
-    def _assignRevokes(self, var): #update revoke sets after a new assignment
-        for v2 in self.revokes:
-            if (var, v2) not in self.eqpairs:
-                self.revokes[v2].add(var)
-        self.revokes[var] = set()
-
-    def handleAssign(self, var1, var2=None):
-        if var2 is None:
-            self._clobberVal(var1)
-        else:
-            self._assignVal(var1, var2)
-        self._assignRevokes(var1)
-
-    def merge_update(self, other):
-        if other.eqpairs is None:
-            return
-        if self.eqpairs is None:
-            self.eqpairs = other.eqpairs.copy()
-            self.revokes = copySetDict(other.revokes)
-        else:
-            self.eqpairs &= other.eqpairs
-            for k,v in other.revokes.items():
-                self.revokes[k] = v | self.revokes.get(k, set())
-
-    def copy(self): return RevocationData(self.eqpairs, self.revokes)
-
-    def __eq__(self, other): return self.eqpairs == other.eqpairs and self.revokes == other.revokes
-    def __ne__(self, other): return not self == other
-    def __hash__(self): raise TypeError('unhashable type')
+from .. import graph_util
 
 # The basic block in our temporary CFG
 # instead of code, it merely contains a list of defs and uses
@@ -85,13 +13,8 @@ class DUBlock(object):
         self.key = key
         self.caught_excepts = ()
         self.lines = []     # 3 types of lines: ('use', var), ('def', (var, var2_opt)), or ('canthrow', None)
-
-        self.inp = RevocationData()
-        self.n_out = RevocationData()
-        self.e_out = RevocationData()
         self.e_successors = []
         self.n_successors = []
-        self.dirty = True
 
     def canThrow(self): return ('canthrow', None) in self.lines
 
@@ -131,6 +54,7 @@ def visitExpr(expr, lines):
 class DUGraph(object):
     def __init__(self):
         self.blocks = []
+        self.entry = None
 
     def makeBlock(self, key, break_dict, caught_except, myexcept_parents):
         block = DUBlock(key)
@@ -146,6 +70,12 @@ class DUGraph(object):
             for parent in myexcept_parents:
                 parent.e_successors.append(block)
         return block
+
+    def finishBlock(self, block, catch_stack):
+        #register exception handlers for completed old block
+        if block.canThrow():
+            for clist in catch_stack:
+                clist.append(block)
 
     def visitScope(self, scope, isloophead, break_dict, catch_stack, caught_except=None, myexcept_parents=None):
         #catch_stack is copy on modify
@@ -197,14 +127,11 @@ class DUGraph(object):
                 self.visitScope(stmt, False, break_dict, catch_stack)
 
             if stmt.breakKey is not None:
-                #register exception handlers for completed old block
-                if block.canThrow():
-                    for clist in catch_stack:
-                        clist.append(block)
+                self.finishBlock(block, catch_stack)
                 # start new block after return from compound statement
                 block = self.makeBlock(stmt.breakKey, break_dict, None, None)
             else:
-                del block #should never be accessed anyway if we're exiting abruptly
+                block = None #should never be accessed anyway if we're exiting abruptly
 
         if scope.jumpKey is not None:
             break_dict[scope.jumpKey].append(block)
@@ -214,26 +141,43 @@ class DUGraph(object):
             head_block.n_successors += break_dict[scope.continueKey]
             del break_dict[scope.continueKey]
 
-    def makeCFG(self, root, method_params):
+        if block is not None:
+            self.finishBlock(block, catch_stack)
+
+    def makeCFG(self, root):
         break_dict = ddict(list)
         self.visitScope(root, False, break_dict, [])
+        self.entry = self.blocks[0] #entry point should always be first block generated
 
-        entry = self.blocks[0] #entry point should always be first block generated
-        entry.inp.initialize(method_params)
+        reached = graph_util.topologicalSort([self.entry], lambda block:(block.n_successors + block.e_successors))
+        if len(reached) != len(self.blocks):
+            print 'warning, {} blocks unreachable!'.format(len(self.blocks) - len(reached))
+        self.blocks = reached
 
-    # def finish(self, method_params):
-    #     #prune useless blocks which have no content and merely jump to themselves
-    #     #many of these are generated as a side effect of the way we generate the CFG and the way the continue/break keys work
-    #     self.blocks = [b for b in self.blocks if b.lines or b.caught_excepts or self.nsuc_keys[b] != set([b.key])]
+    def replace(self, old, new):
+        assert(old != new)
+        for block in self.blocks:
+            assert(old not in block.caught_excepts)
+            lines = block.lines
+            for i, (line_t, data) in enumerate(lines):
+                if line_t == 'use' and data == old:
+                    lines[i] = 'use', new
+                elif line_t == 'def':
+                    v1 = new if data[0] == old else data[0]
+                    v2 = new if data[1] == old else data[1]
+                    lines[i] = 'def', (v1, v2)
 
-    #     entry = self.blocks[0] #entry point should always be first block generated
-    #     entry.inp.initialize(method_params)
-
-    #     allkeys = set(b.key for b in self.blocks)
-    #     for block in self.blocks:
-    #         assert(self.esuc_keys[block] | self.nsuc_keys[block] <= allkeys)
-    #         for b2 in self.blocks:
-    #             if b2.key in self.esuc_keys[block]:
-    #                 block.e_successors.append(b2)
-    #             if b2.key in self.nsuc_keys[block]:
-    #                 block.n_successors.append(b2)
+    def simplify(self):
+        #try to prune redundant instructions from blocks
+        for block in self.blocks:
+            last = None
+            newlines = []
+            for line in block.lines:
+                if line[0] == 'def':
+                    if line[1][0] == line[1][1]:
+                        continue
+                elif line == last:
+                    continue
+                newlines.append(line)
+                last = line
+            block.lines = newlines

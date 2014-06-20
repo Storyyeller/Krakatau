@@ -204,7 +204,8 @@ def _pruneIfElse_cb(item):
     return item
 
 def _whileCondition_cb(item):
-    '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}'''
+    '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}
+        and while(A) {if(B) {break;} else {C} D} to while(A && !B) {{C} D}'''
     failure = [], item #what to return if we didn't inline
     body = item.getScopes()[0]
     if not body.statements or not isinstance(body.statements[0], ast.IfStatement):
@@ -491,6 +492,8 @@ def _oldMergeVariables(root, predeclared):
     _preorder(root, partial(_replaceExpressions, rdict=varmap))
 
 def _mergeVariables(root, predeclared, isstatic):
+    _oldMergeVariables(root, predeclared)
+
     rdict = mergevariables.mergeVariables(root, isstatic, predeclared)
     _preorder(root, partial(_replaceExpressions, rdict=rdict))
 

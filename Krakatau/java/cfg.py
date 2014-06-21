@@ -20,8 +20,48 @@ class DUBlock(object):
         self.lines = []     # 3 types of lines: ('use', var), ('def', (var, var2_opt)), or ('canthrow', None)
         self.e_successors = []
         self.n_successors = []
+        self.vars = set() #vars used or defined within the block. Does NOT include caught exceptions
 
     def canThrow(self): return ('canthrow', None) in self.lines
+
+    def recalcVars(self):
+        self.vars.clear()
+        for line_t, data in self.lines:
+            if line_t == 'use':
+                self.vars.add(data)
+            elif line_t == 'def':
+                self.vars.add(data[0])
+                if data[1] is not None:
+                    self.vars.add(data[1])
+
+    def replace(self, replace):
+        newlines = []
+        for line_t, data in self.lines:
+            if line_t == 'use':
+                data = replace.get(data, data)
+            elif line_t == 'def':
+                data = replace.get(data[0], data[0]), replace.get(data[1], data[1])
+            newlines.append((line_t, data))
+        self.lines = newlines
+        for k, v in replace.items():
+            if k in self.vars:
+                self.vars.remove(k)
+                self.vars.add(v)
+
+    def simplify(self):
+        #try to prune redundant instructions
+        last = None
+        newlines = []
+        for line in self.lines:
+            if line[0] == 'def':
+                if line[1][0] == line[1][1]:
+                    continue
+            elif line == last:
+                continue
+            newlines.append(line)
+            last = line
+        self.lines = newlines
+        self.recalcVars()
 
 def varOrNone(expr):
     return expr if isinstance(expr, ast.Local) else None
@@ -81,6 +121,7 @@ class DUGraph(object):
         if block.canThrow():
             for clist in catch_stack:
                 clist.append(block)
+        block.recalcVars()
 
     def visitScope(self, scope, break_dict, catch_stack, caught_except=None, myexcept_parents=None, head_block=None):
         #catch_stack is copy on modify
@@ -116,6 +157,7 @@ class DUGraph(object):
                 if stmt.expr != ast.Literal.TRUE: #while(cond)
                     assert(stmt.breakKey is not None)
                     assert(stmt.continueKey != stmt.getScopes()[0].continueKey)
+                    self.finishBlock(block, catch_stack)
                     block = self.makeBlock(stmt.continueKey, break_dict)
                     visitExpr(stmt.expr, block.lines)
                     break_dict[stmt.breakKey].append(block)
@@ -129,6 +171,7 @@ class DUGraph(object):
                 for parent in break_dict[stmt.continueKey]:
                     parent.n_successors.append(continue_target)
                 del break_dict[stmt.continueKey]
+                self.finishBlock(body_block, catch_stack)
 
             elif isinstance(stmt, ast.TryStatement):
                 new_stack = catch_stack + [[] for _ in stmt.pairs]
@@ -172,29 +215,11 @@ class DUGraph(object):
     def replace(self, replace):
         flattenDict(replace)
         for block in self.blocks:
-            newlines = []
-            for line_t, data in block.lines:
-                if line_t == 'use':
-                    data = replace.get(data, data)
-                elif line_t == 'def':
-                    data = replace.get(data[0], data[0]), replace.get(data[1], data[1])
-                newlines.append((line_t, data))
-            block.lines = newlines
+            block.replace(replace)
 
     def simplify(self):
-        #try to prune redundant instructions from blocks
         for block in self.blocks:
-            last = None
-            newlines = []
-            for line in block.lines:
-                if line[0] == 'def':
-                    if line[1][0] == line[1][1]:
-                        continue
-                elif line == last:
-                    continue
-                newlines.append(line)
-                last = line
-            block.lines = newlines
+            block.simplify()
 
 def makeGraph(root):
     g = DUGraph()

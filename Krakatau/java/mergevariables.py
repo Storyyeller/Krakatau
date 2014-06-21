@@ -3,7 +3,7 @@ import itertools, heapq
 
 from . import ast
 from ..ssa import objtypes
-from .cfg import makeGraph
+from .cfg import makeGraph, flattenDict
 
 # Variables x and y can safely be merged when it is true that for any use of y (respectively x)
 # that sees definition y0 of y, either there are no intervening definitions of x, or x was known
@@ -134,7 +134,7 @@ def calcEqualityData(graph, methodparams):
 
     for block in blocks:
         assert(d[block][0].d is not None)
-    print 'eq data done'
+    assert(not dirty)
     return d
 
 class VarMergeInfo(object):
@@ -144,6 +144,9 @@ class VarMergeInfo(object):
         self.equality = None #to be calculated later
         self.graph = graph
         self.methodparams = methodparams
+
+        self.pending_graph_replaces = {}
+        self.touched_vars = set()
 
         #initialize variables and assignment data
         for var in methodparams:
@@ -177,7 +180,15 @@ class VarMergeInfo(object):
     def iseq(self, block, index, v1, v2):
         return self.equality[block][index].iseq(v1, v2)
 
+    def _doGraphReplacements(self):
+        self.graph.replace(self.pending_graph_replaces)
+        self.pending_graph_replaces = {}
+        self.touched_vars = set()
+
     def compat(self, v1, v2, doeq):
+        if v1 in self.touched_vars or v2 in self.touched_vars:
+            self._doGraphReplacements()
+
         blocks = self.graph.blocks
         vok = {b:3 for b in blocks} #use bitmask v1ok = 1<<0, v2ok = 1<<1
 
@@ -185,7 +196,6 @@ class VarMergeInfo(object):
         while stack:
             block = stack.pop()
             cur = vok[block]
-            # print 'bi', self.graph.blocks.index(block), cur
 
             e_out = 3
             defcount = 0
@@ -247,7 +257,11 @@ class VarMergeInfo(object):
 
             # print cur, '->', parent
             replace[cur] = parent
-            self.graph.replace(cur, parent)
+            self.pending_graph_replaces[cur] = parent
+            self.touched_vars.add(cur)
+            self.touched_vars.add(parent)
+
+            # self.graph.replace(cur, parent)
 
             infc, infp = d[cur], d[parent]
             #Be careful, there could be a loop with cur in parent.defs
@@ -287,8 +301,5 @@ def mergeVariables(root, isstatic, parameters):
     replace = {}
     mergeinfo.processMain(replace)
 
-    #flatten replacements
-    for k in list(replace):
-        while replace[k] in replace:
-            replace[k] = replace[replace[k]]
+    flattenDict(replace)
     return replace

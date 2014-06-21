@@ -4,6 +4,11 @@ from . import ast
 from ..ssa import objtypes
 from .. import graph_util
 
+def flattenDict(replace):
+    for k in list(replace):
+        while replace[k] in replace:
+            replace[k] = replace[replace[k]]
+
 # The basic block in our temporary CFG
 # instead of code, it merely contains a list of defs and uses
 # This is an extended basic block, i.e. it only terminates in a normal jump(s).
@@ -164,18 +169,17 @@ class DUGraph(object):
             print 'warning, {} blocks unreachable!'.format(len(self.blocks) - len(reached))
         self.blocks = reached
 
-    def replace(self, old, new):
-        assert(old != new)
+    def replace(self, replace):
+        flattenDict(replace)
         for block in self.blocks:
-            assert(old not in block.caught_excepts)
-            lines = block.lines
-            for i, (line_t, data) in enumerate(lines):
-                if line_t == 'use' and data == old:
-                    lines[i] = 'use', new
+            newlines = []
+            for line_t, data in block.lines:
+                if line_t == 'use':
+                    data = replace.get(data, data)
                 elif line_t == 'def':
-                    v1 = new if data[0] == old else data[0]
-                    v2 = new if data[1] == old else data[1]
-                    lines[i] = 'def', (v1, v2)
+                    data = replace.get(data[0], data[0]), replace.get(data[1], data[1])
+                newlines.append((line_t, data))
+            block.lines = newlines
 
     def simplify(self):
         #try to prune redundant instructions from blocks

@@ -3,7 +3,7 @@ import itertools, heapq
 
 from . import ast
 from ..ssa import objtypes
-from .cfg import DUGraph
+from .cfg import makeGraph
 
 # Variables x and y can safely be merged when it is true that for any use of y (respectively x)
 # that sees definition y0 of y, either there are no intervening definitions of x, or x was known
@@ -281,8 +281,7 @@ class VarMergeInfo(object):
 ###############################################################################
 def mergeVariables(root, isstatic, parameters):
     #first, create CFG from the Java AST
-    graph = DUGraph()
-    graph.makeCFG(root)
+    graph = makeGraph(root)
     mergeinfo = VarMergeInfo(graph, parameters, isstatic)
 
     replace = {}

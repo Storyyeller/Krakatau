@@ -77,9 +77,12 @@ class DUGraph(object):
             for clist in catch_stack:
                 clist.append(block)
 
-    def visitScope(self, scope, isloophead, break_dict, catch_stack, caught_except=None, myexcept_parents=None):
+    def visitScope(self, scope, break_dict, catch_stack, caught_except=None, myexcept_parents=None, head_block=None):
         #catch_stack is copy on modify
-        head_block = block = self.makeBlock(scope.continueKey, break_dict, caught_except, myexcept_parents)
+        if head_block is None:
+            head_block = block = self.makeBlock(scope.continueKey, break_dict, caught_except, myexcept_parents)
+        else:
+            block = head_block
 
         for stmt in scope.statements:
             if isinstance(stmt, (ast.ExpressionStatement, ast.ThrowStatement, ast.ReturnStatement)):
@@ -92,39 +95,50 @@ class DUGraph(object):
             assert(stmt.continueKey is not None)
             if isinstance(stmt, (ast.IfStatement, ast.SwitchStatement)):
                 visitExpr(stmt.expr, block.lines)
-                jumps = [sub.continueKey for sub in stmt.getScopes()]
 
                 if isinstance(stmt, ast.SwitchStatement):
                     ft = not stmt.hasDefault()
                 else:
-                    ft = len(jumps) == 1
-                if ft:
-                    jumps.append(stmt.breakKey)
+                    ft = len(stmt.getScopes()) == 1
 
                 for sub in stmt.getScopes():
                     break_dict[sub.continueKey].append(block)
-                    self.visitScope(sub, False, break_dict, catch_stack)
+                    self.visitScope(sub, break_dict, catch_stack)
+                if ft:
+                    break_dict[stmt.breakKey].append(block)
 
             elif isinstance(stmt, ast.WhileStatement):
-                assert(stmt.expr == ast.Literal.TRUE)
-                assert(stmt.continueKey == stmt.getScopes()[0].continueKey)
+                if stmt.expr != ast.Literal.TRUE: #while(cond)
+                    assert(stmt.breakKey is not None)
+                    assert(stmt.continueKey != stmt.getScopes()[0].continueKey)
+                    block = self.makeBlock(stmt.continueKey, break_dict)
+                    visitExpr(stmt.expr, block.lines)
+                    break_dict[stmt.breakKey].append(block)
+                else:
+                    assert(stmt.continueKey == stmt.getScopes()[0].continueKey)
+
                 break_dict[stmt.continueKey].append(block)
-                self.visitScope(stmt.getScopes()[0], True, break_dict, catch_stack)
+                body_block = self.visitScope(stmt.getScopes()[0], break_dict, catch_stack)
+                continue_target = body_block if stmt.expr == ast.Literal.TRUE else block
+
+                for parent in break_dict[stmt.continueKey]:
+                    parent.n_successors.append(continue_target)
+                del break_dict[stmt.continueKey]
 
             elif isinstance(stmt, ast.TryStatement):
                 new_stack = catch_stack + [[] for _ in stmt.pairs]
 
                 break_dict[stmt.tryb.continueKey].append(block)
-                self.visitScope(stmt.tryb, False, break_dict, new_stack)
+                self.visitScope(stmt.tryb, break_dict, new_stack)
 
                 for cdecl, catchb in stmt.pairs:
                     parents = new_stack.pop()
-                    self.visitScope(catchb, False, break_dict, catch_stack, cdecl.local, parents)
+                    self.visitScope(catchb, break_dict, catch_stack, cdecl.local, parents)
                 assert(new_stack == catch_stack)
             else:
                 assert(isinstance(stmt, ast.StatementBlock))
                 break_dict[stmt.continueKey].append(block)
-                self.visitScope(stmt, False, break_dict, catch_stack)
+                self.visitScope(stmt, break_dict, catch_stack, head_block=block)
 
             if stmt.breakKey is not None:
                 self.finishBlock(block, catch_stack)
@@ -136,17 +150,13 @@ class DUGraph(object):
         if scope.jumpKey is not None:
             break_dict[scope.jumpKey].append(block)
 
-        if isloophead: #special case - if scope is the contents of a loop, we need to check for backedges
-            # assert(scope.continueKey != scope.breakKey)
-            head_block.n_successors += break_dict[scope.continueKey]
-            del break_dict[scope.continueKey]
-
         if block is not None:
             self.finishBlock(block, catch_stack)
+        return head_block #head needs to be returned in case of loops so we can fix up backedges
 
     def makeCFG(self, root):
         break_dict = ddict(list)
-        self.visitScope(root, False, break_dict, [])
+        self.visitScope(root, break_dict, [])
         self.entry = self.blocks[0] #entry point should always be first block generated
 
         reached = graph_util.topologicalSort([self.entry], lambda block:(block.n_successors + block.e_successors))
@@ -181,3 +191,8 @@ class DUGraph(object):
                 newlines.append(line)
                 last = line
             block.lines = newlines
+
+def makeGraph(root):
+    g = DUGraph()
+    g.makeCFG(root)
+    return g

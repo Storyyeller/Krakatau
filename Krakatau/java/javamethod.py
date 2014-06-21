@@ -766,9 +766,10 @@ def generateAST(method, graph, forbidden_identifiers):
         assert(_generateJumps(ast_root, dryRun=True) is None)
         _preorder(ast_root, _fixObjectCreations)
         boolize.boolizeVars(ast_root, argsources)
-        _mergeVariables(ast_root, argsources, method.static)
         _simplifyBlocks(ast_root)
         assert(_generateJumps(ast_root, dryRun=True) is None)
+
+        _mergeVariables(ast_root, argsources, method.static)
 
         _preorder(ast_root, _createTernaries)
         _inlineVariables(ast_root)

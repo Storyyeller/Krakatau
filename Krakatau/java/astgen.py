@@ -1,7 +1,6 @@
 from . import ast
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
-from ..ssa import ssa_types, ssa_ops, ssa_jumps
-from ..ssa import objtypes
+from ..ssa import ssa_types, ssa_ops, ssa_jumps, objtypes
 from ..namegen import LabelGen
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 from .. import opnames
@@ -124,7 +123,7 @@ def _convertJExpr(op, getExpr, clsname):
 
         if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
             printLeft = (op.target != clsname) #Don't print classname if it is a static field in current class
-            tt = op.target, 0
+            tt = op.target, 0 #Doesn't handle arrays, but they don't have any fields anyway
             expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, printLeft=printLeft)
         else:
             expr = ast.FieldAccess(params[0], op.name, dtype)
@@ -141,15 +140,18 @@ def _convertJExpr(op, getExpr, clsname):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
         tt_types = objtypes.verifierToSynthetic_seq(vtypes)
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
+        target_tt = op.target_tt
+
+        if target_tt[1] and op.name == "clone": #In Java, T[].clone returns T[] rather than Object
+            ret_type = target_tt
 
         if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
             name = 'this' if (op.target == clsname) else 'super'
             expr = ast.MethodInvocation(None, name, tt_types, params[1:], op, ret_type)
         elif op.instruction[0] == opnames.INVOKESTATIC: #TODO - fix this for special super calls
-            tt = op.target, 0
-            expr = ast.MethodInvocation(ast.TypeName(tt), op.name, [None]+tt_types, params, op, ret_type)
+            expr = ast.MethodInvocation(ast.TypeName(target_tt), op.name, [None]+tt_types, params, op, ret_type)
         else:
-            expr = ast.MethodInvocation(params[0], op.name, [(op.target,0)]+tt_types, params[1:], op, ret_type)
+            expr = ast.MethodInvocation(params[0], op.name, [target_tt]+tt_types, params[1:], op, ret_type)
     elif isinstance(op, ssa_ops.Monitor):
         fmt = '//monexit({})' if op.exit else '//monenter({})'
         expr = ast.Dummy(fmt, params)

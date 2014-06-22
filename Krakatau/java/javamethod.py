@@ -761,7 +761,6 @@ def generateAST(method, graph, forbidden_identifiers):
         ################################################################################################
         ast_root.bases = (ast_root,) #needed for our setScopeParents later
 
-        # print ast_root.print_()
         assert(_generateJumps(ast_root, dryRun=True) is None)
         _preorder(ast_root, _fixObjectCreations)
         boolize.boolizeVars(ast_root, argsources)

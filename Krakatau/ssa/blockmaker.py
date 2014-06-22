@@ -199,6 +199,7 @@ def _instanceof(parent, input_, iNode):
 def _invoke(parent, input_, iNode):
     index = iNode.instruction[1]
     target, name, desc = parent.getConstPoolArgs(index)
+    target_tt = parseArrOrClassName(target)
 
     argcnt = len(parseMethodDescriptor(desc)[0])
     if not 'static' in iNode.instruction[0]:
@@ -209,7 +210,8 @@ def _invoke(parent, input_, iNode):
     isThisCtor = iNode.isThisCtor if iNode.op == vops.INVOKEINIT else False
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
-    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad, isThisCtor=isThisCtor)
+    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc),
+        args=args, monad=input_.monad, isThisCtor=isThisCtor, target_tt=target_tt)
     newstack = input_.stack[:splitInd] + line.returned
     return ResultDict(line=line, newstack=newstack)
 

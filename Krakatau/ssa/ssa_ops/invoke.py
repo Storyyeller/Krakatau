@@ -6,12 +6,13 @@ from .. import objtypes, constraints
 from ..constraints import ObjectConstraint
 
 class Invoke(BaseOp):
-    def __init__(self, parent, instr, info, args, monad, isThisCtor):
+    def __init__(self, parent, instr, info, args, monad, isThisCtor, target_tt):
         super(Invoke, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
 
         self.instruction = instr
         self.target, self.name, self.desc = info
         self.isThisCtor = isThisCtor #whether this is a ctor call for the current class
+        self.target_tt = target_tt
         vtypes = parseMethodDescriptor(self.desc)[1]
 
         dtype = None
@@ -19,6 +20,9 @@ class Invoke(BaseOp):
             stype = verifierToSSAType(vtypes[0])
             dtype = objtypes.verifierToSynthetic(vtypes[0])
             cat = len(vtypes)
+            # clone() on an array type is known to always return that type, rather than any Object
+            if self.name == "clone" and target_tt[1] > 0:
+                dtype = target_tt
 
             self.rval = parent.makeVariable(stype, origin=self)
             self.returned = [self.rval] + [None]*(cat-1)

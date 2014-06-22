@@ -30,9 +30,8 @@ class ArrLoad(BaseOp):
         elif self.ssatype[0] == 'float':
             rout = FloatConstraint.bot(self.ssatype[1])
         elif self.ssatype[0] == 'obj':
-            supers = [(base,dim-1) for base,dim in a.types.supers]
-            exact = [(base,dim-1) for base,dim in a.types.exact]
-            rout = ObjectConstraint.fromTops(a.types.env, supers, exact)
+            supers = [(base,dim-1) for base,dim in a.types.supers | a.types.exact]
+            rout = ObjectConstraint.fromTops(a.types.env, supers, [])
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         return rout, eout, None

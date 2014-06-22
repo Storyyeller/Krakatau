@@ -428,9 +428,8 @@ def _simplifyExpressions(expr):
 
     # 0 - a -> -a
     if isinstance(expr, ast.BinaryInfix) and expr.opstr == '-':
-        if expr.params[0] == ast.Literal.LZERO:
+        if expr.params[0] == ast.Literal.ZERO or expr.params[0] == ast.Literal.LZERO:
             expr = ast.UnaryPrefix('-', expr.params[1])
-
     return expr
 
 def _setScopeParents(scope):

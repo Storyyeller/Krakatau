@@ -223,6 +223,8 @@ def isObject(tt):
 
 def isPrimativeAssignable(fromt, to):
     x, y = fromt[0], to[0]
+    assert(fromt[1] == to[1] == 0)
+
     if x == y or (x in _assignable_sprims and y in _assignable_lprims):
         return True
     elif (x in _assignable_lprims and y in _assignable_lprims):

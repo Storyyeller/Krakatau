@@ -27,6 +27,11 @@ public class ArrayTest {
         foo(y.clone());
         foo((Object)y.clone());
         foo(z.clone());
+
+        Object[] w = args.length > 0 ? new String[1] : new Integer[2];
+        try {
+            w[0] = "Hello!";
+        } catch (ArrayStoreException e) {System.out.println(" :( ");}
     }
 
     static void foo(Object x) {System.out.println("Object");}

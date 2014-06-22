@@ -20,6 +20,7 @@ class TypeConstraint(ValueType):
         temp = self.supers | self.exact
         assert(not temp or min(zip(*temp)[1]) >= 0)
         assert(objtypes.NullTT not in temp)
+        assert(not any(tt[0].startswith('.') for tt in supers))
 
     @staticmethod
     def fromTops(*args):
@@ -46,7 +47,7 @@ class TypeConstraint(ValueType):
         if self.supers or len(self.exact) != 2:
             return False
         bases, dims = zip(*self.exact)
-        return dims[0] == dims[1] and sorted(bases) == ['.boolean','.byte']
+        return dims[0] == dims[1] and sorted(bases) == [objtypes.BoolTT[0], objtypes.ByteTT[0]]
 
     @staticmethod
     def reduce(env, supers, exact):

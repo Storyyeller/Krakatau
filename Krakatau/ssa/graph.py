@@ -1,7 +1,7 @@
 import itertools, collections, copy
 ODict = collections.OrderedDict
 
-from . import blockmaker,constraints, variablegraph, objtypes, subproc
+from . import blockmaker, constraints, variablegraph, objtypes, subproc
 from . import ssa_jumps, ssa_ops
 from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util

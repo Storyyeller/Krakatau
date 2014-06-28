@@ -87,7 +87,7 @@ class ClosedSet(object):
         self.info = info
         if nodes:
             assert(head in nodes)
-            assert(info.dominator(*nodes) == head)
+            # assert(info.dominator(*nodes) == head)
 
     def touches(self, other): return not self.nodes.isdisjoint(other.nodes)
     def isdisjoint(self, other): return self.nodes.isdisjoint(other.nodes)

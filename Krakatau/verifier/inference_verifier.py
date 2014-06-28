@@ -7,7 +7,7 @@ from .verifier_types import T_ADDRESS, T_ARRAY, T_BYTE, T_CHAR, T_DOUBLE, T_DOUB
 from .verifier_types import OBJECT_INFO, decrementDim, fullinfo_t, isAssignable, mergeTypes, objOrArray
 from .descriptors import parseFieldDescriptor, parseMethodDescriptor, parseUnboundMethodDescriptor
 
-#This verifier is intended to closely replicate the behavior of Hotspot's inference verifier
+#This verifier is intended to be bug compatible with Hotspot's inference verifier
 #http://hg.openjdk.java.net/jdk7/jdk7/jdk/file/tip/src/share/native/common/check_code.c
 
 stackCharPatterns = {opnames.NOP:'-',
@@ -18,7 +18,7 @@ stackCharPatterns = {opnames.NOP:'-',
                     opnames.ARRLOAD_OBJ:'[A]I-A', opnames.ARRSTORE_OBJ:'[A]IA-',
                     opnames.IINC:'-',
 
-                    #Stack manip handled elsewhere
+                    #Stack manipulation handled elsewhere
                     opnames.POP:'1-', opnames.POP2:'2+1-',
                     opnames.DUP:'1-11', opnames.DUPX1:'21-121', opnames.DUPX2:'3+21-1321',
                     opnames.DUP2:'2+1-2121', opnames.DUP2X1:'32+1-21321', opnames.DUP2X2:'4+32+1-214321',
@@ -154,7 +154,6 @@ class InstructionNode(object):
         # new: op2.fi -> target_type
 
     def _verifyOpcodeOperands(self):
-
         def isTargetLegal(addr):
             return addr is not None and addr in self.offsetList
         def verifyCPType(ind, types):
@@ -842,9 +841,7 @@ def verifyBytecode(code):
         startFlags |= InstructionNode.NOT_CONSTRUCTED
     assert(len(args) <= 255)
     args = tuple(args)
-
-    maxstack, maxlocals = code.stack, code.locals
-    assert(len(args) <= maxlocals)
+    assert(len(args) <= code.locals)
 
     offsets = tuple(sorted(code.bytecode.keys())) + (None,) #sentinel at end as invalid index
     iNodes = [InstructionNode(code, offsets, key) for key in offsets[:-1]]

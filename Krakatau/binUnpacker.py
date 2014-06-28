@@ -8,9 +8,9 @@ class binUnpacker(object):
             self.bytes = data
         self.off = 0
 
-    def get(self, fmt, forceTuple=False, peek=False):       
+    def get(self, fmt, forceTuple=False, peek=False):
         val = struct.unpack_from(fmt, self.bytes, self.off)
-        
+
         if not peek:
             self.off += struct.calcsize(fmt)
         if not forceTuple and len(val) == 1:

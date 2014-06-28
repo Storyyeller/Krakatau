@@ -851,7 +851,6 @@ def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
     seen = set((n,True) for n in startnodes)
     while queue:
         pos, lastfw, path = queue.popleft()
-
         canfwd = not lastfw or pos not in used
         canback = pos in used and pos not in startset
 
@@ -868,8 +867,8 @@ def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
             if (pos2, False) not in seen:
                 seen.add((pos2, False))
                 queue.append((pos2, False, path+(pos2,)))
-    else: #queue is empty but we didn't find anything
-        return None, set(x for x,front in seen if front)
+    #queue is empty but we didn't find anything
+    return None, set(x for x,front in seen if front)
 
 def _mincut(startnodes, endnodes, bound):
     startset = frozenset(startnodes)

@@ -6,13 +6,12 @@ fullinfo_t = nt('fullinfo_t', ['tag','dim','extra'])
 
 #Differences from Hotspot with our tags:
 #BOGUS changed to None. Array omitted as it is unused. Void omitted as unecessary. Boolean added
-valid_tags = ['.'+x for x in 'int float double double2 long long2 obj new init address byte short char boolean'.split()]
+valid_tags = ['.'+_x for _x in 'int float double double2 long long2 obj new init address byte short char boolean'.split()]
 valid_tags = frozenset([None] + valid_tags)
 
 def _makeinfo(tag, dim=0, extra=None):
     assert(tag in valid_tags)
     return fullinfo_t(tag, dim, extra)
-
 
 T_INVALID = _makeinfo(None)
 T_INT = _makeinfo('.int')
@@ -62,7 +61,7 @@ def decrementDim(fi):
     if fi == T_NULL:
         return T_NULL
     assert(fi.dim)
-    
+
     tag = unSynthesizeType(fi).tag if fi.dim <= 1 else fi.tag
     return _makeinfo(tag, fi.dim-1, fi.extra)
 
@@ -108,7 +107,7 @@ def mergeTypes(env, t1, t2, forAssignment=False):
             return res if res == T_INVALID else _makeinfo('.obj', t1.dim, res.extra)
         else: #t1.dim < t2.dim
             return t1 if _arrbase(t1) in (CLONE_INFO,SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
-    else: #neither is array 
+    else: #neither is array
         if 'INTERFACE' in env.getFlags(t2.extra):
             return t2 if forAssignment else OBJECT_INFO
 
@@ -116,7 +115,7 @@ def mergeTypes(env, t1, t2, forAssignment=False):
         hierarchy2 = env.getSupers(t2.extra)
         matches = [x for x,y in zip(hierarchy1,hierarchy2) if x==y]
         assert(matches[0] == 'java/lang/Object') #internal assertion
-        return T_OBJECT(matches[-1])        
+        return T_OBJECT(matches[-1])
 
 def isAssignable(env, t1, t2):
     return mergeTypes(env, t1, t2, True) == t2

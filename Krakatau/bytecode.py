@@ -4,7 +4,7 @@ from Krakatau import opnames
 def parseInstructions(bytestream, isConstructor):
     data = bytestream
     assert(data.off == 0)
-    
+
     instructions = {}
     while data.size() > 0:
         address = data.off
@@ -15,12 +15,12 @@ def parseInstructions(bytestream, isConstructor):
             inst = (opnames.INVOKEINIT,) + inst[1:]
 
         instructions[address] = inst
-    assert(data.size() == 0)    
+    assert(data.size() == 0)
     return instructions
 
 simpleOps = {0x00:opnames.NOP, 0x01:opnames.CONSTNULL, 0x94:opnames.LCMP,
-             0xbe:opnames.ARRLEN, 0xbf:opnames.THROW, 0xc2:opnames.MONENTER, 
-             0xc3:opnames.MONEXIT, 0x57:opnames.POP, 0x58:opnames.POP2, 0x59:opnames.DUP, 
+             0xbe:opnames.ARRLEN, 0xbf:opnames.THROW, 0xc2:opnames.MONENTER,
+             0xc3:opnames.MONEXIT, 0x57:opnames.POP, 0x58:opnames.POP2, 0x59:opnames.DUP,
              0x5a:opnames.DUPX1, 0x5b:opnames.DUPX2, 0x5c:opnames.DUP2,
              0x5d:opnames.DUP2X1, 0x5e:opnames.DUP2X2, 0x5f:opnames.SWAP}
 
@@ -98,7 +98,7 @@ def getNextInstruction(data, address):
         temp = byte - 0x78
         opt = (opnames.SHL,opnames.SHR,opnames.USHR,opnames.AND,opnames.OR,opnames.XOR)[temp//2]
         t = (I,L)[temp % 2]
-        inst = opt, t        
+        inst = opt, t
     elif byte == 0x84:
         inst = opnames.IINC, data.get('>B'), data.get('>b')
     elif byte <= 0x90:
@@ -164,7 +164,7 @@ def getNextInstruction(data, address):
     elif byte <= 0xb1:
         op = opnames.RETURN
         t = (I,L,F,D,A,None)[byte - 0xac]
-        inst = op, t 
+        inst = op, t
     elif byte == 0xb9:
         op = opnames.INVOKEINTERFACE
         index = data.get('>H')
@@ -187,13 +187,13 @@ def getNextInstruction(data, address):
             inst = opnames.LOAD, t, data.get('>H')
         elif realbyte >= 0x36 and realbyte < 0x3b:
             t = [I,L,F,D,A][realbyte - 0x36]
-            inst = opnames.STORE, t, data.get('>H')            
+            inst = opnames.STORE, t, data.get('>H')
         elif realbyte == 0xa9:
             inst = opnames.RET, data.get('>H')
         elif realbyte == 0x84:
             inst = opnames.IINC, data.get('>H'), data.get('>h')
         else:
-            assert(0)                
+            assert(0)
     elif byte == 0xc5:
         op = opnames.MULTINEWARRAY
         index = data.get('>H')
@@ -203,7 +203,7 @@ def getNextInstruction(data, address):
         op = opnames.IF_A
         cmp_t = ('eq','ne')[byte - 0xc6]
         jumptarget = data.get('>h') + address
-        inst = op, cmp_t, jumptarget 
+        inst = op, cmp_t, jumptarget
     elif byte == 0xc8:
         inst = opnames.GOTO, data.get('>i') + address
     elif byte == 0xc9:

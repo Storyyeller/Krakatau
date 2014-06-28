@@ -1,5 +1,4 @@
 from .base import BaseJump
-from ..constraints import IntConstraint
 from .goto import Goto
 import collections
 

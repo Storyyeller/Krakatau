@@ -445,7 +445,7 @@ def getConstValue(field):
         return bytes_.get('>H')
 
 _classflags = [(v,k.lower()) for k,v in ClassFile.flagVals.items()]
-def disInnerClassesAttribute(name_ind, length, bytes_, add, poolm):
+def disInnerClassesAttribute(length, bytes_, add, poolm):
     count = bytes_.get('>H')
 
     if length != 2+8*count:
@@ -458,7 +458,6 @@ def disInnerClassesAttribute(name_ind, length, bytes_, add, poolm):
         inner = poolm.classref(inner)
         outer = poolm.classref(outer)
         innername = poolm.utfref(innername)
-
         add('.inner {} {} {} {}'.format(' '.join(flags), innername, inner, outer))
 
     if not count:
@@ -504,7 +503,7 @@ def disassemble(cls):
         if name == "InnerClasses":
             assert(len(class_attributes[name]) == 1)
             for name_ind, (length, attr) in class_attributes[name]:
-                disInnerClassesAttribute(name_ind, length, binUnpacker(attr), add, poolm)
+                disInnerClassesAttribute(length, binUnpacker(attr), add, poolm)
         else:
             for name_ind, attr in class_attributes[name]:
                 disOtherClassAttribute(name_ind, name, binUnpacker(attr), add, poolm)

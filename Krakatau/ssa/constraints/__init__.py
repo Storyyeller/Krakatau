@@ -27,7 +27,7 @@ def fromConstant(env, var):
     cval = var.const
 
     if ssa_type[0] == SSA_INT[0]:
-        return IntConstraint.const(ssa_type[1], cval)    
+        return IntConstraint.const(ssa_type[1], cval)
     elif ssa_type[0] == SSA_FLOAT[0]:
         xt = floatutil.fromRawFloat(ssa_type[1], cval)
         return FloatConstraint.const(ssa_type[1], xt)
@@ -59,4 +59,4 @@ def fromVariable(env, var):
                 return ObjectConstraint.constNull(env)
             return ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, var.decltype))
         else:
-            return ObjectConstraint.fromTops(env, [objtypes.ObjectTT], [])        
+            return ObjectConstraint.fromTops(env, [objtypes.ObjectTT], [])

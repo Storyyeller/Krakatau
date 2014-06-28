@@ -1,8 +1,5 @@
-import collections
-
 from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
 from . import ast
-from .. import graph_util
 
 #Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
 #Also, booleans are forced to be seperate roots

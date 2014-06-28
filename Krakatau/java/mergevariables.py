@@ -1,8 +1,5 @@
-from collections import defaultdict as ddict
-import itertools, heapq
+import heapq
 
-from . import ast
-from ..ssa import objtypes
 from .cfg import makeGraph, flattenDict
 
 # Variables x and y can safely be merged when it is true that for any use of y (respectively x)

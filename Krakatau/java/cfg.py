@@ -158,7 +158,7 @@ class DUGraph(object):
                     assert(stmt.breakKey is not None)
                     assert(stmt.continueKey != stmt.getScopes()[0].continueKey)
                     self.finishBlock(block, catch_stack)
-                    block = self.makeBlock(stmt.continueKey, break_dict)
+                    block = self.makeBlock(stmt.continueKey, break_dict, None, None)
                     visitExpr(stmt.expr, block.lines)
                     break_dict[stmt.breakKey].append(block)
                 else:

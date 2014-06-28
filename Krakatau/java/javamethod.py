@@ -4,7 +4,7 @@ from functools import partial
 
 from ..ssa import objtypes
 from .. import graph_util
-from ..namegen import NameGen, LabelGen
+from ..namegen import NameGen
 from ..verifier.descriptors import parseMethodDescriptor
 
 from . import ast, ast2, boolize
@@ -657,7 +657,7 @@ def _createTernaries(scope, item):
             if isinstance(s1, ast.ReturnStatement) and isinstance(s2, ast.ReturnStatement):
                 expr = None if e1 is None else ast.Ternary(item.expr, e1, e2)
                 item = ast.ReturnStatement(expr, s1.tt)
-            if isinstance(s1, ast.ExpressionStatement) and isinstance(s2, ast.ExpressionStatement):
+            elif isinstance(s1, ast.ExpressionStatement) and isinstance(s2, ast.ExpressionStatement):
                 if isinstance(e1, ast.Assignment) and isinstance(e2, ast.Assignment):
                     # if e1.params[0] == e2.params[0] and max(e1.params[1].complexity(), e2.params[1].complexity()) <= 1:
                     if e1.params[0] == e2.params[0]:

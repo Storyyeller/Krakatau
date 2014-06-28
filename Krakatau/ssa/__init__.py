@@ -1,1 +1,1 @@
-from graph import ssaFromVerified
+from .graph import ssaFromVerified

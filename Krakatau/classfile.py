@@ -89,6 +89,9 @@ class ClassFile(object):
         self.name = self.cpool.getArgsCheck('Class', self.this)
         self.elementsLoaded = False
 
+        self.env = self.supername = self.hierarchy = None
+        self.fields = self.methods = self.attributes = None
+
     def loadSupers(self, env, name, subclasses):
         self.env = env
         assert(self.name == name)
@@ -111,10 +114,10 @@ class ClassFile(object):
         self.fields = [field.Field(m, self, keepRaw) for m in self.fields_raw]
         self.methods = [method.Method(m, self, keepRaw) for m in self.methods_raw]
         self.attributes = fixAttributeNames(self.attributes_raw, self.cpool)
-        del self.fields_raw
-        del self.methods_raw
+
+        self.fields_raw = self.methods_raw = None
         if not keepRaw:
-            del self.attributes_raw
+            self.attributes_raw = None
         self.elementsLoaded = True
 
     def getSuperclassHierarchy(self):

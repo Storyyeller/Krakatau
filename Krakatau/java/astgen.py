@@ -33,8 +33,8 @@ class VarInfo(object):
                 if var.type == ssa_types.SSA_OBJECT:
                     tt = uc.getSingleTType() #temp hack
                     if uc.types.isBoolOrByteArray():
-                        tt = '.bexpr', tt[1]+1
-                        assert(('.boolean', tt[1]) in uc.types.exact)
+                        tt = objtypes.BExpr, tt[1]+1
+                        assert((objtypes.BoolTT[0], tt[1]) in uc.types.exact)
                 else:
                     tt = _ssaToTT[var.type]
                 self._tts[var] = tt

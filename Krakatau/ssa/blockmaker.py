@@ -357,6 +357,16 @@ def _truncate(parent, input_, iNode):
     newstack = input_.stack[:-1] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
+def genericStackUpdate(parent, input_, iNode):
+    b = iNode.before.replace('+','')
+    a = iNode.after
+    assert(b and set(b+a) <= set('1234'))
+
+    replace = {c:v for c,v in zip(b, input_.stack[-len(b):])}
+    newstack = input_.stack[:-len(b)]
+    newstack += [replace[c] for c in a]
+    return ResultDict(newstack=newstack)
+
 _instructionHandlers = {
                         vops.ADD: _floatOrIntMath(ssa_ops.FAdd, ssa_ops.IAdd),
                         vops.AND: _intMath(ssa_ops.IAnd, isShift=False),
@@ -413,17 +423,17 @@ _instructionHandlers = {
                         vops.TRUNCATE: _truncate,
                         vops.USHR: _intMath(ssa_ops.IUshr, isShift=True),
                         vops.XOR: _intMath(ssa_ops.IXor, isShift=False),
+
+                        vops.SWAP: genericStackUpdate,
+                        vops.POP: genericStackUpdate,
+                        vops.POP2: genericStackUpdate,
+                        vops.DUP: genericStackUpdate,
+                        vops.DUPX1: genericStackUpdate,
+                        vops.DUPX2: genericStackUpdate,
+                        vops.DUP2: genericStackUpdate,
+                        vops.DUP2X1: genericStackUpdate,
+                        vops.DUP2X2: genericStackUpdate,
                         }
-
-def genericStackUpdate(parent, input_, iNode):
-    b = iNode.before.replace('+','')
-    a = iNode.after
-    assert(b and set(b+a) <= set('1234'))
-
-    replace = {c:v for c,v in zip(b, input_.stack[-len(b):])}
-    newstack = input_.stack[:-len(b)]
-    newstack += [replace[c] for c in a]
-    return ResultDict(newstack=newstack)
 
 def getOnNoExceptionTarget(parent, iNode):
     vop = iNode.instruction[0]
@@ -441,19 +451,16 @@ def processArrayInfo(newarray_info, iNode, vals):
     #statically known size and type so we can mark all related instructions as nothrow and
     #hence don't have to end the block prematurely
     op = iNode.instruction[0]
+    line = vals.line
 
     if op == vops.NEWARRAY or op == vops.ANEWARRAY:
-        line = vals.line
         lenvar = line.params[1]
         assert(lenvar.type == SSA_INT)
-
         if lenvar.const is not None and lenvar.const >= 0:
             #has known, positive dim
             newarray_info[line.rval] = lenvar.const, line.baset
             line.outException = None
-
     elif op == vops.ARRSTORE or op == vops.ARRSTORE_OBJ:
-        line = vals.line
         m, a, i, x = line.params
         if a not in newarray_info:
             return
@@ -486,16 +493,8 @@ def fromInstruction(parent, block, newarray_info, iNode, initMap):
         #have to keep track of internal keys for predecessor tracking later
         block.keys.append(iNode.key)
 
-
-
-    if iNode.before is not None and '1' in iNode.before:
-        func = genericStackUpdate
-    else:
-        func = _instructionHandlers[instr[0]]
-
-    vals = func(parent, inslots, iNode)
+    vals = _instructionHandlers[instr[0]](parent, inslots, iNode)
     processArrayInfo(newarray_info, iNode, vals)
-
 
     line, jump = vals.line, vals.jump
     newstack = vals.newstack if vals.newstack is not None else inslots.stack

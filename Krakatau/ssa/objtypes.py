@@ -19,6 +19,8 @@ ByteTT = '.byte', 0
 CharTT = '.char', 0
 ShortTT = '.short', 0
 
+BExpr = '.bexpr' #bool or byte
+
 def isSubtype(env, x, y):
     if x == y or y == ObjectTT or x == NullTT:
         return True

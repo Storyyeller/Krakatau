@@ -1,6 +1,6 @@
 import collections
 
-from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT
+from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
 from . import ast
 from .. import graph_util
 
@@ -40,7 +40,7 @@ def visitStatementTree(scope, callback):
             callback(item, item.expr)
 
 int_tags = frozenset(tt[0] for tt in [IntTT, ShortTT, CharTT, ByteTT, BoolTT])
-array_tags = frozenset([ByteTT[0], BoolTT[0], '.bexpr'])
+array_tags = frozenset([ByteTT[0], BoolTT[0], BExpr])
 
 def boolizeVars(root, arg_vars):
     varlist = []
@@ -61,7 +61,7 @@ def boolizeVars(root, arg_vars):
             tag, dim = expr.dtype
             if (dim == 0 and tag in int_tags) or (dim > 0 and tag in array_tags):
                 # the only "unknown" vars are bexpr[] and ints. All else have fixed types
-                if tag != '.bexpr' and tag != IntTT[0]:
+                if tag != BExpr and tag != IntTT[0]:
                     sets.union(tag == BoolTT[0], expr)
                 varlist.append(expr)
                 return sets.find(expr)
@@ -73,7 +73,7 @@ def boolizeVars(root, arg_vars):
             return subs[0]
         elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
             return visitExpr(expr.params[0])
-        elif expr.dtype is not None and expr.dtype[0] != '.bexpr':
+        elif expr.dtype is not None and expr.dtype[0] != BExpr:
             return expr.dtype[0] == BoolTT[0]
         return None
 
@@ -90,7 +90,7 @@ def boolizeVars(root, arg_vars):
     #Fix the propagated types
     for var in set(varlist):
         tag, dim = var.dtype
-        assert(tag in int_tags or (dim>0 and tag == '.bexpr'))
+        assert(tag in int_tags or (dim>0 and tag == BExpr))
         #make everything bool which is not forced to int
         if sets.find(var) != False:
             var.dtype = BoolTT[0], dim

@@ -22,7 +22,8 @@ python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] target
 PATH : An optional list of directories, jars, or zipfiles to search for
     classes in. Krakatau will attempt to automatically detect and add the
     jar containing core language classes, but you can disable this with
-    the -nauto option.
+    the -nauto option. For multiple jars, you can either pass a semicolon
+    seperated list of jars or pass the -path option multiple times.
 
 OUT : Directory name where source files are to be written. Defaults to the
     current directory

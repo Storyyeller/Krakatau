@@ -52,7 +52,6 @@ class SSA_Graph(object):
     entryKey, returnKey, rethrowKey = -1,-2,-3
 
     def __init__(self, code):
-        self._interns = {} #used during initial graph creation to intern variable types
         self.code = code
         self.class_ = code.class_
         self.env = self.class_.env
@@ -505,7 +504,7 @@ class SSA_Graph(object):
         # TODO: probably not necessary any more due to other optimizations
         tt = objtypes.verifierToSynthetic(vtype2)
         assert(var.decltype is None or var.decltype == tt)
-        var.decltype = self._interned(tt)
+        var.decltype = tt
         #if uninitialized, record the offset of originating new instruction for later
         if vtype.tag == '.new':
             assert(var.uninit_orig_num is None or var.uninit_orig_num == vtype.extra)
@@ -520,14 +519,6 @@ class SSA_Graph(object):
                 self.setObjVarData(var, vtype, initMap)
             return var
         return None
-
-    def _interned(self, x):
-        try:
-            return self._interns[x]
-        except KeyError:
-            if len(self._interns) < 256: #arbitrary limit
-                self._interns[x] = x
-            return x
 
     def getConstPoolArgs(self, index):
         return self.class_.cpool.getArgs(index)
@@ -653,7 +644,7 @@ def ssaFromVerified(code, iNodes):
             types = [var.type for var in phi.params]
             assert(not types or set(types) == set([phi.rval.type]))
 
-    #Important to intern constraints to save memory on aforementioned excessively long methods
+    # Intern constraints to save a bit of memory for long methods
     def makeConstraint(var, _cache={}):
         key = var.type, var.const, var.decltype
         try:
@@ -679,10 +670,10 @@ def ssaFromVerified(code, iNodes):
 
     #Make sure that branch targets are distinct, since this is assumed everywhere
     #Only necessary for if statements as the other jumps merge targets automatically
+    #If statements with both branches jumping to same target are replaced with gotos
     for block in blocks:
         block.jump = block.jump.reduceSuccessors([])
     parent.blocks = blocks
 
-    del parent._interns #no new variables should be created from vtypes after this point. Might as well free it
     parent._conscheck()
     return parent

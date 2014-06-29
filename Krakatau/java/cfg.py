@@ -20,12 +20,12 @@ class DUBlock(object):
         self.lines = []     # 3 types of lines: ('use', var), ('def', (var, var2_opt)), or ('canthrow', None)
         self.e_successors = []
         self.n_successors = []
-        self.vars = set() #vars used or defined within the block. Does NOT include caught exceptions
+        self.vars = None #vars used or defined within the block. Does NOT include caught exceptions
 
     def canThrow(self): return ('canthrow', None) in self.lines
 
     def recalcVars(self):
-        self.vars.clear()
+        self.vars = set()
         for line_t, data in self.lines:
             if line_t == 'use':
                 self.vars.add(data)
@@ -35,18 +35,19 @@ class DUBlock(object):
                     self.vars.add(data[1])
 
     def replace(self, replace):
-        newlines = []
-        for line_t, data in self.lines:
-            if line_t == 'use':
-                data = replace.get(data, data)
-            elif line_t == 'def':
-                data = replace.get(data[0], data[0]), replace.get(data[1], data[1])
-            newlines.append((line_t, data))
-        self.lines = newlines
-        for k, v in replace.items():
-            if k in self.vars:
-                self.vars.remove(k)
-                self.vars.add(v)
+        if not self.vars.isdisjoint(replace):
+            newlines = []
+            for line_t, data in self.lines:
+                if line_t == 'use':
+                    data = replace.get(data, data)
+                elif line_t == 'def':
+                    data = replace.get(data[0], data[0]), replace.get(data[1], data[1])
+                newlines.append((line_t, data))
+            self.lines = newlines
+            for k, v in replace.items():
+                if k in self.vars:
+                    self.vars.remove(k)
+                    self.vars.add(v)
 
     def simplify(self):
         #try to prune redundant instructions
@@ -117,7 +118,8 @@ class DUGraph(object):
         return block
 
     def finishBlock(self, block, catch_stack):
-        #register exception handlers for completed old block
+        #register exception handlers for completed old block and calculate var set
+        assert(block.vars is None) #make sure it wasn't finished twice
         if block.canThrow():
             for clist in catch_stack:
                 clist.append(block)
@@ -171,7 +173,6 @@ class DUGraph(object):
                 for parent in break_dict[stmt.continueKey]:
                     parent.n_successors.append(continue_target)
                 del break_dict[stmt.continueKey]
-                self.finishBlock(body_block, catch_stack)
 
             elif isinstance(stmt, ast.TryStatement):
                 new_stack = catch_stack + [[] for _ in stmt.pairs]
@@ -188,9 +189,10 @@ class DUGraph(object):
                 break_dict[stmt.continueKey].append(block)
                 self.visitScope(stmt, break_dict, catch_stack, head_block=block)
 
-            if stmt.breakKey is not None:
+            if not isinstance(stmt, ast.StatementBlock): #if we passed it to subscope, it will be finished in the subcall
                 self.finishBlock(block, catch_stack)
-                # start new block after return from compound statement
+
+            if stmt.breakKey is not None: # start new block after return from compound statement
                 block = self.makeBlock(stmt.breakKey, break_dict, None, None)
             else:
                 block = None #should never be accessed anyway if we're exiting abruptly

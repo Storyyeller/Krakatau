@@ -496,21 +496,28 @@ class SSA_Graph(object):
         # var.name = pref + str(next(self.varnum[pref]))
         return var
 
+    def setObjVarData(self, var, vtype, initMap):
+        vtype2 = initMap.get(vtype, vtype)
+
+        # Intern the variable object types to save a little memory
+        # in the case of excessively long methods with large numbers
+        # of identical variables, such as sun/util/resources/TimeZoneNames_*
+        # TODO: probably not necessary any more due to other optimizations
+        tt = objtypes.verifierToSynthetic(vtype2)
+        assert(var.decltype is None or var.decltype == tt)
+        var.decltype = self._interned(tt)
+        #if uninitialized, record the offset of originating new instruction for later
+        if vtype.tag == '.new':
+            assert(var.uninit_orig_num is None or var.uninit_orig_num == vtype.extra)
+            var.uninit_orig_num = vtype.extra
+
     def makeVarFromVtype(self, vtype, initMap):
         vtype2 = initMap.get(vtype, vtype)
         type_ = verifierToSSAType(vtype2)
         if type_ is not None:
             var = self.makeVariable(type_)
             if type_ == SSA_OBJECT:
-                # Intern the variable object types to save a little memory
-                # in the case of excessively long methods with large numbers
-                # of identical variables, such as sun/util/resources/TimeZoneNames_*
-                # TODO: probably not necessary any more due to other optimizations
-                tt = objtypes.verifierToSynthetic(vtype2)
-                var.decltype = self._interned(tt)
-                #if uninitialized, record the offset of originating new instruction for later
-                if vtype.tag == '.new':
-                    var.uninit_orig_num = vtype.extra
+                self.setObjVarData(var, vtype, initMap)
             return var
         return None
 

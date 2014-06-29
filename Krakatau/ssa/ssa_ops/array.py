@@ -18,18 +18,11 @@ class ArrLoad(BaseOp):
         self.ssatype = ssatype
 
     def propagateConstraints(self, m, a, i):
-        etypes = ()
+        etypes = (excepttypes.ArrayOOB,)
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), None
-
-        if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
-            etypes += (excepttypes.ArrayOOB,)
-            eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-            return None, eout, None
-        elif (i.max >= a.arrlen.min) or i.min < 0:
-            etypes += (excepttypes.ArrayOOB,)
+                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True), None
 
         if self.ssatype[0] == 'int':
             rout = IntConstraint.bot(self.ssatype[1])
@@ -47,18 +40,11 @@ class ArrStore(BaseOp):
         self.env = parent.env
 
     def propagateConstraints(self, m, a, i, x):
-        etypes = ()
+        etypes = (excepttypes.ArrayOOB,)
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), m
-
-        if a.arrlen is None or (i.min >= a.arrlen.max) or i.max < 0:
-            etypes += (excepttypes.ArrayOOB,)
-            eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-            return None, eout, m
-        elif (i.max >= a.arrlen.min) or i.min < 0:
-            etypes += (excepttypes.ArrayOOB,)
+                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True), m
 
         if isinstance(x, ObjectConstraint):
             # If the type of a is known exactly to be the single possibility T[]
@@ -84,7 +70,7 @@ class ArrLength(BaseOp):
         if x.null:
             etypes += (excepttypes.NullPtr,)
             if x.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True), None
+                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True), None
 
         excons = eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return x.arrlen, excons, None
+        return IntConstraint.range(32, 0, (1<<31)-1), excons, None

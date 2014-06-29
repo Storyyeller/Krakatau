@@ -443,7 +443,7 @@ def getOnNoExceptionTarget(parent, iNode):
         return iNode.successors[0]
     return None
 
-def processArrayInfo(newarray_info, iNode, vals):
+def processArrayInfo(env, newarray_info, iNode, vals):
     #There is an unfortunate tendency among Java programmers to hardcode large arrays
     #resulting in the generation of thousands of instructions simply initializing an array
     #With naive analysis, all of the stores can throw and so won't be merged until later
@@ -467,9 +467,8 @@ def processArrayInfo(newarray_info, iNode, vals):
         arrlen, baset = newarray_info[a]
         if i.const is None or not 0 <= i.const < arrlen:
             return
-        #array element type test. For objects we check an exact match on decltype
-        #which is highly conservative but should be enough to handle string literals
-        if '.' not in baset[0] and baset != x.decltype:
+        #array element type test to make sure we don't have potential array store exceptions
+        if '.' not in baset[0] and not objtypes.isSubtype(env, x.decltype, baset):
             return
         line.outException = None
 
@@ -493,8 +492,14 @@ def fromInstruction(parent, block, newarray_info, iNode, initMap):
         #have to keep track of internal keys for predecessor tracking later
         block.keys.append(iNode.key)
 
+        # internal variables won't have any preset type info associated, so we should add in the info from the verifier
+        assert(len(inslots.stack) == len(iNode.stack) and len(inslots.locals) == len(iNode.locals))
+        for ivar, vt in zip(inslots.stack + inslots.locals, iNode.stack + iNode.locals):
+            if ivar and ivar.type == SSA_OBJECT:
+                parent.setObjVarData(ivar, vt, initMap)
+
     vals = _instructionHandlers[instr[0]](parent, inslots, iNode)
-    processArrayInfo(newarray_info, iNode, vals)
+    processArrayInfo(parent.env, newarray_info, iNode, vals)
 
     line, jump = vals.line, vals.jump
     newstack = vals.newstack if vals.newstack is not None else inslots.stack

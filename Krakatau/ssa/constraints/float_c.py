@@ -42,23 +42,6 @@ class FloatConstraint(ValueType):
             finite = None, None
         return FloatConstraint(size, finite, specs)
 
-    def print_(self, varstr):
-        specs = map(fu.toRawFloat, self.spec)
-        specs = ', '.join(map(str, specs))
-
-        if self.finite[0]:
-            fmin, fmax = map(fu.toRawFloat, self.finite)
-            if fmin == fmax:
-                s = '{} = {!r}'.format(varstr, fmin)
-            else:
-                s = '{!r} <= {} <= {!r}'.format(fmin, varstr, fmax)
-
-            if specs:
-                s = s + ' or ' + specs
-        else:
-            s = varstr + ' = ' + specs
-        return s
-
     def _key(self): return self.finite, self.spec
 
     def join(*cons): #more precise (intersection)
@@ -88,6 +71,3 @@ class FloatConstraint(ValueType):
         else:
             xmin = xmax = None
         return FloatConstraint(cons[0].size, (xmin, xmax), spec)
-
-    def __str__(self): return self.print_('?')
-    def __repr__(self): return self.print_('?')

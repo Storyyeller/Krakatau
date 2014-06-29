@@ -23,11 +23,6 @@ class IntConstraint(ValueType):
     def bot(width):
         return IntConstraint(width, -1<<(width-1), (1<<(width-1))-1)
 
-    def print_(self, varstr):
-        if self.min == self.max:
-            return '{} == {}'.format(varstr, self.max)
-        return '{} <= {} <= {}'.format(self.min, varstr, self.max)
-
     def _key(self): return self.min, self.max
 
     def join(*cons):
@@ -42,6 +37,3 @@ class IntConstraint(ValueType):
         xmin = min(c.min for c in cons)
         xmax = max(c.max for c in cons)
         return IntConstraint(cons[0].width, xmin, xmax)
-
-    def __str__(self): return self.print_('?')
-    def __repr__(self): return self.print_('?')

@@ -208,8 +208,8 @@ class DUGraph(object):
         self.entry = self.blocks[0] #entry point should always be first block generated
 
         reached = graph_util.topologicalSort([self.entry], lambda block:(block.n_successors + block.e_successors))
-        if len(reached) != len(self.blocks):
-            print 'warning, {} blocks unreachable!'.format(len(self.blocks) - len(reached))
+        # if len(reached) != len(self.blocks):
+        #     print 'warning, {} blocks unreachable!'.format(len(self.blocks) - len(reached))
         self.blocks = reached
 
     def replace(self, replace):

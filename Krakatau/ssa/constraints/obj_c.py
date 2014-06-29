@@ -29,16 +29,6 @@ class TypeConstraint(ValueType):
     def _key(self): return self.supers, self.exact
     def __nonzero__(self): return bool(self.supers or self.exact)
 
-    def print_(self, varstr):
-        supernames = ', '.join(name+'[]'*dim for name,dim in sorted(self.supers))
-        exactnames = ', '.join(name+'[]'*dim for name,dim in sorted(self.exact))
-        if not exactnames:
-            return '{} extends {}'.format(varstr, supernames)
-        elif not supernames:
-            return '{} is {}'.format(varstr, exactnames)
-        else:
-            return '{} extends {} or is {}'.format(varstr, supernames, exactnames)
-
     def getSingleTType(self):
         #comSuper doesn't care about order so we can freely pass in nondeterministic order
         return objtypes.commonSupertype(self.env, list(self.supers) + list(self.exact))
@@ -54,7 +44,7 @@ class TypeConstraint(ValueType):
         newsupers = []
         for x in supers:
             if not isAnySubtype(env, x, newsupers):
-                newsupers = [y for y in newsupers if not objtypes.isSubtype(env, y,x)]
+                newsupers = [y for y in newsupers if not objtypes.isSubtype(env, y, x)]
                 newsupers.append(x)
 
         newexact = [x for x in exact if not isAnySubtype(env, x, newsupers)]
@@ -86,9 +76,7 @@ class TypeConstraint(ValueType):
         newexact = frozenset.union(*exact_l)
         for c in cons:
             newexact = [x for x in newexact if x in c.exact or isAnySubtype(env, x, c.supers)]
-        result = TypeConstraint.reduce(cons.pop().env, newsupers, newexact)
-
-        return result
+        return TypeConstraint.reduce(env, newsupers, newexact)
 
     def meet(*cons):
         supers = frozenset.union(*(c.supers for c in cons))
@@ -121,16 +109,6 @@ class ObjectConstraint(ValueType):
         return ObjectConstraint(not nonnull, types, arrlen)
 
     def _key(self): return self.null, self.types, self.arrlen
-
-    def print_(self, varstr):
-        s = ''
-        if not self.null:
-            s = 'nonnull '
-        if self.types:
-            s += self.types.print_(varstr)
-        else:
-            s += varstr + ' is null'
-        return s
 
     def isConstNull(self): return self.null and not self.types
 

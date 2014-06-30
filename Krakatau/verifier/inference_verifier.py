@@ -92,7 +92,7 @@ def _loadFieldDesc(cpool, ind):
 
 def _loadMethodDesc(cpool, ind):
     try:
-        if cpool.getType(ind) not in ('Method','InterfaceMethod'):
+        if cpool.getType(ind) not in ('Method', 'InterfaceMethod'):
             return None
         target, name, desc = cpool.getArgs(ind)
     except (IndexError, KeyError) as e: #TODO: find a way to make sure we aren't catching unexpected exceptions
@@ -685,9 +685,8 @@ class InstructionNode(object):
     def _mergeSingleSuccessor(self, other, newstate, iNodes, isException):
         newstack, newlocals, newmasks, newflags = newstate
         if self.op in (opnames.RET, opnames.JSR):
-            # Note: In most cases, this will cause an error later
-            # as INVALID is not allowed on the stack after merging
-            # but if the stack is never merged afterwards, it's ok
+            #Note: In most cases, this will cause an error later as INVALID is not allowed on the stack after merging
+            #but if the stack is never fully merged afterwards, it's ok (see below comments)
             newstack = tuple((T_INVALID if x.tag == '.new' else x) for x in newstack)
             newlocals = tuple((T_INVALID if x.tag == '.new' else x) for x in newlocals)
 
@@ -724,6 +723,10 @@ class InstructionNode(object):
             oldstack = other.stack
             if len(oldstack) != len(newstack):
                 other.error('Inconsistent stack height {} != {}', len(oldstack), len(newstack))
+            #As an optimization, Hotspot only does a full merge if the stack fails the isAssignable test
+            #it is important to replicate this because it can affect whether a class verifies or not
+            #because an existing INVALID on the stack passes isAssignable but throws an error when merged
+            #this can happpen if there is a previous new instruction followed by a jsr
             if any(not isAssignable(self.env, new, old) for new,old in zip(newstack, oldstack)):
                 other.changed = True
                 other.stack = tuple(mergeTypes(self.env, new, old) for new,old in zip(newstack, oldstack))

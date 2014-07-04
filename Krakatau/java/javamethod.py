@@ -184,15 +184,29 @@ def _pruneIfElse_cb(item):
         #if true block is empty, swap it with false so we can remove it
         if not tblock.statements and tblock.doesFallthrough():
             item.expr = reverseBoolExpr(item.expr)
-            tblock, fblock = fblock, tblock
-            item.scopes = tblock, fblock
+            tblock, fblock = item.scopes = fblock, tblock
 
         if not fblock.statements and fblock.doesFallthrough():
             item.scopes = tblock,
-        # If cond is !(x), reverse it back to simplify cond
-        elif isinstance(item.expr, ast.UnaryPrefix) and item.expr.opstr == '!':
+
+    # if(A) {throw/return ... } else {B} -> if(A) {throw/return ...} {B}
+    if len(item.scopes) > 1:
+        if len(fblock.statements) <= 1:
             item.expr = reverseBoolExpr(item.expr)
-            item.scopes = fblock, tblock
+            tblock, fblock = item.scopes = fblock, tblock
+
+        tbs = tblock.statements
+        if not tbs or len(tbs) == 1 and isinstance(tbs[-1], (ast.ReturnStatement, ast.ThrowStatement)):
+            assert(tbs or not tblock.doesFallthrough())
+            item.scopes = tblock,
+            item.breakKey = fblock.continueKey
+            fblock.labelable = True
+            return [item], fblock
+
+        # If cond is !(x), reverse it back to simplify cond
+        if isinstance(item.expr, ast.UnaryPrefix) and item.expr.opstr == '!':
+            item.expr = reverseBoolExpr(item.expr)
+            tblock, fblock = item.scopes = fblock, tblock
 
     # if(A) {if(B) {C}} -> if(A && B) {C}
     tblock = item.scopes[0]
@@ -201,7 +215,7 @@ def _pruneIfElse_cb(item):
         if isinstance(first, ast.IfStatement) and len(first.scopes) == 1:
             item.expr = ast.BinaryInfix('&&',[item.expr, first.expr], objtypes.BoolTT)
             item.scopes = first.scopes
-    return item
+    return [], item
 
 def _whileCondition_cb(item):
     '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}
@@ -268,7 +282,7 @@ def _simplifyBlocksSub(scope, item, isLast):
     if isinstance(item, ast.TryStatement):
         item = _pruneRethrow_cb(item)
     elif isinstance(item, ast.IfStatement):
-        item = _pruneIfElse_cb(item)
+        rest, item = _pruneIfElse_cb(item)
     elif isinstance(item, ast.WhileStatement):
         rest, item = _whileCondition_cb(item)
 
@@ -299,7 +313,6 @@ def _simplifyBlocks(scope):
         isLast = not newitems #may be true if all subsequent items pruned
         if isLast and item.getScopes():
             if item.breakKey != scope.jumpKey:# and item.breakKey is not None:
-                # print 'sib replace', scope, item, item.breakKey, scope.jumpKey
                 replaceKeys(item, {item.breakKey: scope.jumpKey})
 
         for sub in reversed(item.getScopes()):

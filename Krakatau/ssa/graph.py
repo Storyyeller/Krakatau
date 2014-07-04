@@ -206,12 +206,11 @@ class SSA_Graph(object):
         #Propagates unary constraints (range, type, etc.) pessimistically and optimistically
         #Assumes there are no subprocedues and this has not been called yet
         assert(not self.procs)
-
-        graph = variablegraph.makeGraph(self.env, self.blocks)
-        variablegraph.processGraph(graph)
+        varnodes, result_lookup = variablegraph.makeGraph(self.env, self.blocks)
+        variablegraph.processGraph(varnodes)
         for block in self.blocks:
             for var, oldUC in block.unaryConstraints.items():
-                newUC = graph[var].output[0]
+                newUC = result_lookup[var].output[0]
                 # var.name = makename(var)
                 if newUC is None:
                     # This variable is overconstrainted, meaning it must be unreachable

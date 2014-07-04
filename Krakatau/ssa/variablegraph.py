@@ -1,4 +1,4 @@
-import collections, itertools
+import itertools
 
 from .constraints import join, meet
 from .. import graph_util
@@ -70,10 +70,10 @@ def getJumpNode(pair, source, var, getVarNode, jumplookup):
     return getVarNode(var), 0
 
 def makeGraph(env, blocks):
-    lookup = collections.OrderedDict()
+    lookup = {}
     jumplookup = {}
 
-    variables = itertools.chain.from_iterable(block.unaryConstraints.items() for block in blocks)
+    variables = list(itertools.chain.from_iterable(block.unaryConstraints.items() for block in blocks))
     phis = itertools.chain.from_iterable(block.phis for block in blocks)
     ops = itertools.chain.from_iterable(block.lines for block in blocks)
 
@@ -85,8 +85,8 @@ def makeGraph(env, blocks):
         n = BaseNode(varlamb, False)
         #sources and uses will be reassigned upon opnode creation
         n.output = (curUC,)
-        lookup[var] = n
         n.root = var
+        lookup[var] = n
 
     for phi in phis:
         n = BaseNode(philamb, True)
@@ -122,7 +122,8 @@ def makeGraph(env, blocks):
         n.root = op
         assert(len(output) == 3)
 
-    vnodes = lookup.values()
+    assert(len(variables) > 0)
+    vnodes = [lookup[t[0]] for t in variables]
 
     #sanity check
     for node in vnodes:
@@ -131,10 +132,10 @@ def makeGraph(env, blocks):
                 assert(node in source.uses)
         for use in node.uses:
             assert(node in zip(*use.sources)[0])
-    return lookup
+    return vnodes, lookup
 
-def processGraph(graph, iterlimit=5):
-    sccs = graph_util.tarjanSCC(graph.values(), lambda node:[t[0] for t in node.sources])
+def processGraph(varnodes, iterlimit=5):
+    sccs = graph_util.tarjanSCC(varnodes, lambda node:[t[0] for t in node.sources])
     #iterate over sccs in topological order to improve convergence
 
     for scc in sccs:

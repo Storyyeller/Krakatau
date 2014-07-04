@@ -293,7 +293,7 @@ def _simplifyBlocksSub(scope, item, isLast):
         bkey = item.breakKey
         if bkey is None or (bkey == scope.breakKey and scope.labelable):
             rest, item.statements = rest + item.statements, []
-
+        #Now inline statements at the beginning of the scope that don't need to break to it
         for sub in item.statements[:]:
             if sub.getScopes() and sub.breakKey != bkey and mayBreakTo(sub, frozenset([bkey])):
                 break

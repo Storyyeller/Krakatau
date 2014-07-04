@@ -322,7 +322,7 @@ def _ret(maker, input_, iNode):
     return ResultDict(jump=jump)
 
 def _return(maker, input_, iNode):
-    line = ssa_ops.TryReturn(maker.parent, input_.monad)
+    line = ssa_ops.TryReturn(maker.parent, input_.monad, canthrow=maker.hasmonenter)
 
     #Our special return block expects only the return values on the stack
     rtype = iNode.instruction[1]
@@ -491,6 +491,7 @@ class BlockMaker(object):
             if node.op == vops.NEW:
                 self.initMap[node.push_type] = node.target_type
         self.initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(parent.class_.name)
+        self.hasmonenter = any(node.instruction[0] == vops.MONENTER for node in self.iNodes)
 
         self.entryBlock = self.makeBlockWithInslots(ENTRY_KEY, locals=inputTypes, stack=[])
         self.returnBlock = self.makeBlockWithInslots(RETURN_KEY, locals=[], stack=returnTypes)

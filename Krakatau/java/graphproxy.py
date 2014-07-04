@@ -124,7 +124,7 @@ def createGraphProxy(ssagraph):
             lookup[n.bkey, False] = n
         if True in intypes[n.bkey]:
             lookup[n2.bkey, True] = n2
-    assert(lookup and unique(lookup.values()))
+    assert(unique(lookup.values()))
 
     for n in nodes:
         if n.block is None:

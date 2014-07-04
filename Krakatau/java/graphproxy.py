@@ -106,7 +106,7 @@ def createGraphProxy(ssagraph):
             intypes[b.key].add(t)
 
         if n.bkey == ssagraph.entryKey:
-            assert(not entryNode and not invars)
+            assert(not entryNode and not invars) #shouldn't have more than one entryBlock and entryBlock shouldn't have phis
             entryNode = n
             invars = ssagraph.inputArgs #store them in the node so we don't have to keep track seperately
             invars = [x for x in invars if x is not None] #will have None placeholders for Long and Double arguments

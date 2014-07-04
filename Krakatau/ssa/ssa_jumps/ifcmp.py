@@ -12,6 +12,7 @@ class If(BaseJump):
         self.cmp = cmp
         self.successors = successors
         self.isObj = (arguments[0].type == ssa_types.SSA_OBJECT)
+        assert(None not in successors)
 
     def replaceBlocks(self, blockDict):
         self.successors = [blockDict.get(key,key) for key in self.successors]

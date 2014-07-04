@@ -1,4 +1,4 @@
-import collections
+import collections, itertools
 
 from . import ssa_ops, ssa_jumps, objtypes, subproc
 from .. import opnames as vops
@@ -7,10 +7,12 @@ from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
 from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT, SSA_MONAD
 from .ssa_types import slots_t, BasicBlock
 
+#keys for special blocks created at the cfg entry and exit. Negative keys ensures they don't collide
+ENTRY_KEY, RETURN_KEY, RETHROW_KEY = -1, -2, -3
+
 _charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'J':SSA_LONG,
                 'B':SSA_INT, 'C':SSA_INT, 'S':SSA_INT}
 def getCategory(c): return 2 if c in 'JD' else 1
-
 
 class ResultDict(object):
     def __init__(self, line=None, jump=None, newstack=None, newlocals=None):
@@ -33,120 +35,112 @@ def parseArrOrClassName(desc):
         tt = desc, 0
     return tt
 
-def _genericStackOperation(op, stack):
-    num, replaceCodes = genericStackCodes[op]
-
-    vals = stack[-num:]
-    newvals = [vals[num-i-1] for i in replaceCodes]
-    newstack = stack[:-num] + newvals
-    return ResultDict(newstack=newstack)
-
 def _floatOrIntMath(fop, iop):
-    def math1(parent, input_, iNode):
+    def math1(maker, input_, iNode):
         cat = getCategory(iNode.instruction[1])
         isfloat = (iNode.instruction[1] in 'DF')
         op = fop if isfloat else iop
 
         args = input_.stack[-cat*2::cat]
-        line = op(parent, args)
+        line = op(maker.parent, args)
 
         newstack = input_.stack[:-2*cat] + [line.rval] + [None]*(cat-1)
         return ResultDict(line=line, newstack=newstack)
     return math1
 
 def _intMath(op, isShift):
-    def math2(parent, input_, iNode):
+    def math2(maker, input_, iNode):
         cat = getCategory(iNode.instruction[1])
         #some ops (i.e. shifts) always take int as second argument
         size = cat+1 if isShift else cat+cat
         args = input_.stack[-size::cat]
-        line = op(parent, args)
+        line = op(maker.parent, args)
         newstack = input_.stack[:-size] + [line.rval] + [None]*(cat-1)
         return ResultDict(line=line, newstack=newstack)
     return math2
 ##############################################################################
 
-def _anewarray(parent, input_, iNode):
-    name = parent.getConstPoolArgs(iNode.instruction[1])[0]
+def _anewarray(maker, input_, iNode):
+    name = maker.parent.getConstPoolArgs(iNode.instruction[1])[0]
     tt = parseArrOrClassName(name)
-    line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
+    line = ssa_ops.NewArray(maker.parent, input_.stack[-1], tt, input_.monad)
     newstack = input_.stack[:-1] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _arrlen(parent, input_, iNode):
-    line = ssa_ops.ArrLength(parent, input_.stack[-1:])
+def _arrlen(maker, input_, iNode):
+    line = ssa_ops.ArrLength(maker.parent, input_.stack[-1:])
     newstack = input_.stack[:-1] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _arrload(parent, input_, iNode):
+def _arrload(maker, input_, iNode):
     type_ = _charToSSAType[iNode.instruction[1]]
     cat = getCategory(iNode.instruction[1])
 
-    line = ssa_ops.ArrLoad(parent, input_.stack[-2:], type_, monad=input_.monad)
+    line = ssa_ops.ArrLoad(maker.parent, input_.stack[-2:], type_, monad=input_.monad)
     newstack = input_.stack[:-2] + [line.rval] + [None]*(cat-1)
     return ResultDict(line=line, newstack=newstack)
 
-def _arrload_obj(parent, input_, iNode):
-    line = ssa_ops.ArrLoad(parent, input_.stack[-2:], SSA_OBJECT, monad=input_.monad)
+def _arrload_obj(maker, input_, iNode):
+    line = ssa_ops.ArrLoad(maker.parent, input_.stack[-2:], SSA_OBJECT, monad=input_.monad)
     newstack = input_.stack[:-2] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _arrstore(parent, input_, iNode):
+def _arrstore(maker, input_, iNode):
     if getCategory(iNode.instruction[1]) > 1:
         newstack, args = input_.stack[:-4], input_.stack[-4:-1]
     else:
         newstack, args = input_.stack[:-3], input_.stack[-3:]
-    line = ssa_ops.ArrStore(parent, args, monad=input_.monad)
+    line = ssa_ops.ArrStore(maker.parent, args, monad=input_.monad)
     return ResultDict(line=line, newstack=newstack)
 
-def _arrstore_obj(parent, input_, iNode):
-    line = ssa_ops.ArrStore(parent, input_.stack[-3:], monad=input_.monad)
+def _arrstore_obj(maker, input_, iNode):
+    line = ssa_ops.ArrStore(maker.parent, input_.stack[-3:], monad=input_.monad)
     newstack = input_.stack[:-3]
     return ResultDict(line=line, newstack=newstack)
 
-def _checkcast(parent, input_, iNode):
+def _checkcast(maker, input_, iNode):
     index = iNode.instruction[1]
-    desc = parent.getConstPoolArgs(index)[0]
+    desc = maker.parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(desc)
-    line = ssa_ops.CheckCast(parent, tt, input_.stack[-1:])
+    line = ssa_ops.CheckCast(maker.parent, tt, input_.stack[-1:])
     return ResultDict(line=line)
 
-def _const(parent, input_, iNode):
+def _const(maker, input_, iNode):
     ctype, val = iNode.instruction[1:]
     cat = getCategory(ctype)
     type_ = _charToSSAType[ctype]
-    var = makeConstVar(parent, type_, val)
+    var = makeConstVar(maker.parent, type_, val)
     newstack = input_.stack + [var] + [None]*(cat-1)
     return ResultDict(newstack=newstack)
 
-def _constnull(parent, input_, iNode):
-    var = makeConstVar(parent, SSA_OBJECT, 'null')
+def _constnull(maker, input_, iNode):
+    var = makeConstVar(maker.parent, SSA_OBJECT, 'null')
     var.decltype = objtypes.NullTT
     newstack = input_.stack + [var]
     return ResultDict(newstack=newstack)
 
-def _convert(parent, input_, iNode):
+def _convert(maker, input_, iNode):
     src_c, dest_c = iNode.instruction[1:]
     src_cat, dest_cat = getCategory(src_c), getCategory(dest_c)
 
     stack, arg =  input_.stack[:-src_cat], input_.stack[-src_cat]
-    line = ssa_ops.Convert(parent, arg, _charToSSAType[src_c], _charToSSAType[dest_c])
+    line = ssa_ops.Convert(maker.parent, arg, _charToSSAType[src_c], _charToSSAType[dest_c])
 
     newstack = stack + [line.rval] + [None]*(dest_cat-1)
     return ResultDict(line=line, newstack=newstack)
 
-def _fcmp(parent, input_, iNode):
+def _fcmp(maker, input_, iNode):
     op, c, NaN_val = iNode.instruction
     cat = getCategory(c)
 
     args = input_.stack[-cat*2::cat]
-    line = ssa_ops.FCmp(parent, args, NaN_val)
+    line = ssa_ops.FCmp(maker.parent, args, NaN_val)
     newstack = input_.stack[:-cat*2] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _field_access(parent, input_, iNode):
+def _field_access(maker, input_, iNode):
     index = iNode.instruction[1]
-    target, name, desc = parent.getConstPoolArgs(index)
+    target, name, desc = maker.parent.getConstPoolArgs(index)
     cat = len(parseFieldDescriptor(desc))
 
     argcnt = cat if 'put' in iNode.instruction[0] else 0
@@ -155,50 +149,54 @@ def _field_access(parent, input_, iNode):
     splitInd = len(input_.stack) - argcnt
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
-    line = ssa_ops.FieldAccess(parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad)
+    line = ssa_ops.FieldAccess(maker.parent, iNode.instruction, (target, name, desc), args=args, monad=input_.monad)
     newstack = input_.stack[:splitInd] + line.returned
     return ResultDict(line=line, newstack=newstack)
 
-def _if_a(parent, input_, iNode):
-    null = makeConstVar(parent, SSA_OBJECT, 'null')
+def _goto(maker, input_, iNode):
+    jump = ssa_jumps.Goto(maker.parent, maker.blockd[iNode.successors[0]])
+    return ResultDict(jump=jump)
+
+def _if_a(maker, input_, iNode):
+    null = makeConstVar(maker.parent, SSA_OBJECT, 'null')
     null.decltype = objtypes.NullTT
-    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input_.stack[-1], null))
+    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], map(maker.blockd.get, iNode.successors), (input_.stack[-1], null))
     newstack = input_.stack[:-1]
     return ResultDict(jump=jump, newstack=newstack)
 
-def _if_i(parent, input_, iNode):
-    zero = makeConstVar(parent, SSA_INT, 0)
-    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, (input_.stack[-1], zero))
+def _if_i(maker, input_, iNode):
+    zero = makeConstVar(maker.parent, SSA_INT, 0)
+    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], map(maker.blockd.get, iNode.successors), (input_.stack[-1], zero))
     newstack = input_.stack[:-1]
     return ResultDict(jump=jump, newstack=newstack)
 
-def _if_icmp(parent, input_, iNode):
-    jump = ssa_jumps.If(parent, iNode.instruction[1], iNode.successors, input_.stack[-2:])
+def _if_cmp(maker, input_, iNode):
+    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], map(maker.blockd.get, iNode.successors), input_.stack[-2:])
     newstack = input_.stack[:-2]
     return ResultDict(jump=jump, newstack=newstack)
 
-def _iinc(parent, input_, iNode):
-    junk, index, amount = iNode.instruction
+def _iinc(maker, input_, iNode):
+    _, index, amount = iNode.instruction
 
     oldval = input_.locals[index]
-    constval = makeConstVar(parent, SSA_INT, amount)
-    line = ssa_ops.IAdd(parent, (oldval, constval))
+    constval = makeConstVar(maker.parent, SSA_INT, amount)
+    line = ssa_ops.IAdd(maker.parent, (oldval, constval))
 
     newlocals = list(input_.locals)
     newlocals[index] = line.rval
     return ResultDict(line=line, newlocals=newlocals)
 
-def _instanceof(parent, input_, iNode):
+def _instanceof(maker, input_, iNode):
     index = iNode.instruction[1]
-    desc = parent.getConstPoolArgs(index)[0]
+    desc = maker.parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(desc)
-    line = ssa_ops.InstanceOf(parent, tt, input_.stack[-1:])
+    line = ssa_ops.InstanceOf(maker.parent, tt, input_.stack[-1:])
     newstack = input_.stack[:-1] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _invoke(parent, input_, iNode):
+def _invoke(maker, input_, iNode):
     index = iNode.instruction[1]
-    target, name, desc = parent.getConstPoolArgs(index)
+    target, name, desc = maker.parent.getConstPoolArgs(index)
     target_tt = parseArrOrClassName(target)
 
     argcnt = len(parseMethodDescriptor(desc)[0])
@@ -210,47 +208,54 @@ def _invoke(parent, input_, iNode):
     isThisCtor = iNode.isThisCtor if iNode.op == vops.INVOKEINIT else False
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
-    line = ssa_ops.Invoke(parent, iNode.instruction, (target, name, desc),
+    line = ssa_ops.Invoke(maker.parent, iNode.instruction, (target, name, desc),
         args=args, monad=input_.monad, isThisCtor=isThisCtor, target_tt=target_tt)
     newstack = input_.stack[:splitInd] + line.returned
     return ResultDict(line=line, newstack=newstack)
 
-def _jsr(parent, input_, iNode):
+def _jsr(maker, input_, iNode):
     newstack = input_.stack + [None]
-
     if iNode.returnedFrom is None:
-        return ResultDict(newstack=newstack)
-    else:
-        #Simply store the data for now and fix things up once all the blocks are created
-        jump = subproc.ProcCallOp(input_, iNode)
-        return ResultDict(jump=jump, newstack=newstack)
+        jump = ssa_jumps.Goto(maker.parent, maker.blockd[iNode.successors[0]])
+        return ResultDict(newstack=newstack, jump=jump)
 
-def _lcmp(parent, input_, iNode):
+    #create output variables from callop to represent vars received from ret.
+    #We can use {} for initMap since there will never be unintialized types here
+    retnode = maker.iNodeD[iNode.returnedFrom]
+    monad = maker.parent.makeVariable(SSA_MONAD)
+    stack, locals = [[maker.parent.makeVarFromVtype(vt, {}) for vt in part] for part in retnode.out_state]
+    out_slots = slots_t(monad=monad, locals=locals, stack=stack)
+
+    #Simply store the data for now and fix things up once all the blocks are created
+    jump = subproc.ProcCallOp(maker.blockd[iNode.successors[0]], maker.blockd[iNode.next_instruction], input_, out_slots)
+    return ResultDict(jump=jump, newstack=newstack)
+
+def _lcmp(maker, input_, iNode):
     args = input_.stack[-4::2]
-    line = ssa_ops.ICmp(parent, args)
+    line = ssa_ops.ICmp(maker.parent, args)
     newstack = input_.stack[:-4] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _ldc(parent, input_, iNode):
+def _ldc(maker, input_, iNode):
     index, cat = iNode.instruction[1:]
-    entry_type = parent.getConstPoolType(index)
-    args = parent.getConstPoolArgs(index)
+    entry_type = maker.parent.getConstPoolType(index)
+    args = maker.parent.getConstPoolArgs(index)
 
     var = None
     if entry_type == 'String':
-        var = makeConstVar(parent, SSA_OBJECT, args[0])
+        var = makeConstVar(maker.parent, SSA_OBJECT, args[0])
         var.decltype = objtypes.StringTT
     elif entry_type == 'Int':
-        var = makeConstVar(parent, SSA_INT, args[0])
+        var = makeConstVar(maker.parent, SSA_INT, args[0])
     elif entry_type == 'Long':
-        var = makeConstVar(parent, SSA_LONG, args[0])
+        var = makeConstVar(maker.parent, SSA_LONG, args[0])
     elif entry_type == 'Float':
-        var = makeConstVar(parent, SSA_FLOAT, args[0])
+        var = makeConstVar(maker.parent, SSA_FLOAT, args[0])
     elif entry_type == 'Double':
-        var = makeConstVar(parent, SSA_DOUBLE, args[0])
+        var = makeConstVar(maker.parent, SSA_DOUBLE, args[0])
     elif entry_type == 'Class':
         tt = args[0], 0 #todo - make this handle arrays and primatives
-        var = makeConstVar(parent, SSA_OBJECT, tt)
+        var = makeConstVar(maker.parent, SSA_OBJECT, tt)
         var.decltype = objtypes.ClassTT
     #Todo - handle MethodTypes and MethodHandles?
 
@@ -258,66 +263,66 @@ def _ldc(parent, input_, iNode):
     newstack = input_.stack + [var] + [None]*(cat-1)
     return ResultDict(newstack=newstack)
 
-def _load(parent, input_, iNode):
+def _load(maker, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
     newstack = input_.stack + input_.locals[index:index+cat]
     return ResultDict(newstack=newstack)
 
-def _monitor(parent, input_, iNode):
+def _monitor(maker, input_, iNode):
     isExit = 'exit' in iNode.instruction[0]
-    line = ssa_ops.Monitor(parent, input_.stack[-1:], input_.monad, isExit)
+    line = ssa_ops.Monitor(maker.parent, input_.stack[-1:], input_.monad, isExit)
     newstack = input_.stack[:-1]
     return ResultDict(line=line, newstack=newstack)
 
-def _multinewarray(parent, input_, iNode):
+def _multinewarray(maker, input_, iNode):
     op, index, dim = iNode.instruction
-    name = parent.getConstPoolArgs(index)[0]
+    name = maker.parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(name)
     assert(tt[1] >= dim)
 
-    line = ssa_ops.MultiNewArray(parent, input_.stack[-dim:], tt, input_.monad)
+    line = ssa_ops.MultiNewArray(maker.parent, input_.stack[-dim:], tt, input_.monad)
     newstack = input_.stack[:-dim] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _neg(parent, input_, iNode):
+def _neg(maker, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     arg = input_.stack[-cat:][0]
 
     if (iNode.instruction[1] in 'DF'):
-        line = ssa_ops.FNeg(parent, [arg])
+        line = ssa_ops.FNeg(maker.parent, [arg])
     else: #for integers, we can just write -x as 0 - x
-        zero = makeConstVar(parent, arg.type, 0)
-        line = ssa_ops.ISub(parent, [zero,arg])
+        zero = makeConstVar(maker.parent, arg.type, 0)
+        line = ssa_ops.ISub(maker.parent, [zero,arg])
 
     newstack = input_.stack[:-cat] + [line.rval] + [None]*(cat-1)
     return ResultDict(line=line, newstack=newstack)
 
-def _new(parent, input_, iNode):
+def _new(maker, input_, iNode):
     index = iNode.instruction[1]
-    classname = parent.getConstPoolArgs(index)[0]
+    classname = maker.parent.getConstPoolArgs(index)[0]
 
-    line = ssa_ops.New(parent, classname, input_.monad, iNode.key)
+    line = ssa_ops.New(maker.parent, classname, input_.monad, iNode.key)
     newstack = input_.stack + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _newarray(parent, input_, iNode):
+def _newarray(maker, input_, iNode):
     vtypes = parseFieldDescriptor(iNode.instruction[1], unsynthesize=False)
     tt = objtypes.verifierToSynthetic(vtypes[0])
 
-    line = ssa_ops.NewArray(parent, input_.stack[-1], tt, input_.monad)
+    line = ssa_ops.NewArray(maker.parent, input_.stack[-1], tt, input_.monad)
     newstack = input_.stack[:-1] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def _nop(parent, input_, iNode):
+def _nop(maker, input_, iNode):
     return ResultDict()
 
-def _ret(parent, input_, iNode):
-    jump = subproc.DummyRet(input_, iNode)
+def _ret(maker, input_, iNode):
+    jump = subproc.DummyRet(input_, maker.blockd[iNode.jsrTarget])
     return ResultDict(jump=jump)
 
-def _return(parent, input_, iNode):
-    line = ssa_ops.TryReturn(parent, input_.monad)
+def _return(maker, input_, iNode):
+    line = ssa_ops.TryReturn(maker.parent, input_.monad)
 
     #Our special return block expects only the return values on the stack
     rtype = iNode.instruction[1]
@@ -327,7 +332,7 @@ def _return(parent, input_, iNode):
         newstack = input_.stack[-getCategory(rtype):]
     return ResultDict(line=line, newstack=newstack)
 
-def _store(parent, input_, iNode):
+def _store(maker, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
 
@@ -339,25 +344,26 @@ def _store(parent, input_, iNode):
     newstack = input_.stack[:-cat]
     return ResultDict(newstack=newstack, newlocals=newlocals)
 
-def _switch(parent, input_, iNode):
-    default, table = iNode.instruction[1:3]
-    jump = ssa_jumps.Switch(parent, default, table, input_.stack[-1:])
+def _switch(maker, input_, iNode):
+    default, raw_table = iNode.instruction[1:3]
+    table = [(k, maker.blockd[v]) for k,v in raw_table]
+    jump = ssa_jumps.Switch(maker.parent, maker.blockd[default], table, input_.stack[-1:])
     newstack = input_.stack[:-1]
     return ResultDict(jump=jump, newstack=newstack)
 
-def _throw(parent, input_, iNode):
-    line = ssa_ops.Throw(parent, input_.stack[-1:])
+def _throw(maker, input_, iNode):
+    line = ssa_ops.Throw(maker.parent, input_.stack[-1:])
     return ResultDict(line=line, newstack=[])
 
-def _truncate(parent, input_, iNode):
+def _truncate(maker, input_, iNode):
     dest_c = iNode.instruction[1]
     signed, width = {'B':(True,8), 'C':(False,16), 'S':(True, 16)}[dest_c]
 
-    line = ssa_ops.Truncate(parent, input_.stack[-1], signed=signed, width=width)
+    line = ssa_ops.Truncate(maker.parent, input_.stack[-1], signed=signed, width=width)
     newstack = input_.stack[:-1] + [line.rval]
     return ResultDict(line=line, newstack=newstack)
 
-def genericStackUpdate(parent, input_, iNode):
+def genericStackUpdate(maker, input_, iNode):
     b = iNode.before.replace('+','')
     a = iNode.after
     assert(b and set(b+a) <= set('1234'))
@@ -384,11 +390,11 @@ _instructionHandlers = {
                         vops.FCMP: _fcmp,
                         vops.GETSTATIC: _field_access,
                         vops.GETFIELD: _field_access,
-                        vops.GOTO: _nop, #since gotos are added by default, this is a nop
+                        vops.GOTO: _goto,
                         vops.IF_A: _if_a,
-                        vops.IF_ACMP: _if_icmp, #icmp works on objs too
+                        vops.IF_ACMP: _if_cmp, #cmp works on ints or objs
                         vops.IF_I: _if_i,
-                        vops.IF_ICMP: _if_icmp,
+                        vops.IF_ICMP: _if_cmp,
                         vops.IINC: _iinc,
                         vops.INSTANCEOF: _instanceof,
                         vops.INVOKEINIT: _invoke,
@@ -435,14 +441,6 @@ _instructionHandlers = {
                         vops.DUP2X2: genericStackUpdate,
                         }
 
-def getOnNoExceptionTarget(parent, iNode):
-    vop = iNode.instruction[0]
-    if vop == vops.RETURN:
-        return parent.returnKey
-    elif vop not in (vops.RET,vops.THROW,vops.RETURN):
-        return iNode.successors[0]
-    return None
-
 def processArrayInfo(env, newarray_info, iNode, vals):
     #There is an unfortunate tendency among Java programmers to hardcode large arrays
     #resulting in the generation of thousands of instructions simply initializing an array
@@ -472,25 +470,136 @@ def processArrayInfo(env, newarray_info, iNode, vals):
             return
         line.outException = None
 
-def fromInstruction(parent, block, newarray_info, iNode, initMap):
-    assert(iNode.visited)
-    instr = iNode.instruction
+def slotsRvals(inslots):
+    stack = [(None if phi is None else phi.rval) for phi in inslots.stack]
+    locals = [(None if phi is None else phi.rval) for phi in inslots.locals]
+    return slots_t(monad=inslots.monad.rval, stack=stack, locals=locals)
 
-    if block is None:
-        #create new partially constructed block (jump is none)
-        block = BasicBlock(iNode.key, [], None)
+_jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
+class BlockMaker(object):
+    def __init__(self, parent, iNodes, inputTypes, returnTypes, except_raw):
+        self.parent = parent
+        self.blocks = []
+        self.blockd = {}
 
-        #now make inslots for the block
-        monad = parent.makeVariable(SSA_MONAD)
-        stack = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.stack]
-        locals_ = [parent.makeVarFromVtype(vt, initMap) for vt in iNode.locals]
-        inslots = block.inslots = slots_t(monad=monad, locals=locals_, stack=stack)
-    else:
-        skey, inslots = block.successorStates[0]
-        assert(skey == (iNode.key, False) and len(block.successorStates) == 1)
-        block.successorStates = None #make sure we don't accidently access stale data
-        #have to keep track of internal keys for predecessor tracking later
-        block.keys.append(iNode.key)
+        self.iNodes = [n for n in iNodes if n.visited]
+        self.iNodeD = {n.key:n for n in self.iNodes}
+
+        #create map of uninitialized -> initialized types so we can convert them
+        self.initMap = {}
+        for node in self.iNodes:
+            if node.op == vops.NEW:
+                self.initMap[node.push_type] = node.target_type
+        self.initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(parent.class_.name)
+
+        self.entryBlock = self.makeBlockWithInslots(ENTRY_KEY, locals=inputTypes, stack=[])
+        self.returnBlock = self.makeBlockWithInslots(RETURN_KEY, locals=[], stack=returnTypes)
+        self.returnBlock.jump = ssa_jumps.Return(self, [phi.rval for phi in self.returnBlock.phis])
+        self.rethrowBlock = self.makeBlockWithInslots(RETHROW_KEY, locals=[], stack=[verifier_types.THROWABLE_INFO])
+        self.rethrowBlock.jump = ssa_jumps.Rethrow(self, [phi.rval for phi in self.rethrowBlock.phis])
+
+        temp = slotsRvals(self.entryBlock.inslots)
+        self.inputArgs = [temp.monad] + temp.locals #for ssagraph to copy
+        self.entryBlock.phis = []
+
+        #We need to create stub blocks for every jump target so we can add them as successors during creation
+        jump_targets = [eh.handler for eh in except_raw]
+        for node in iNodes:
+            if node.instruction[0] in _jump_instrs:
+                jump_targets += node.successors
+            if node.instruction[0] == vops.JSR: #add jsr fallthroughs too
+                jump_targets.append(node.next_instruction)
+
+        #for simplicity, keep jsr stuff in individual instruction blocks.
+        #Note that subproc.py will need to be modified if this is changed
+        for node in iNodes:
+            if node.instruction[0] in (vops.JSR, vops.RET):
+                jump_targets.append(node.key)
+        for key in jump_targets:
+            if key not in self.blockd:
+                self.makeBlock(key)
+
+        self.exceptionhandlers = []
+        for (start, end, handler, index) in except_raw:
+            catchtype = parent.getConstPoolArgs(index)[0] if index else 'java/lang/Throwable'
+            self.exceptionhandlers.append((start, end, self.blockd[handler], catchtype))
+        self.exceptionhandlers.append((0, 65536, self.rethrowBlock, 'java/lang/Throwable'))
+
+        #pseudocode loop
+        block = self.entryBlock
+        curslots = slotsRvals(block.inslots)
+        newarray_info = {}
+        for node in self.iNodes:
+            if not self.continueBlock(node, block):
+                if node.key not in self.blockd:
+                    self.makeBlock(node.key)
+
+                if block.jump is None:
+                    block.jump = ssa_jumps.Goto(parent, self.blockd[node.key])
+                oldblock, block = block, self.blockd[node.key]
+                if curslots is not None:
+                    self.mergeIn((oldblock, False), node.key, curslots)
+                curslots = slotsRvals(block.inslots)
+                newarray_info = {}
+            curslots = self.appendInstrToBlock(block, node, curslots, newarray_info) #arrinfo modified in place
+
+        assert(len(self.blocks) == len(self.blockd))
+        for block in self.blocks:
+            assert(block.jump is not None and block.phis is not None)
+            assert(len(block.predecessors) == len(set(block.predecessors)))
+            block.inslots = None
+
+    def _makePhiFromVType(self, block, vt):
+        var = self.parent.makeVarFromVtype(vt, self.initMap)
+        return None if var is None else ssa_ops.Phi(block, var)
+
+    def makeBlockWithInslots(self, key, locals, stack):
+        assert(key not in self.blockd)
+        block = BasicBlock(key)
+        self.blocks.append(block)
+        self.blockd[key] = block
+
+        #create inslot phis
+        monad = ssa_ops.Phi(block, self.parent.makeVariable(SSA_MONAD))
+        stack = [self._makePhiFromVType(block, vt) for vt in stack]
+        locals = [self._makePhiFromVType(block, vt) for vt in locals]
+        block.inslots = slots_t(monad=monad, locals=locals, stack=stack)
+        block.phis = [phi for phi in [monad] + stack + locals if phi is not None]
+        return block
+
+    def makeBlock(self, key):
+        node = self.iNodeD[key]
+        return self.makeBlockWithInslots(key, node.locals, node.stack)
+
+    def mergeIn(self, from_key, target_key, outslots):
+        inslots = self.blockd[target_key].inslots
+        assert(len(inslots.stack) == len(outslots.stack) and len(inslots.locals) <= len(outslots.locals))
+        phis = [inslots.monad] + inslots.locals + inslots.stack
+        vars = [outslots.monad] + outslots.locals[:len(inslots.locals)] + outslots.stack
+        for phi, var in zip(phis, vars):
+            if phi is not None:
+                phi.add(from_key, var)
+        self.blockd[target_key].predecessors.append(from_key)
+
+    ###########################################################
+    def continueBlock(self, node, block):
+        '''Can we continue appending to current block?'''
+        return (node.key not in self.blockd) and block.jump is None #fallthrough goto left as None
+
+    def getExceptFallthrough(self, iNode):
+        vop = iNode.instruction[0]
+        if vop == vops.RETURN:
+            return self.blockd[RETURN_KEY]
+        elif vop == vops.THROW:
+            return None
+        key = iNode.successors[0]
+        if key not in self.blockd:
+            self.makeBlock(key)
+        return self.blockd[key]
+
+    def appendInstrToBlock(self, block, iNode, inslots, newarray_info):
+        parent, initMap = self.parent, self.initMap
+        instr = iNode.instruction
 
         # internal variables won't have any preset type info associated, so we should add in the info from the verifier
         assert(len(inslots.stack) == len(iNode.stack) and len(inslots.locals) == len(iNode.locals))
@@ -498,81 +607,62 @@ def fromInstruction(parent, block, newarray_info, iNode, initMap):
             if ivar and ivar.type == SSA_OBJECT:
                 parent.setObjVarData(ivar, vt, initMap)
 
-    vals = _instructionHandlers[instr[0]](parent, inslots, iNode)
-    processArrayInfo(parent.env, newarray_info, iNode, vals)
+        vals = _instructionHandlers[instr[0]](self, inslots, iNode)
+        processArrayInfo(parent.env, newarray_info, iNode, vals) #modifies newarray_info and vals
 
-    line, jump = vals.line, vals.jump
-    newstack = vals.newstack if vals.newstack is not None else inslots.stack
-    newlocals = vals.newlocals if vals.newlocals is not None else inslots.locals
-    newmonad = line.outMonad if (line and line.outMonad) else inslots.monad
-    outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
+        line, jump = vals.line, vals.jump
+        newstack = vals.newstack if vals.newstack is not None else inslots.stack
+        newlocals = vals.newlocals if vals.newlocals is not None else inslots.locals
+        newmonad = line.outMonad if (line and line.outMonad) else inslots.monad
+        outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
 
-    if line is not None:
-        block.lines.append(line)
-    block.successorStates = [((nodekey, False), outslot_norm) for nodekey in iNode.successors]
+        if line is not None:
+            block.lines.append(line)
 
-    #Return iNodes obviously don't have our synethetic return node as a normal successor
-    if instr[0] == vops.RETURN:
-        block.successorStates.append(((parent.returnKey, False), outslot_norm))
+        if line is not None and line.outException is not None:
+            assert(jump is None)
+            fallthrough = self.getExceptFallthrough(iNode)
+            jump = ssa_jumps.OnException(parent, iNode.key, line, self.exceptionhandlers, fallthrough)
 
-    if line and line.outException:
-        assert(not jump)
-        fallthrough = getOnNoExceptionTarget(parent, iNode)
+            outslot_except = slots_t(monad=newmonad, locals=newlocals, stack=[line.outException])
+            for suc in jump.getExceptSuccessors():
+                self.mergeIn((block, True), suc.key, outslot_except)
 
-        jump = ssa_jumps.OnException(parent, iNode.key, line, parent.rawExceptionHandlers(), fallthrough)
-        outslot_except = slots_t(monad=newmonad, locals=newlocals, stack=[line.outException])
-        block.successorStates += [((nodekey, True), outslot_except) for nodekey in jump.getExceptSuccessors()]
+        block.jump = jump
+        if jump is None:
+            unmerged_slots = outslot_norm
+        else:
+            unmerged_slots = None
+            #Make sure that branch targets are distinct, since this is assumed everywhere
+            #Only necessary for if statements as the other jumps merge targets automatically
+            #If statements with both branches jumping to same target are replaced with gotos
+            block.jump = jump = jump.reduceSuccessors([])
 
-    if not jump:
-        assert(instr[0] == vops.RETURN or len(iNode.successors) == 1)
-        jump = ssa_jumps.Goto(parent, getOnNoExceptionTarget(parent, iNode))
-    block.jump = jump
+            if isinstance(jump, subproc.ProcCallOp):
+                self.mergeJSROut(iNode, block, outslot_norm)
+            else:
+                for suc in jump.getNormalSuccessors():
+                    self.mergeIn((block, False), suc.key, outslot_norm)
+        return unmerged_slots
 
-    block.tempvars.extend(newstack + newlocals + [newmonad])
-    return block
+    def mergeJSROut(self, jsrnode, block, outslot_norm):
+        retnode = self.iNodeD[jsrnode.returnedFrom]
+        jump = block.jump
+        target_key, ft_key = jump.target.key, jump.fallthrough.key
+        assert(ft_key == jsrnode.next_instruction)
 
-_jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
-def makeBlocks(parent, iNodes, myclsname):
-    iNodes = [n for n in iNodes if n.visited]
+        #first merge regular jump to target
+        self.mergeIn((block, False), target_key, outslot_norm)
+        #create merged outslots for fallthrough
+        fromcall = jump.output
+        localoff = jump.out_localoff
+        monad, stack, locals = fromcall[0], fromcall[1:localoff], fromcall[localoff:]
 
-    #create map of uninitialized -> initialized types so we can convert them
-    initMap = {}
-    for node in iNodes:
-        if node.op == vops.NEW:
-            initMap[node.push_type] = node.target_type
-    initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(myclsname)
+        mask = [mask for key, mask in retnode.masks if key == target_key][0]
+        zipped = itertools.izip_longest(outslot_norm.locals, locals, fillvalue=None)
+        merged = [(y if i in mask else x) for i,(x,y) in enumerate(zipped)]
+        jump.debug_skipvars = set(merged) - set(locals)
 
-    #The purpose of this function is to create blocks containing multiple instructions
-    #of linear code where possible. Blocks for invidual instructions will get merged
-    #by later analysis anyway but it's a lot faster to merge them during creation
-    jump_targets = set()
-    for node in iNodes:
-        if node.instruction[0] in _jump_instrs:
-            jump_targets.update(node.successors)
-
-    newarray_info = {} #store info about newly created arrays in current block
-    blocks = []
-    curblock = None
-    for node in iNodes:
-        #check if we need to start a new block
-        if curblock is not None:
-            keep = node.key not in jump_targets
-            keep = keep and isinstance(curblock.jump, ssa_jumps.Goto)
-            keep = keep and node.key == curblock.jump.getNormalSuccessors()[0]
-            #for simplicity, keep jsr stuff in individual instruction blocks.
-            #Note that subproc.py will need to be modified if this is changed
-            keep = keep and node.instruction[0] not in (vops.JSR, vops.RET)
-
-            if not keep:
-                blocks.append(curblock)
-                curblock = None
-                newarray_info = {}
-
-        curblock = fromInstruction(parent, curblock, newarray_info, node, initMap)
-        assert(curblock.jump)
-    blocks.append(curblock)
-
-    for block in blocks:
-        block.successorStates = collections.OrderedDict(block.successorStates)
-        block.tempvars = [t for t in block.tempvars if t is not None]
-    return blocks
+        outslot_merged = slots_t(monad=monad, locals=merged, stack=stack)
+        #merge merged outputs with fallthrough
+        self.mergeIn((block, False), ft_key, outslot_merged)

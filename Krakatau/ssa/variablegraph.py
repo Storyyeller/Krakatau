@@ -45,7 +45,7 @@ class BaseNode(object):
         return changed
 
 def registerUses(use, sources):
-    for node,index in sources:
+    for node, index in sources:
         node.uses.append(use)
 
 def getJumpNode(pair, source, var, getVarNode, jumplookup):
@@ -66,6 +66,7 @@ def getJumpNode(pair, source, var, getVarNode, jumplookup):
                 jumplookup[(source, pair, param)] = n, i
             return jumplookup[(source, pair, var)]
 
+    assert(getVarNode(var) is not None)
     return getVarNode(var), 0
 
 def makeGraph(env, blocks):

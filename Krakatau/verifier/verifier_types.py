@@ -48,6 +48,7 @@ def T_UNINIT_OBJECT(origin):
 OBJECT_INFO = T_OBJECT('java/lang/Object')
 CLONE_INFO = T_OBJECT('java/lang/Cloneable')
 SERIAL_INFO = T_OBJECT('java/io/Serializable')
+THROWABLE_INFO = T_OBJECT('java/lang/Throwable')
 
 def objOrArray(fi): #False on uninitialized
     return fi.tag == '.obj' or fi.dim > 0

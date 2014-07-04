@@ -152,6 +152,7 @@ class InstructionNode(object):
         # new, checkcast, newarray, anewarray, multinewarray, instanceof:
         #   op.fi -> push_type
         # new: op2.fi -> target_type
+        self.out_state = None #store out state for JSR/RET instructions for ssa_construction
 
     def _verifyOpcodeOperands(self):
         def isTargetLegal(addr):
@@ -689,6 +690,7 @@ class InstructionNode(object):
             #but if the stack is never fully merged afterwards, it's ok (see below comments)
             newstack = tuple((T_INVALID if x.tag == '.new' else x) for x in newstack)
             newlocals = tuple((T_INVALID if x.tag == '.new' else x) for x in newlocals)
+            self.out_state = newstack, newlocals #store for later convienence
 
         if self.op == opnames.RET and not isException:
             #Get the instruction before other

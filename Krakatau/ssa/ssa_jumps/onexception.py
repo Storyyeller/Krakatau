@@ -4,14 +4,13 @@ from ..exceptionset import  CatchSetManager, ExceptionSet
 from ..constraints import ObjectConstraint
 
 class OnException(BaseJump):
-    def __init__(self, parent, key, line, rawExceptionHandlers, fallthrough=None):
+    def __init__(self, parent, key, line, exceptionhandlers, fallthrough=None):
         super(OnException, self).__init__(parent, [line.outException])
         self.default = fallthrough
 
         chpairs = []
-        for (start, end, handler, index) in rawExceptionHandlers:
+        for (start, end, handler, catchtype) in exceptionhandlers:
             if start <= key < end:
-                catchtype = parent.getConstPoolArgs(index)[0] if index else 'java/lang/Throwable'
                 chpairs.append((catchtype, handler))
         self.cs = CatchSetManager(parent.env, chpairs)
         self.cs.pruneKeys()
@@ -34,7 +33,7 @@ class OnException(BaseJump):
                 del self.cs.sets[child]
             else:
                 self.replaceNormalTarget(child, None)
-                
+
         self.cs.pruneKeys()
         if not self.cs.sets:
             if not self.default:
@@ -48,7 +47,7 @@ class OnException(BaseJump):
     def getExceptSuccessors(self):
         return self.cs.sets.keys()
 
-    def clone(self): 
+    def clone(self):
         new = super(OnException, self).clone()
         new.cs = self.cs.copy()
         return new
@@ -67,7 +66,7 @@ class OnException(BaseJump):
             def propagateConstraints(x):
                 if x is None:
                     return None
-                t = x.types 
+                t = x.types
                 top_tts = t.supers | t.exact
                 tops = [tt[0] for tt in top_tts]
                 if 'java/lang/Object' in tops:
@@ -85,6 +84,3 @@ class OnException(BaseJump):
             #In fallthrough case, no exception so always return invalid
             assert(block == self.default)
             return lambda arg:[None]
-
-
-            

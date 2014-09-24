@@ -26,7 +26,8 @@ PATH : An optional list of directories, jars, or zipfiles to search for
     seperated list of jars or pass the -path option multiple times.
 
 OUT : Directory name where source files are to be written. Defaults to the
-    current directory
+    current directory. If the name ends in .zip or .jar, the output will be a
+    zipfile instead.
 
 -r : Decompiles all .class files found in the directory target (recursively)
 
@@ -62,7 +63,8 @@ Usage:
 python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] [-q] target
 
 OUT : Directory name where class files are to be written. Defaults to the
-    current directory
+    current directory. If the name ends in .zip or .jar, the output will be a
+    zipfile instead.
 
 -g : If specified, SourceFile and LineNumberTable attributes giving the
     offset of every instruction will be added. This is useful for debugging
@@ -102,7 +104,8 @@ Usage:
 python Krakatau\disassemble.py [-out OUT] [-r] target
 
 OUT : File or directory name where source files are to be written. Defaults
-    to the current directory
+    to the current directory. If the name ends in .zip or .jar, the output will
+    be a zipfile instead.
 
 -r : Disassembles all .class files found in the directory target (recursively)
 

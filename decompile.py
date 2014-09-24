@@ -67,7 +67,7 @@ def deleteUnusued(cls):
     del cls.attributes
 
 def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
-    writeout = script_util.fileDirOut(outpath, '.java')
+    out = script_util.makeWriter(outpath, '.java')
 
     e = Environment()
     for part in path:
@@ -75,7 +75,7 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
 
     start_time = time.time()
     # random.shuffle(targets)
-    with e: #keep jars open
+    with e, out:
         for i,target in enumerate(targets):
             print 'processing target {}, {} remaining'.format(target, len(targets)-i)
 
@@ -94,7 +94,7 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
                 package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
                 source = package + source
 
-            filename = writeout(c.name, source)
+            filename = out.write(c.name, source)
             print 'Class written to', filename
             print time.time() - start_time, ' seconds elapsed'
             deleteUnusued(c)

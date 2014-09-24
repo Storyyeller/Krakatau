@@ -13,23 +13,24 @@ def readFile(filename):
         return f.read()
 
 def disassembleClass(readTarget, targets=None, outpath=None):
-    writeout = script_util.fileDirOut(outpath, '.j')
-
+    out = script_util.makeWriter(outpath, '.j')
     # targets = targets[::-1]
     start_time = time.time()
     # __import__('random').shuffle(targets)
-    for i,target in enumerate(targets):
-        print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
 
-        data = readTarget(target)
-        stream = Krakatau.binUnpacker.binUnpacker(data=data)
-        class_ = ClassFile(stream)
-        class_.loadElements(keepRaw=True)
+    with out:
+        for i,target in enumerate(targets):
+            print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
 
-        source = Krakatau.assembler.disassembler.disassemble(class_)
-        filename = writeout(class_.name, source)
-        print 'Class written to', filename
-        print time.time() - start_time, ' seconds elapsed'
+            data = readTarget(target)
+            stream = Krakatau.binUnpacker.binUnpacker(data=data)
+            class_ = ClassFile(stream)
+            class_.loadElements(keepRaw=True)
+
+            source = Krakatau.assembler.disassembler.disassemble(class_)
+            filename = out.write(class_.name, source)
+            print 'Class written to', filename
+            print time.time() - start_time, ' seconds elapsed'
 
 if __name__== "__main__":
     print script_util.copyright

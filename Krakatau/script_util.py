@@ -85,22 +85,23 @@ def winSanitizePath(base, suffix, prevs, s):
 def otherMakePath(base, suffix, s):
     return os.path.join(base, *s.split('/')) + suffix
 
-def fileDirOut(base_path, suffix):
-    if base_path is None:
-        base_path = os.getcwdu()
-    else:
-        base_path = base_path.decode('utf8')
-        base_path = os.path.abspath(base_path)
+class DirectoryWriter(object):
+    def __init__(self, base_path, suffix):
+        if base_path is None:
+            base_path = os.getcwdu()
+        else:
+            base_path = base_path.decode('utf8')
+            base_path = os.path.abspath(base_path)
 
-    osname = platform.system().lower()
-    if 'win' in osname and 'darwin' not in osname:
-        prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
-        makepath = partial(winSanitizePath, base_path, suffix, prevs)
-    else:
-        makepath = partial(otherMakePath, base_path, suffix)
+        osname = platform.system().lower()
+        if 'win' in osname and 'darwin' not in osname:
+            prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
+            self.makepath = partial(winSanitizePath, base_path, suffix, prevs)
+        else:
+            self.makepath = partial(otherMakePath, base_path, suffix)
 
-    def write(cname, data):
-        out = makepath(cname)
+    def write(self, cname, data):
+        out = self.makepath(cname)
         dirpath = os.path.dirname(out)
         if dirpath and not os.path.exists(dirpath):
             os.makedirs(dirpath)
@@ -108,8 +109,29 @@ def fileDirOut(base_path, suffix):
         with open(out,'wb') as f:
             f.write(data)
         return out
-    return write
 
+    def __enter__(self): pass
+    def __exit__(self, *args): pass
+
+class JarWriter(object):
+    def __init__(self, base_path, suffix):
+        self.zip = zipfile.ZipFile(base_path, mode='w')
+        self.suffix = suffix
+
+    def write(self, cname, data):
+        self.zip.writestr(cname + self.suffix, data)
+        return 'zipfile'
+
+    def __enter__(self): self.zip.__enter__()
+    def __exit__(self, *args): self.zip.__exit__(*args)
+
+def makeWriter(base_path, suffix):
+    if base_path is not None:
+        if base_path.endswith('.zip') or base_path.endswith('.jar'):
+            return JarWriter(base_path, suffix)
+    return DirectoryWriter(base_path, suffix)
+
+###############################################################################
 def ignore(*args, **kwargs):
     pass
 

@@ -33,13 +33,14 @@ if __name__== "__main__":
     log = script_util.Logger('warning' if args.q else 'info')
     log.info(script_util.copyright)
 
+    out = script_util.makeWriter(args.out, '.class')
     targets = script_util.findFiles(args.target, args.r, '.j')
-    writeout = script_util.fileDirOut(args.out, '.class')
 
-    for i, target in enumerate(targets):
-        log.info('Processing file {}, {}/{} remaining'.format(target, len(targets)-i, len(targets)))
-        pairs = assembleClass(log, target, args.g, args.jas)
+    with out:
+        for i, target in enumerate(targets):
+            log.info('Processing file {}, {}/{} remaining'.format(target, len(targets)-i, len(targets)))
+            pairs = assembleClass(log, target, args.g, args.jas)
 
-        for name, data in pairs:
-            filename = writeout(name, data)
-            log.info('Class written to', filename)
+            for name, data in pairs:
+                filename = out.write(name, data)
+                log.info('Class written to', filename)

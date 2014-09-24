@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import platform, os, os.path, zipfile
+import platform, os, os.path, zipfile, errno
 import collections, hashlib
 from functools import partial
 
@@ -103,8 +103,13 @@ class DirectoryWriter(object):
     def write(self, cname, data):
         out = self.makepath(cname)
         dirpath = os.path.dirname(out)
-        if dirpath and not os.path.exists(dirpath):
-            os.makedirs(dirpath)
+
+        try:
+            if dirpath:
+                os.makedirs(dirpath)
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                raise
 
         with open(out,'wb') as f:
             f.write(data)

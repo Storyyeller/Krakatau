@@ -428,7 +428,9 @@ class FieldAccess(JavaExpression):
     def __init__(self, primary, name, dtype, printLeft=True):
         self.dtype = dtype
         self.params, self.name = [primary], escapeString(name)
-        self.fmt = ('{}.' if printLeft else '') + self.name
+        #If name contains special characters, it doesn't make much sense to print as Java source, but at least we shouldn't crash
+        escaped = self.name.replace('{','{{').replace('}','}}')
+        self.fmt = ('{}.' if printLeft else '') + escaped
 
     def addParens_sub(self):
         p0 = self.params[0]

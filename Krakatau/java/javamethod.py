@@ -806,4 +806,4 @@ def generateAST(method, graph, forbidden_identifiers):
     flagstr = ' '.join(map(str.lower, sorted(flags)))
     inputTypes, returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)
     ret_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else ('.void',0)
-    return ast2.MethodDef(class_, flagstr, method.name, ast.TypeName(ret_tt), decls, ast_root)
+    return ast2.MethodDef(class_, flagstr, method.name, method.descriptor, ast.TypeName(ret_tt), decls, ast_root)

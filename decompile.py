@@ -54,6 +54,14 @@ def makeGraph(m):
     # print _stats(s)
     return s
 
+class Printer(object):
+    def visit(self, obj):
+        return obj.print_(self, self.visit)
+
+    def className(self, name): return name
+    def methodName(self, cls, name, desc): return name
+    def fieldName(self, cls, name, desc): return name
+
 def deleteUnusued(cls):
     #Delete attributes we aren't going to use
     #pretty hackish, but it does help when decompiling large jars
@@ -76,12 +84,13 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
     start_time = time.time()
     # random.shuffle(targets)
     with e, out:
+        printer = Printer()
         for i,target in enumerate(targets):
             print 'processing target {}, {} remaining'.format(target, len(targets)-i)
 
             try:
                 c = e.getClass(target)
-                source = javaclass.generateAST(c, makeGraph).print_()
+                source = printer.visit(javaclass.generateAST(c, makeGraph))
             except ClassLoaderError as err:
                 if skipMissing:
                     print 'failed to decompile {} due to missing or invalid class {}'.format(target, err.data)

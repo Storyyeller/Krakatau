@@ -7,8 +7,8 @@ from .stringescape import escapeString
 class VariableDeclarator(object):
     def __init__(self, typename, identifier): self.typename = typename; self.local = identifier
 
-    def print_(self):
-        return '{} {}'.format(self.typename.print_(), self.local.print_())
+    def print_(self, printer, print_):
+        return '{} {}'.format(print_(self.typename), print_(self.local))
 
 #############################################################################################################################################
 
@@ -25,17 +25,17 @@ class ExpressionStatement(JavaStatement):
     def __init__(self, expr):
         self.expr = expr
 
-    def print_(self): return self.expr.print_() + ';'
+    def print_(self, printer, print_): return print_(self.expr) + ';'
 
 class LocalDeclarationStatement(JavaStatement):
     def __init__(self, decl, expr=None):
         self.decl = decl
         self.expr = expr
 
-    def print_(self):
+    def print_(self, printer, print_):
         if self.expr is not None:
-            return '{} = {};'.format(self.decl.print_(), self.expr.print_())
-        return self.decl.print_() + ';'
+            return '{} = {};'.format(print_(self.decl), print_(self.expr))
+        return print_(self.decl) + ';'
 
     def addCastsAndParens(self, env):
         if self.expr is not None:
@@ -50,7 +50,7 @@ class ReturnStatement(JavaStatement):
         self.expr = expr
         self.tt = tt
 
-    def print_(self): return 'return {};'.format(self.expr.print_()) if self.expr is not None else 'return;'
+    def print_(self, printer, print_): return 'return {};'.format(print_(self.expr)) if self.expr is not None else 'return;'
 
     def addCastsAndParens(self, env):
         if self.expr is not None:
@@ -62,7 +62,7 @@ class ReturnStatement(JavaStatement):
 class ThrowStatement(JavaStatement):
     def __init__(self, expr):
         self.expr = expr
-    def print_(self): return 'throw {};'.format(self.expr.print_())
+    def print_(self, printer, print_): return 'throw {};'.format(print_(self.expr))
 
 class JumpStatement(JavaStatement):
     def __init__(self, target, isFront):
@@ -70,7 +70,7 @@ class JumpStatement(JavaStatement):
         label = (' ' + target.getLabel()) if target is not None else ''
         self.str = keyword + label + ';'
 
-    def print_(self): return self.str
+    def print_(self, printer, print_): return self.str
 
 #Compound Statements
 sbcount = itertools.count()
@@ -109,9 +109,9 @@ class TryStatement(LazyLabelBase):
 
     def getScopes(self): return (self.tryb,) + zip(*self.pairs)[1]
 
-    def print_(self):
-        tryb = self.tryb.print_()
-        parts = ['catch({})\n{}'.format(x.print_(), y.print_()) for x,y in self.pairs]
+    def print_(self, printer, print_):
+        tryb = print_(self.tryb)
+        parts = ['catch({})\n{}'.format(print_(x), print_(y)) for x,y in self.pairs]
         return '{}try\n{}\n{}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
 
 class IfStatement(LazyLabelBase):
@@ -123,12 +123,12 @@ class IfStatement(LazyLabelBase):
 
     def getScopes(self): return self.scopes
 
-    def print_(self):
+    def print_(self, printer, print_):
         lbl = self.getLabelPrefix()
         parts = [self.expr] + list(self.scopes)
 
         if len(self.scopes) == 1:
-            parts = [x.print_() for x in parts]
+            parts = [print_(x) for x in parts]
             return '{}if({})\n{}'.format(lbl, *parts)
 
         # Special case handling for 'else if'
@@ -138,7 +138,7 @@ class IfStatement(LazyLabelBase):
             stmt = fblock.statements[-1]
             if isinstance(stmt, IfStatement) and stmt.label is None:
                 sep, parts[-1] = ' ', stmt
-        parts = [x.print_() for x in parts]
+        parts = [print_(x) for x in parts]
         return '{}if({})\n{}\nelse{sep}{}'.format(lbl, *parts, sep=sep)
 
 class SwitchStatement(LazyLabelBase):
@@ -150,15 +150,15 @@ class SwitchStatement(LazyLabelBase):
     def getScopes(self): return zip(*self.pairs)[1]
     def hasDefault(self): return None in zip(*self.pairs)[0]
 
-    def print_(self):
-        expr = self.expr.print_()
+    def print_(self, printer, print_):
+        expr = print_(self.expr)
 
         def printCase(keys):
             if keys is None:
                 return 'default: '
             return ''.join(map('case {}: '.format, sorted(keys)))
 
-        bodies = [(printCase(keys) + scope.print_()) for keys, scope in self.pairs]
+        bodies = [(printCase(keys) + print_(scope)) for keys, scope in self.pairs]
         if self.pairs[-1][0] is None and len(self.pairs[-1][1].statements) == 0:
             bodies.pop()
 
@@ -176,8 +176,8 @@ class WhileStatement(LazyLabelBase):
 
     def getScopes(self): return self.parts
 
-    def print_(self):
-        parts = self.expr.print_(), self.parts[0].print_()
+    def print_(self, printer, print_):
+        parts = print_(self.expr), print_(self.parts[0])
         return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
 
 class StatementBlock(LazyLabelBase):
@@ -192,9 +192,9 @@ class StatementBlock(LazyLabelBase):
 
     def getScopes(self): return self,
 
-    def print_(self):
+    def print_(self, printer, print_):
         assert(self.labelable or self.label is None)
-        contents = '\n'.join(x.print_() for x in self.statements)
+        contents = '\n'.join(print_(x) for x in self.statements)
         indented = ['    '+line for line in contents.splitlines()]
         # indented[:0] = ['    //{}{}'.format(self,x) for x in (self.breakKey, self.continueKey, self.jumpKey)]
         lines = [self.getLabelPrefix() + '{'] + indented + ['}']
@@ -212,7 +212,7 @@ class StatementBlock(LazyLabelBase):
 class StringStatement(JavaStatement):
     def __init__(self, s):
         self.s = s
-    def print_(self): return self.s
+    def print_(self, printer, print_): return self.s
 
 #############################################################################################################################################
 _assignable_sprims = '.byte','.short','.char'
@@ -278,8 +278,8 @@ class JavaExpression(object):
     def postFlatIter(self):
         return itertools.chain([self], *[expr.postFlatIter() for expr in self.params])
 
-    def print_(self):
-        return self.fmt.format(*[expr.print_() for expr in self.params])
+    def print_(self, printer, print_):
+        return self.fmt.format(*[print_(expr) for expr in self.params])
 
     def replaceSubExprs(self, rdict):
         if self in rdict:
@@ -305,7 +305,7 @@ class JavaExpression(object):
     def isLocalAssign(self): return isinstance(self, Assignment) and isinstance(self.params[0], Local)
 
     def __repr__(self):
-        return type(self).__name__.rpartition('.')[-1] + ' ' + self.print_()
+        return type(self).__name__.rpartition('.')[-1] + ' ' + print_(self)
     __str__ = __repr__
 
 class ArrayAccess(JavaExpression):
@@ -413,8 +413,8 @@ class ClassInstanceCreation(JavaExpression):
         self.typename, self.tts, self.params = typename, tts, arguments
         self.dtype = typename.tt
 
-    def print_(self):
-        return 'new {}({})'.format(self.typename.print_(), ', '.join(x.print_() for x in self.params))
+    def print_(self, printer, print_):
+        return 'new {}({})'.format(print_(self.typename), ', '.join(print_(x) for x in self.params))
 
     def addCasts_sub(self, env):
         newparams = []
@@ -425,12 +425,23 @@ class ClassInstanceCreation(JavaExpression):
         self.params = newparams
 
 class FieldAccess(JavaExpression):
-    def __init__(self, primary, name, dtype, printLeft=True):
+    def __init__(self, primary, name, dtype, op=None, printLeft=True):
         self.dtype = dtype
-        self.params, self.name = [primary], escapeString(name)
-        #If name contains special characters, it doesn't make much sense to print as Java source, but at least we shouldn't crash
-        escaped = self.name.replace('{','{{').replace('}','}}')
-        self.fmt = ('{}.' if printLeft else '') + escaped
+        self.params = [primary]
+        self.op, self.name = op, name
+        self.printLeft = printLeft
+        # self.params, self.name = [primary], escapeString(name)
+        # self.fmt = ('{}.' if printLeft else '') + self.name
+
+    def print_(self, printer, print_):
+        if self.op is None:
+            name = self.name
+            assert(name in ('length','class'))
+        else:
+            cls, name, desc = self.op.target, self.op.name, self.op.desc
+            name = escapeString(printer.fieldName(cls, name, desc))
+        pre = print_(self.params[0])+'.' if self.printLeft else ''
+        return pre+name
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -486,10 +497,10 @@ class Literal(JavaExpression):
         else:
             assert(0)
 
-    def print_(self):
+    def print_(self, printer, print_):
         if self.str is None:
             #for printing class literals
-            return self.fmt.format(self.params[0].print_())
+            return self.fmt.format(print_(self.params[0]))
         return self.str
 
     def _key(self): return self.dtype, self.val
@@ -513,7 +524,7 @@ class Local(JavaExpression):
         self.name = None
         self.func = namefunc
 
-    def print_(self):
+    def print_(self, printer, print_):
         if self.name is None:
             self.name = self.func(self)
         return self.name
@@ -526,17 +537,24 @@ class MethodInvocation(JavaExpression):
             self.params = [left] + arguments
         self.hasLeft = (left is not None)
         self.dtype = dtype
-        self.name = escapeString(name)
+        self.name = name
         self.tts = tts
         self.op = op #keep around for future reference and new merging
 
-    def print_(self):
+    def print_(self, printer, print_):
+        cls, name, desc = self.op.target, self.op.name, self.op.desc
+        if name != self.name:
+            assert(name == '<init>')
+            name = self.name
+        else:
+            name = escapeString(printer.methodName(cls, name, desc))
+
         if self.hasLeft:
             left, arguments = self.params[0], self.params[1:]
-            return '{}.{}({})'.format(left.print_(), self.name, ', '.join(x.print_() for x in arguments))
+            return '{}.{}({})'.format(print_(left), name, ', '.join(print_(x) for x in arguments))
         else:
             arguments = self.params
-            return '{}({})'.format(self.name, ', '.join(x.print_() for x in arguments))
+            return '{}({})'.format(name, ', '.join(print_(x) for x in arguments))
 
     def addCasts_sub(self, env):
         newparams = []
@@ -580,17 +598,19 @@ class TypeName(JavaExpression):
     def __init__(self, tt):
         self.dtype = None
         self.tt = tt
-        name, dim = tt
+
+    def print_(self, printer, print_):
+        name, dim = self.tt
         if name[0] == '.': #primative type:
             name = name[1:]
         else:
+            name = printer.className(name)
             name = escapeString(name.replace('/','.'))
         s = name + '[]'*dim
         if s.rpartition('.')[0] == 'java.lang':
             s = s.rpartition('.')[2]
-        self.str = s
+        return s
 
-    def print_(self): return self.str
     def complexity(self): return -1 #exprs which have this as a param won't be bumped up to 1 uncessarily
 
 class CatchTypeNames(JavaExpression): #Used for caught exceptions, which can have multiple types specified
@@ -599,8 +619,8 @@ class CatchTypeNames(JavaExpression): #Used for caught exceptions, which can hav
         self.tnames = map(TypeName, tts)
         self.dtype = objtypes.commonSupertype(env, tts)
 
-    def print_(self):
-        return ' | '.join(tn.print_() for tn in self.tnames)
+    def print_(self, printer, print_):
+        return ' | '.join(print_(tn) for tn in self.tnames)
 
 class UnaryPrefix(JavaExpression):
     precedence = 5

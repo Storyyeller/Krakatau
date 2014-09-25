@@ -124,9 +124,9 @@ def _convertJExpr(op, getExpr, clsname):
         if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
             printLeft = (op.target != clsname) #Don't print classname if it is a static field in current class
             tt = op.target, 0 #Doesn't handle arrays, but they don't have any fields anyway
-            expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, printLeft=printLeft)
+            expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, op, printLeft=printLeft)
         else:
-            expr = ast.FieldAccess(params[0], op.name, dtype)
+            expr = ast.FieldAccess(params[0], op.name, dtype, op)
 
         if op.instruction[0] in (opnames.PUTFIELD, opnames.PUTSTATIC):
             expr = ast.Assignment(expr, params[-1])

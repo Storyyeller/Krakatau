@@ -32,7 +32,7 @@ def _getField(field):
             data = const_attrs[0]
             index = struct.unpack('>h', data)[0]
             initexpr = loadConstValue(cpool, index)
-    return ast2.FieldDef(' '.join(flags), ast.TypeName(dtype), field.name, initexpr)
+    return ast2.FieldDef(' '.join(flags), ast.TypeName(dtype), field.class_, field.name, desc, initexpr)
 
 def _getMethod(method, cb, forbidden_identifiers):
     try:
@@ -57,7 +57,6 @@ def generateAST(cls, cb, method=None):
     for field in cls.fields:
         fi.add(field.name)
     forbidden_identifiers = frozenset(fi)
-
 
     myflags = [x.lower() for x in sorted(cls.flags) if x not in ('INTERFACE','SUPER','SYNTHETIC','ANNOTATION','ENUM')]
     isInterface = 'INTERFACE' in cls.flags

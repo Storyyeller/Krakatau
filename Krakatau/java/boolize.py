@@ -43,7 +43,7 @@ def boolizeVars(root, arg_vars):
     varlist = []
     sets = UnionFind()
 
-    def visitExpr(expr):
+    def visitExpr(expr, forceExact=False):
         #see if we have to merge
         if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!=','&','|','^'):
             subs = [visitExpr(param) for param in expr.params]
@@ -58,7 +58,7 @@ def boolizeVars(root, arg_vars):
             tag, dim = expr.dtype
             if (dim == 0 and tag in int_tags) or (dim > 0 and tag in array_tags):
                 # the only "unknown" vars are bexpr[] and ints. All else have fixed types
-                if tag != BExpr and tag != IntTT[0]:
+                if forceExact or (tag != BExpr and tag != IntTT[0]):
                     sets.union(tag == BoolTT[0], expr)
                 varlist.append(expr)
                 return sets.find(expr)
@@ -81,7 +81,7 @@ def boolizeVars(root, arg_vars):
             sets.union(forced_val, root)
 
     for expr in arg_vars:
-        visitExpr(expr)
+        visitExpr(expr, forceExact=True)
     visitStatementTree(root, callback=visitStatement)
 
     #Fix the propagated types

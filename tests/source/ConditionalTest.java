@@ -1,8 +1,13 @@
 public class ConditionalTest{
 
 	public static void main(String[] args){
+		short s;
+		float f = -4.2f;
+
 		test(true);
 		test(false);
+		test((s = -42));
+		test(f = f);
 	}
 
 	static void test(boolean b) {
@@ -36,4 +41,14 @@ public class ConditionalTest{
 		System.out.println(f);
 		System.out.println(g);
 	}
+
+	static void test(long j) {
+		System.out.println(~j);
+	}
+
+	static void test(double j) {
+		System.out.println(j - 0x1p-51);
+		System.out.println(j - 0x1p-52);
+	}
+
 }\u001a

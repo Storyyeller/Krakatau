@@ -107,7 +107,7 @@ def _convertJExpr(op, getExpr, clsname):
         typecode = {ssa_types.SSA_INT:'.int', ssa_types.SSA_LONG:'.long', ssa_types.SSA_FLOAT:'.float',
             ssa_types.SSA_DOUBLE:'.double'}[op.target]
         tt = typecode, 0
-        expr = ast.Cast(ast.TypeName(tt), params[0])
+        expr = ast.makeCastExpr(tt, params[0])
     elif isinstance(op, (ssa_ops.FCmp, ssa_ops.ICmp)):
         boolt = objtypes.BoolTT
         cn1, c0, c1 = ast.Literal.N_ONE, ast.Literal.ZERO, ast.Literal.ONE

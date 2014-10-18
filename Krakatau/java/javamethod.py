@@ -443,6 +443,11 @@ def _simplifyExpressions(expr):
     if isinstance(expr, ast.BinaryInfix) and expr.opstr == '-':
         if expr.params[0] == ast.Literal.ZERO or expr.params[0] == ast.Literal.LZERO:
             expr = ast.UnaryPrefix('-', expr.params[1])
+
+    # (double)4.2f -> 4.2, etc.
+    if isinstance(expr, ast.Cast) and isinstance(expr.params[1], ast.Literal):
+        expr = ast.makeCastExpr(expr.dtype, expr.params[1])
+
     return expr
 
 def _setScopeParents(scope):

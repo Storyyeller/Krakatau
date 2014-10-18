@@ -248,8 +248,16 @@ def makeCastExpr(newtt, expr, fixEnv=None):
     if newtt == expr.dtype:
         return expr
 
-    if isinstance(expr, Literal) and newtt in (objtypes.IntTT, objtypes.BoolTT):
-        return Literal(newtt, expr.val)
+    # if casting a literal with compatible type, just create a literal of the new type
+    if isinstance(expr, Literal):
+        allowed_conversions = [
+            (objtypes.FloatTT, objtypes.DoubleTT),
+            (objtypes.IntTT, objtypes.LongTT),
+            (objtypes.IntTT, objtypes.BoolTT),
+            (objtypes.BoolTT, objtypes.IntTT),
+        ]
+        if (expr.dtype, newtt) in allowed_conversions:
+            return Literal(newtt, expr.val)
 
     if newtt == objtypes.IntTT and expr.dtype == objtypes.BoolTT:
         return Ternary(expr, Literal.ONE, Literal.ZERO)

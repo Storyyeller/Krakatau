@@ -4,6 +4,7 @@ registry = {
     'ArrayTest': ([], ['x']),
     'BadInnerTest': ([],),
     'BoolizeTest': ([],),
+    'ConditionalTest': ([],),
     'ControlFlow': ([], ['.Na', 'q'], ['ddKK', '-2'], ['hB7X', '-1'],
                     ['R%%X', '0', '0'], ['>OE=.K', '#FF'],
                     ['95', ' ', 'x', 'x'], ['Hello, Word!']),

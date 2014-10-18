@@ -625,6 +625,7 @@ def _createDeclarations(root, predeclared):
     #TODO - find a better way to handle this
     _init_d = {objtypes.BoolTT: ast.Literal.FALSE,
             objtypes.IntTT: ast.Literal.ZERO,
+            objtypes.LongTT: ast.Literal.LZERO,
             objtypes.FloatTT: ast.Literal.FZERO,
             objtypes.DoubleTT: ast.Literal.DZERO}
     def mdVisitVarUse(var):

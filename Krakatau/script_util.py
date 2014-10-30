@@ -94,7 +94,7 @@ class DirectoryWriter(object):
             base_path = os.path.abspath(base_path)
 
         osname = platform.system().lower()
-        if 'win' in osname and 'darwin' not in osname:
+        if 'win' in osname and 'darwin' not in osname and 'cygwin' not in osname:
             prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
             self.makepath = partial(winSanitizePath, base_path, suffix, prevs)
         else:

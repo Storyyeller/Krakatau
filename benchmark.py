@@ -38,13 +38,13 @@ def decompileClass(path=[], targets=None):
 
     with e, Timer('warming up'):
         for i,target in enumerate(targets):
-            for _ in range(40):
+            for _ in range(100):
                 c = e.getClass(target)
                 source = javaclass.generateAST(c, makeGraph).print_()
 
     with e, Timer('testing'):
         for i,target in enumerate(targets):
-            for _ in range(200):
+            for _ in range(500):
                 c = e.getClass(target)
                 source = javaclass.generateAST(c, makeGraph).print_()
 
@@ -61,5 +61,5 @@ if __name__== "__main__":
         for part in args.path:
             path.extend(part.split(';'))
 
-    targets = ['sun/text/normalizer/Utility']
+    targets = ['javax/swing/plaf/nimbus/ToolBarSouthState']
     decompileClass(path, targets)

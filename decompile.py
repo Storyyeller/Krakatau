@@ -5,7 +5,7 @@ import Krakatau
 import Krakatau.ssa
 from Krakatau.error import ClassLoaderError
 from Krakatau.environment import Environment
-from Krakatau.java import javaclass
+from Krakatau.java import javaclass, visitor
 from Krakatau.verifier.inference_verifier import verifyBytecode
 from Krakatau import script_util
 
@@ -54,14 +54,6 @@ def makeGraph(m):
     # print _stats(s)
     return s
 
-class Printer(object):
-    def visit(self, obj):
-        return obj.print_(self, self.visit)
-
-    def className(self, name): return name
-    def methodName(self, cls, name, desc): return name
-    def fieldName(self, cls, name, desc): return name
-
 def deleteUnusued(cls):
     #Delete attributes we aren't going to use
     #pretty hackish, but it does help when decompiling large jars
@@ -84,7 +76,7 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
     start_time = time.time()
     # random.shuffle(targets)
     with e, out:
-        printer = Printer()
+        printer = visitor.DefaultVisitor()
         for i,target in enumerate(targets):
             print 'processing target {}, {} remaining'.format(target, len(targets)-i)
 

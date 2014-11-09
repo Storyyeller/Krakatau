@@ -31,7 +31,7 @@ def makeGraph(m):
     # print _stats(s)
     return s
 
-def decompileClass(path=[], targets=None, outpath=None):
+def decompileClass(path=[], targets=None):
     e = Environment()
     for part in path:
         e.addToPath(part)
@@ -54,8 +54,6 @@ if __name__== "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
     parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
-    parser.add_argument('-out',help='Path to generate source files in')
-    parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     args = parser.parse_args()
 
     path = []
@@ -64,4 +62,4 @@ if __name__== "__main__":
             path.extend(part.split(';'))
 
     targets = ['sun/text/normalizer/Utility']
-    decompileClass(path, targets, args.out)
+    decompileClass(path, targets)

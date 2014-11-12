@@ -17,7 +17,8 @@ testing the resulting classes.
 === Decompilation ===
 
 Usage:
-python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] target
+python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] [-skip]
+    target
 
 PATH : An optional list of directories, jars, or zipfiles to search for
     classes in. Krakatau will attempt to automatically detect and add the
@@ -30,6 +31,11 @@ OUT : Directory name where source files are to be written. Defaults to the
     zipfile instead.
 
 -r : Decompiles all .class files found in the directory target (recursively)
+
+-skip : Continue upon errors. If an error occurs while decompiling a specific
+    method, the traceback will be printed as comments in the source file. If the
+    error occurs while decompiling at the class level, no source file will be
+    emitted and an error message will be printed to the console.
 
 target : Class name or jar name to decompile. If a jar is specified, all
     classes in the jar will be decompiled. If -r is specified, this should

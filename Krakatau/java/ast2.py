@@ -1,12 +1,22 @@
 from . import ast
 from .stringescape import escapeString as escape
 
+class Comments(object):
+    def __init__(self):
+        self.lines = []
+
+    def add(self, s):
+        self.lines.extend(s.strip('\n').split('\n'))
+
+    def print_(self, printer, print_):
+        return ''.join(map('//{}\n'.format, self.lines))
+
 class MethodDef(object):
     def __init__(self, class_, flags, name, desc, retType, paramDecls, body):
         self.flagstr = flags + ' ' if flags else ''
         self.retType, self.paramDecls = retType, paramDecls
         self.body = body
-        self.comment = None
+        self.comments = Comments()
         self.triple = class_.name, name, desc
 
         if name == '<clinit>':
@@ -18,18 +28,16 @@ class MethodDef(object):
             self.isStaticInit, self.isConstructor = False, False
 
     def print_(self, printer, print_):
+        header = print_(self.comments)
         argstr = ', '.join(print_(decl) for decl in self.paramDecls)
         if self.isStaticInit:
-            header = 'static'
+            header += 'static'
         elif self.isConstructor:
             name = print_(self.clsname).rpartition('.')[-1]
-            header = '{}{}({})'.format(self.flagstr, name, argstr)
+            header += '{}{}({})'.format(self.flagstr, name, argstr)
         else:
             name = printer.methodName(*self.triple)
-            header = '{}{} {}({})'.format(self.flagstr, print_(self.retType), escape(name), argstr)
-
-        if self.comment:
-            header = '//{}\n{}'.format(self.comment, header)
+            header += '{}{} {}({})'.format(self.flagstr, print_(self.retType), escape(name), argstr)
 
         if self.body is None:
             return header + ';\n'

@@ -6,8 +6,6 @@ from ..verifier.descriptors import parseFieldDescriptor
 from . import ast, ast2, javamethod
 from .reserved import reserved_identifiers
 
-IGNORE_EXCEPTIONS = 0
-
 def loadConstValue(cpool, index):
     entry_type = cpool.pool[index][0]
     args = cpool.getArgs(index)
@@ -34,24 +32,25 @@ def _getField(field):
             initexpr = loadConstValue(cpool, index)
     return ast2.FieldDef(' '.join(flags), ast.TypeName(dtype), field.class_, field.name, desc, initexpr)
 
-def _getMethod(method, cb, forbidden_identifiers):
+def _getMethod(method, cb, forbidden_identifiers, skip_errors):
     try:
         graph = cb(method) if method.code is not None else None
         print 'Decompiling method', method.name.encode('utf8'), method.descriptor.encode('utf8')
         code_ast = javamethod.generateAST(method, graph, forbidden_identifiers)
         return code_ast
     except Exception as e:
-        if not IGNORE_EXCEPTIONS:
+        if not skip_errors:
             raise
-        if e.__class__.__name__ == 'DecompilationError':
-            print 'Unable to decompile ' + method.class_.name
-        else:
-            print 'Decompiling {} failed!'.format(method.class_.name)
+
+        import traceback
+        message = traceback.format_exc()
         code_ast = javamethod.generateAST(method, None, forbidden_identifiers)
-        code_ast.comment = ' {0!r}: {0!s}'.format(e)
+        code_ast.comments.add(message)
+        print message
         return code_ast
 
-def generateAST(cls, cb, method=None):
+# Method argument allows decompilng only a single method, primarily useful for debugging
+def generateAST(cls, cb, skip_errors, method=None):
     methods = cls.methods if method is None else [cls.methods[method]]
     fi = set(reserved_identifiers)
     for field in cls.fields:
@@ -65,5 +64,5 @@ def generateAST(cls, cb, method=None):
     interfaces = [cls.cpool.getArgsCheck('Class', index) for index in cls.interfaces_raw] #todo - change when class actually loads interfaces
 
     field_defs = [_getField(f) for f in cls.fields]
-    method_defs = [_getMethod(m, cb, forbidden_identifiers) for m in methods]
+    method_defs = [_getMethod(m, cb, forbidden_identifiers, skip_errors) for m in methods]
     return ast2.ClassDef(' '.join(myflags), isInterface, cls.name, superc, interfaces, field_defs, method_defs)

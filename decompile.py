@@ -66,7 +66,7 @@ def deleteUnusued(cls):
     del cls.interfaces_raw, cls.cpool
     del cls.attributes
 
-def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
+def decompileClass(path=[], targets=None, outpath=None, skip_errors=False):
     out = script_util.makeWriter(outpath, '.java')
 
     e = Environment()
@@ -82,13 +82,16 @@ def decompileClass(path=[], targets=None, outpath=None, skipMissing=False):
 
             try:
                 c = e.getClass(target)
-                source = printer.visit(javaclass.generateAST(c, makeGraph))
-            except ClassLoaderError as err:
-                if skipMissing:
-                    print 'failed to decompile {} due to missing or invalid class {}'.format(target, err.data)
-                    continue
-                else:
+                source = printer.visit(javaclass.generateAST(c, makeGraph, skip_errors))
+            except Exception as err:
+                if not skip_errors:
                     raise
+                if isinstance(err, ClassLoaderError):
+                    print 'Failed to decompile {} due to missing or invalid class {}'.format(target.encode('utf8'), err.data.encode('utf8'))
+                else:
+                    import traceback
+                    print traceback.format_exc()
+                continue
 
             #The single class decompiler doesn't add package declaration currently so we add it here
             if '/' in target:
@@ -109,7 +112,7 @@ if __name__== "__main__":
     parser.add_argument('-out',help='Path to generate source files in')
     parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
-    parser.add_argument('-skip', action='store_true', help="Skip classes when an error occurs due to missing dependencies")
+    parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 

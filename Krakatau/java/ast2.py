@@ -44,6 +44,16 @@ class MethodDef(object):
         else:
             return header + '\n' + print_(self.body)
 
+    def tree(self, printer, tree):
+        return {
+            'triple': self.triple,
+            'flags': self.flagstr.split(),
+            'ret': tree(self.retType),
+            'params': map(tree, self.paramDecls),
+            'comments': self.comments.lines,
+            'body': tree(self.body),
+        }
+
 class FieldDef(object):
     def __init__(self, flags, type_, class_, name, desc, expr=None):
         self.flagstr = flags + ' ' if flags else ''
@@ -57,6 +67,14 @@ class FieldDef(object):
         if self.expr is not None:
             return '{}{} {} = {};'.format(self.flagstr, print_(self.type_), name, print_(self.expr))
         return '{}{} {};'.format(self.flagstr, print_(self.type_), name)
+
+    def tree(self, printer, tree):
+        return {
+            'triple': self.triple,
+            'type': tree(self.type_),
+            'flags': self.flagstr.split(),
+            'expr': tree(self.expr),
+        }
 
 class ClassDef(object):
     def __init__(self, flags, isInterface, name, superc, interfaces, fields, methods):
@@ -95,3 +113,15 @@ class ClassDef(object):
 
         lines = [header + ' {'] + indented + ['}']
         return '\n'.join(lines)
+
+    # Experimental - don't use!
+    def tree(self, printer, tree):
+        return {
+            'name': tree(self.name),
+            'super': tree(self.super),
+            'flags': self.flagstr.split(),
+            'isInterface': self.isInterface,
+            'interfaces': map(tree, self.interfaces),
+            'fields': map(tree, self.fields),
+            'methods': map(tree, self.methods),
+        }

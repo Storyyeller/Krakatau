@@ -10,6 +10,8 @@ class VariableDeclarator(object):
     def print_(self, printer, print_):
         return '{} {}'.format(print_(self.typename), print_(self.local))
 
+    def tree(self, printer, tree): return [tree(self.typename), tree(self.local)]
+
 #############################################################################################################################################
 
 class JavaStatement(object):
@@ -26,6 +28,7 @@ class ExpressionStatement(JavaStatement):
         self.expr = expr
 
     def print_(self, printer, print_): return print_(self.expr) + ';'
+    def tree(self, printer, tree): return ['exprS', tree(self.expr)]
 
 class LocalDeclarationStatement(JavaStatement):
     def __init__(self, decl, expr=None):
@@ -36,6 +39,8 @@ class LocalDeclarationStatement(JavaStatement):
         if self.expr is not None:
             return '{} = {};'.format(print_(self.decl), print_(self.expr))
         return print_(self.decl) + ';'
+
+    def tree(self, printer, tree): return ['declS', tree(self.expr), tree(self.decl)]
 
     def addCastsAndParens(self, env):
         if self.expr is not None:
@@ -51,6 +56,7 @@ class ReturnStatement(JavaStatement):
         self.tt = tt
 
     def print_(self, printer, print_): return 'return {};'.format(print_(self.expr)) if self.expr is not None else 'return;'
+    def tree(self, printer, tree): return ['retS', tree(self.expr)]
 
     def addCastsAndParens(self, env):
         if self.expr is not None:
@@ -63,6 +69,7 @@ class ThrowStatement(JavaStatement):
     def __init__(self, expr):
         self.expr = expr
     def print_(self, printer, print_): return 'throw {};'.format(print_(self.expr))
+    def tree(self, printer, tree): return ['throwS', tree(self.expr)]
 
 class JumpStatement(JavaStatement):
     def __init__(self, target, isFront):
@@ -71,6 +78,7 @@ class JumpStatement(JavaStatement):
         self.str = keyword + label + ';'
 
     def print_(self, printer, print_): return self.str
+    def tree(self, printer, tree): return ['jumpS', self.str]
 
 #Compound Statements
 sbcount = itertools.count()
@@ -114,6 +122,10 @@ class TryStatement(LazyLabelBase):
         parts = ['catch({})\n{}'.format(print_(x), print_(y)) for x,y in self.pairs]
         return '{}try\n{}\n{}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
 
+    def tree(self, printer, tree):
+        parts = [map(tree, t) for t in self.pairs]
+        return ['tryS', self.getLabelPrefix(), tree(self.tryb), parts]
+
 class IfStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, scopes):
         super(IfStatement, self).__init__(labelfunc, begink, endk)
@@ -141,6 +153,8 @@ class IfStatement(LazyLabelBase):
         parts = [print_(x) for x in parts]
         return '{}if({})\n{}\nelse{sep}{}'.format(lbl, *parts, sep=sep)
 
+    def tree(self, printer, tree): return ['ifS', self.getLabelPrefix(), tree(self.expr), map(tree, self.scopes)]
+
 class SwitchStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, pairs):
         super(SwitchStatement, self).__init__(labelfunc, begink, endk)
@@ -167,6 +181,12 @@ class SwitchStatement(LazyLabelBase):
         lines = ['{'] + indented + ['}']
         return '{}switch({}){}'.format(self.getLabelPrefix(), expr, '\n'.join(lines))
 
+    def tree(self, printer, tree):
+        parts = []
+        for keys, scope in self.pairs:
+            parts.append([[None] if keys is None else sorted(keys), tree(scope)])
+        return ['switchS', self.getLabelPrefix(), tree(self.expr), parts]
+
 class WhileStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, parts):
         super(WhileStatement, self).__init__(labelfunc, begink, endk)
@@ -179,6 +199,8 @@ class WhileStatement(LazyLabelBase):
     def print_(self, printer, print_):
         parts = print_(self.expr), print_(self.parts[0])
         return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
+
+    def tree(self, printer, tree): return ['whileS', self.getLabelPrefix(), tree(self.expr), tree(self.parts[0])]
 
 class StatementBlock(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, statements, jumpk, labelable=True):
@@ -208,11 +230,14 @@ class StatementBlock(LazyLabelBase):
         common = [x for x in zip(*blists) if len(set(x)) == 1]
         return common[-1][0]
 
+    def tree(self, printer, tree): return ['blockS', self.getLabelPrefix(), map(tree, self.statements)]
+
 #Temporary hack
 class StringStatement(JavaStatement):
     def __init__(self, s):
         self.s = s
     def print_(self, printer, print_): return self.s
+    def tree(self, printer, tree): return ['stringS', self.s]
 
 #############################################################################################################################################
 _assignable_sprims = '.byte','.short','.char'
@@ -288,6 +313,8 @@ class JavaExpression(object):
 
     def print_(self, printer, print_):
         return self.fmt.format(*[print_(expr) for expr in self.params])
+
+    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params)]
 
     def replaceSubExprs(self, rdict):
         if self in rdict:
@@ -392,6 +419,8 @@ class BinaryInfix(JavaExpression):
             elif p.precedence == myprec and i > 0 and not associative:
                 self.params[i] = Parenthesis(p)
 
+    def tree(self, printer, tree): return [self.__class__.__name__, self.opstr, tree(self.params[0]), tree(self.params[1])]
+
 class Cast(JavaExpression):
     precedence = 5
     def __init__(self, *params):
@@ -424,6 +453,9 @@ class ClassInstanceCreation(JavaExpression):
     def print_(self, printer, print_):
         return 'new {}({})'.format(print_(self.typename), ', '.join(print_(x) for x in self.params))
 
+    def tree(self, printer, tree):
+        return [self.__class__.__name__, map(tree, self.params), tree(self.typename)]
+
     def addCasts_sub(self, env):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
@@ -450,6 +482,14 @@ class FieldAccess(JavaExpression):
             name = escapeString(printer.fieldName(cls, name, desc))
         pre = print_(self.params[0])+'.' if self.printLeft else ''
         return pre+name
+
+    def tree(self, printer, tree):
+        if self.op is None:
+            trip = None, self.name, None
+        else:
+            trip = self.op.target, self.op.name, self.op.desc
+        left = tree(self.params[0]) if self.printLeft else None
+        return [self.__class__.__name__, trip, left]
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -511,6 +551,10 @@ class Literal(JavaExpression):
             return self.fmt.format(print_(self.params[0]))
         return self.str
 
+    def tree(self, printer, tree):
+        result = tree(self.params[0]) if self.str is None else self.str
+        return [self.__class__.__name__, result, self.dtype]
+
     def _key(self): return self.dtype, self.val
     def __eq__(self, other): return type(self) == type(other) and self._key() == other._key()
     def __ne__(self, other): return type(self) != type(other) or self._key() != other._key()
@@ -536,6 +580,8 @@ class Local(JavaExpression):
         if self.name is None:
             self.name = self.func(self)
         return self.name
+
+    def tree(self, printer, tree): return [self.__class__.__name__, self.print_(None, None)]
 
 class MethodInvocation(JavaExpression):
     def __init__(self, left, name, tts, arguments, op, dtype):
@@ -563,6 +609,10 @@ class MethodInvocation(JavaExpression):
         else:
             arguments = self.params
             return '{}({})'.format(name, ', '.join(print_(x) for x in arguments))
+
+    def tree(self, printer, tree):
+        trip = self.op.target, self.op.name, self.op.desc
+        return [self.__class__.__name__, trip, self.name, self.hasLeft, map(tree, self.params)]
 
     def addCasts_sub(self, env):
         newparams = []
@@ -619,6 +669,8 @@ class TypeName(JavaExpression):
             s = s.rpartition('.')[2]
         return s
 
+    def tree(self, printer, tree): return self.tt
+
     def complexity(self): return -1 #exprs which have this as a param won't be bumped up to 1 uncessarily
 
 class CatchTypeNames(JavaExpression): #Used for caught exceptions, which can have multiple types specified
@@ -629,6 +681,8 @@ class CatchTypeNames(JavaExpression): #Used for caught exceptions, which can hav
 
     def print_(self, printer, print_):
         return ' | '.join(print_(tn) for tn in self.tnames)
+
+    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.tnames)]
 
 class UnaryPrefix(JavaExpression):
     precedence = 5
@@ -646,6 +700,7 @@ class UnaryPrefix(JavaExpression):
         if p0.precedence > 5 or (isinstance(p0, UnaryPrefix) and p0.opstr[0] == self.opstr[0]):
             self.params[0] = Parenthesis(p0)
 
+    def tree(self, printer, tree): return [self.__class__.__name__, self.opstr, tree(self.params[0])]
 
 class Dummy(JavaExpression):
     def __init__(self, fmt, params, isNew=False):

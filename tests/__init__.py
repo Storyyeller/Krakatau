@@ -24,6 +24,7 @@ registry = {
     'Synchronized': ([], [''], ['', '', '', '']),
     'TryCatchTest': ([], ['bad'], ['bad', 'boy'], ['good'], [u'f'], ['=', '='],
                      ['<<', '<', ':', '>', '>>']),
+    'TryWithResources': ([],),
     'UnicodeTest': ([],),
     'WhileLoops': ([], ['#9'], ['x', 'x'], ['x', 'xx', 'x'],
                   ['The', 'Quick', 'Brown', 'Fox', 'Jumped', 'Over', 'The', 'Lazy', 'Dogs.'],

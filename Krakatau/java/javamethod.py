@@ -115,7 +115,7 @@ def replaceKeys(top, replace):
 
     if top.getScopes():
         if isinstance(top, ast.StatementBlock) and get(top.breakKey) is None:
-            #breakkey can be None with non-None jumpkey when we're a scope in a switch statement that falls through
+            #breakKey can be None with non-None jumpKey when we're a scope in a switch statement that falls through
             #and the end of the switch statement is unreachable
             assert(get(top.jumpKey) is None or not top.labelable)
 
@@ -704,51 +704,91 @@ def _fixExprStatements(scope, item, namegen):
 def _addCastsAndParens(scope, item, env):
     item.addCastsAndParens(env)
 
-def _chooseJump(choices):
-    for b, t in choices:
-        if b is None:
-            return b, t
+def _fallsThrough(scope, usedBreakTargets):
+    # Check if control reaches end of scope and there is no break statement
+    # We don't have to check keys since breaks should have already been generated for child scopes
+    # for main scope there won't be one yet, but we don't care since we're just looking for
+    # whether end of scope is reached on the main scope
+    if not scope.statements:
+        return True
+    last = scope.statements[-1]
+    if isinstance(last, ( ast.JumpStatement, ast.ReturnStatement, ast.ThrowStatement)):
+        return False
+    elif not last.getScopes():
+        return True
+    # Scope ends with a complex statement. Determine whether it can fallthrough
+    if last in usedBreakTargets:
+        return True
+    # Less strict than Java reachability rules, but we aren't bothering to follow them exactly
+    if isinstance(last, ast.WhileStatement):
+        return last.expr != ast.Literal.TRUE
+    elif isinstance(last, ast.SwitchStatement):
+        return not last.hasDefault() or _fallsThrough(last.getScopes[-1], usedBreakTargets)
+    else:
+        return any(_fallsThrough(sub, usedBreakTargets) for sub in last.getScopes())
+
+def _chooseJump(choices, breakPair, continuePair):
+    assert(None not in choices)
+    if breakPair in choices:
+        return breakPair
+    if continuePair in choices:
+        return continuePair
+    # Try to find an already labeled target
     for b, t in choices:
         if b.label is not None:
             return b, t
     return choices[0]
 
-def _generateJumps(scope, targets=collections.OrderedDict(), fallthroughs=NONE_SET, dryRun=False):
+def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tuple), breakPair=None, continuePair=None, fallthroughs=NONE_SET, dryRun=False):
     assert(None in fallthroughs)
-    #breakkey can be None with non-None jumpkey when we're a scope in a switch statement that falls through
-    #and the end of the switch statement is unreachable
-    assert(scope.breakKey is not None or scope.jumpKey is None or not scope.labelable)
+    newfallthroughs = fallthroughs
+    newcontinuePair = continuePair
+    newbreakPair = breakPair
+
     if scope.jumpKey not in fallthroughs:
-        assert(not scope.statements or not isinstance(scope.statements[-1], (ast.ReturnStatement, ast.ThrowStatement)))
-        vals = [k for k,v in targets.items() if v == scope.jumpKey]
-        assert(vals)
-        jump = _chooseJump(vals)
-        if not dryRun:
-            scope.statements.append(ast.JumpStatement(*jump))
+        newfallthroughs = frozenset([None, scope.jumpKey])
 
     for item in reversed(scope.statements):
         if not item.getScopes():
-            fallthroughs = NONE_SET
+            newfallthroughs = NONE_SET
             continue
 
         if isinstance(item, ast.WhileStatement):
-            fallthroughs = frozenset([None, item.continueKey])
+            newfallthroughs = frozenset([None, item.continueKey])
         else:
-            fallthroughs |= frozenset([item.breakKey])
+            newfallthroughs |= frozenset([item.breakKey])
 
         newtargets = targets.copy()
         if isinstance(item, ast.WhileStatement):
-            newtargets[None, True] = item.continueKey
-            newtargets[item, True] = item.continueKey
+            newtargets[item.continueKey] += ((item, True),)
+            newcontinuePair = item, True
         if isinstance(item, (ast.WhileStatement, ast.SwitchStatement)):
-            newtargets[None, False] = item.breakKey
-        newtargets[item, False] = item.breakKey
+            newbreakPair = item, False
+        newtargets[item.breakKey] += ((item, False),)
 
         for subscope in reversed(item.getScopes()):
-            _generateJumps(subscope, newtargets, fallthroughs, dryRun=dryRun)
+            _generateJumps(subscope, usedBreakTargets, newtargets, newbreakPair, newcontinuePair, newfallthroughs, dryRun=dryRun)
             if isinstance(item, ast.SwitchStatement):
-                fallthroughs = frozenset([None, subscope.continueKey])
-        fallthroughs = frozenset([None, item.continueKey])
+                newfallthroughs = frozenset([None, subscope.continueKey])
+        newfallthroughs = frozenset([None, item.continueKey])
+
+    for item in scope.statements:
+        if isinstance(item, ast.StatementBlock) and item.statements:
+            if isinstance(item.statements[-1], ast.JumpStatement):
+                assert(item is scope.statements[-1] or item in usedBreakTargets)
+
+    # Now that we've visited children, decide if we need a jump for this scope, and if so, generate it
+    if scope.jumpKey not in fallthroughs:
+        # Figure out if this jump is actually reachable
+        if _fallsThrough(scope, usedBreakTargets):
+            target, isContinue = pair = _chooseJump(targets[scope.jumpKey], breakPair, continuePair)
+            if not isContinue:
+                usedBreakTargets.add(target)
+            if pair == breakPair or pair == continuePair:
+                target = None
+            # Now actually add the jump statement
+            if not dryRun:
+                scope.statements.append(ast.JumpStatement(target, isContinue))
 
 def _pruneVoidReturn(scope):
     if scope.statements:
@@ -780,11 +820,11 @@ def generateAST(method, graph, forbidden_identifiers):
         ################################################################################################
         ast_root.bases = (ast_root,) #needed for our setScopeParents later
 
-        assert(_generateJumps(ast_root, dryRun=True) is None)
+        assert(_generateJumps(ast_root, set(), dryRun=True) is None)
         _preorder(ast_root, _fixObjectCreations)
         boolize.boolizeVars(ast_root, argsources)
         _simplifyBlocks(ast_root)
-        assert(_generateJumps(ast_root, dryRun=True) is None)
+        assert(_generateJumps(ast_root, set(), dryRun=True) is None)
 
         _mergeVariables(ast_root, argsources, method.static)
 
@@ -798,7 +838,7 @@ def generateAST(method, graph, forbidden_identifiers):
         _createDeclarations(ast_root, argsources)
         _preorder(ast_root, partial(_fixExprStatements, namegen=namegen))
         _preorder(ast_root, partial(_addCastsAndParens, env=env))
-        _generateJumps(ast_root)
+        _generateJumps(ast_root, set())
         _pruneVoidReturn(ast_root)
     else: #abstract or native method
         ast_root = None

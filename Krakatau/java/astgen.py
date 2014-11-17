@@ -222,7 +222,6 @@ def _createASTBlock(info, endk, node):
 
     norm_successors = node.normalSuccessors()
     jump = None if block is None else block.jump
-    jumpKey = None
     if isinstance(jump, (ssa_jumps.Rethrow, ssa_jumps.Return)):
         assert(not norm_successors)
         assert(not node.eassigns and not node.outvars)
@@ -230,16 +229,22 @@ def _createASTBlock(info, endk, node):
             param = info.var(node, jump.params[-1])
             statements.append(ast.ThrowStatement(param))
         else:
-            if len(jump.params)>1: #even void returns have a monad param
+            if len(jump.params) > 1: #even void returns have a monad param
                 param = info.var(node, jump.params[-1])
                 statements.append(ast.ReturnStatement(param, info.return_tt))
             else:
                 statements.append(ast.ReturnStatement())
+        breakKey, jumpKey = endk, None
+    elif len(norm_successors) == 0:
+        assert(isinstance(jump, ssa_jumps.OnException))
+        breakKey, jumpKey = endk, None
     elif len(norm_successors) == 1: #normal successors
-        jumpKey = norm_successors[0]._key
-    #case of if and switch jumps handled in parent scope
+        breakKey, jumpKey = endk, norm_successors[0]._key
+    else: #case of if and switch jumps handled in parent scope
+        assert(len(norm_successors) > 1)
+        breakKey, jumpKey = endk, endk
 
-    new = ast.StatementBlock(info.labelgen, node._key, endk, statements, jumpKey)
+    new = ast.StatementBlock(info.labelgen, node._key, breakKey, statements, jumpKey)
     assert(None not in statements)
     return new
 
@@ -258,6 +263,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         parts = [_createASTSub(info, scope, current, True) for scope in current.getScopes()]
         return ast.WhileStatement(info.labelgen, begink, endk, tuple(parts))
     elif isinstance(current, SETry):
+        assert(len(current.getScopes()) == 2)
         parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
         catchnode = current.getScopes()[-1].entryBlock
         declt = ast.CatchTypeNames(info.env, current.toptts)
@@ -295,8 +301,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
 
     #bundle head and if together so we can return as single statement
     headscope = _createASTBlock(info, midk, node)
-    assert(headscope.jumpKey is None)
-    headscope.jumpKey = midk
+    assert(headscope.jumpKey is midk)
     return ast.StatementBlock(info.labelgen, begink, endk, [headscope, new], endk)
 
 def createAST(method, ssagraph, seroot, namegen):

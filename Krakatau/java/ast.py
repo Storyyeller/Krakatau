@@ -73,12 +73,14 @@ class ThrowStatement(JavaStatement):
 
 class JumpStatement(JavaStatement):
     def __init__(self, target, isFront):
-        keyword = 'continue' if isFront else 'break'
-        label = (' ' + target.getLabel()) if target is not None else ''
-        self.str = keyword + label + ';'
+        self.label = target.getLabel() if target is not None else None
+        self.keyword = 'continue' if isFront else 'break'
 
-    def print_(self, printer, print_): return self.str
-    def tree(self, printer, tree): return ['jumpS', self.str]
+    def print_(self, printer, print_):
+        label = ' ' + self.label if self.label is not None else ''
+        return self.keyword + label + ';'
+
+    def tree(self, printer, tree): return ['jumpS', self.keyword, self.label]
 
 #Compound Statements
 sbcount = itertools.count()
@@ -124,7 +126,7 @@ class TryStatement(LazyLabelBase):
 
     def tree(self, printer, tree):
         parts = [map(tree, t) for t in self.pairs]
-        return ['tryS', self.getLabelPrefix(), tree(self.tryb), parts]
+        return ['tryS', self.label, tree(self.tryb), parts]
 
 class IfStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, scopes):
@@ -153,7 +155,7 @@ class IfStatement(LazyLabelBase):
         parts = [print_(x) for x in parts]
         return '{}if({})\n{}\nelse{sep}{}'.format(lbl, *parts, sep=sep)
 
-    def tree(self, printer, tree): return ['ifS', self.getLabelPrefix(), tree(self.expr), map(tree, self.scopes)]
+    def tree(self, printer, tree): return ['ifS', self.label, tree(self.expr), map(tree, self.scopes)]
 
 class SwitchStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, pairs):
@@ -185,7 +187,7 @@ class SwitchStatement(LazyLabelBase):
         parts = []
         for keys, scope in self.pairs:
             parts.append([[None] if keys is None else sorted(keys), tree(scope)])
-        return ['switchS', self.getLabelPrefix(), tree(self.expr), parts]
+        return ['switchS', self.label, tree(self.expr), parts]
 
 class WhileStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, parts):
@@ -200,7 +202,7 @@ class WhileStatement(LazyLabelBase):
         parts = print_(self.expr), print_(self.parts[0])
         return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
 
-    def tree(self, printer, tree): return ['whileS', self.getLabelPrefix(), tree(self.expr), tree(self.parts[0])]
+    def tree(self, printer, tree): return ['whileS', self.label, tree(self.expr), tree(self.parts[0])]
 
 class StatementBlock(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, statements, jumpk, labelable=True):
@@ -230,7 +232,7 @@ class StatementBlock(LazyLabelBase):
         common = [x for x in zip(*blists) if len(set(x)) == 1]
         return common[-1][0]
 
-    def tree(self, printer, tree): return ['blockS', self.getLabelPrefix(), map(tree, self.statements)]
+    def tree(self, printer, tree): return ['blockS', self.label, map(tree, self.statements)]
 
 #Temporary hack
 class StringStatement(JavaStatement):

@@ -124,7 +124,7 @@ class SSA_Graph(object):
             if block in removed:
                 continue
             while 1:
-                successors = set(block.jump.getSuccessorPairs()) #Warning - make sure not to merge if we have a single successor with a double edge
+                successors = block.jump.getSuccessorPairs() #Warning - make sure not to merge if we have a single successor with a double edge
                 if len(successors) != 1:
                     break
                 #Even if an exception thrown has single target, don't merge because we need a way to actually access the thrown exception
@@ -137,22 +137,20 @@ class SSA_Graph(object):
                     break
 
                 #We've decided to merge the blocks, now do it
-                block.unaryConstraints.update(child.unaryConstraints)
+                uCs = block.unaryConstraints
+                uCs.update(child.unaryConstraints)
                 for phi in child.phis:
                     assert(len(phi.dict) == 1)
                     old, new = phi.rval, phi.get((block, jtype))
                     new = replace.get(new,new)
                     replace[old] = new
-
-                    uc1 = block.unaryConstraints[old]
-                    uc2 = block.unaryConstraints[new]
-                    block.unaryConstraints[new] = constraints.join(uc1, uc2)
-                    del block.unaryConstraints[old]
+                    uCs[new] = constraints.join(uCs[old], uCs[new])
+                    del uCs[old]
 
                 block.lines += child.lines
                 block.jump = child.jump
                 #remember to update phis of blocks referring to old child!
-                for successor,t in block.jump.getSuccessorPairs():
+                for successor, t in block.jump.getSuccessorPairs():
                     successor.replacePredPair((child,t), (block,t))
                 removed.add(child)
         self.blocks = [b for b in self.blocks if b not in removed]

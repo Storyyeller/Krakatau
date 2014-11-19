@@ -491,7 +491,7 @@ class FieldAccess(JavaExpression):
         else:
             trip = self.op.target, self.op.name, self.op.desc
         left = tree(self.params[0]) if self.printLeft else None
-        return [self.__class__.__name__, trip, left]
+        return [self.__class__.__name__, trip, left, isinstance(self.params[0], TypeName)]
 
     def addParens_sub(self):
         p0 = self.params[0]

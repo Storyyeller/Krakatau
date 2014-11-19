@@ -2,7 +2,9 @@ import itertools, math
 
 from ..ssa import objtypes
 from .stringescape import escapeString
-# from ..ssa.constraints import ValueType
+
+# Explicitly cast parameters to the desired type in order to avoid potential issues with overloaded methods
+ALWAYS_CAST_PARAMS = 1
 
 class VariableDeclarator(object):
     def __init__(self, typename, identifier): self.typename = typename; self.local = identifier
@@ -461,7 +463,7 @@ class ClassInstanceCreation(JavaExpression):
     def addCasts_sub(self, env):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
-            if expr.dtype != tt:
+            if expr.dtype != tt and (ALWAYS_CAST_PARAMS or not isJavaAssignable(env, expr.dtype, tt)):
                 expr = makeCastExpr(tt, expr, fixEnv=env)
             newparams.append(expr)
         self.params = newparams
@@ -619,7 +621,7 @@ class MethodInvocation(JavaExpression):
     def addCasts_sub(self, env):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
-            if expr.dtype != tt:
+            if expr.dtype != tt and (ALWAYS_CAST_PARAMS or not isJavaAssignable(env, expr.dtype, tt)):
                 expr = makeCastExpr(tt, expr, fixEnv=env)
             newparams.append(expr)
         self.params = newparams

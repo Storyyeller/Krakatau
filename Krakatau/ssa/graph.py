@@ -278,6 +278,38 @@ class SSA_Graph(object):
         self.condenseBlocks()
         self._conscheck()
 
+    def simplifyThrows(self):
+        # Try to turn throws into gotos where possible. This primarily helps with certain patterns of try-with-resources
+        # To do this, the exception must be known to be non null and there must be only one target that can catch it
+        # As a heuristic, we also restrict it to cases where every predecessor of the target can be converted
+        candidates = collections.defaultdict(list)
+        for block in self.blocks:
+            if not isinstance(block.jump, ssa_jumps.OnException) or len(block.jump.getSuccessorPairs()) != 1:
+                continue
+            if not block.lines or not isinstance(block.lines[-1], ssa_ops.Throw):
+                continue
+            if block.unaryConstraints[block.lines[-1].params[0]].null:
+                continue
+            candidates[block.jump.getExceptSuccessors()[0]].append(block)
+
+        for child in self.blocks:
+            if len(candidates[child]) < len(child.predecessors):
+                continue
+
+            for parent in candidates[child]:
+                throw_op = parent.lines[-1]
+                var1 = throw_op.params[0]
+                var2 = throw_op.outException
+                assert(parent.jump.params[0] == var2)
+
+                for phi in child.phis:
+                    phi.replaceVars({var2: var1})
+                child.replacePredPair((parent, True), (parent, False))
+
+                del parent.unaryConstraints[var2]
+                parent.lines.pop()
+                parent.jump = ssa_jumps.Goto(self, child)
+
     # Subprocedure stuff #####################################################
     def _copyBlock(self, block):
         b = BasicBlock(next(self.block_numberer))

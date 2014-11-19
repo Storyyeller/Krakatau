@@ -49,6 +49,7 @@ def makeGraph(m):
     s.constraintPropagation()
     s.disconnectConstantVariables()
     s.simplifyJumps()
+    s.simplifyThrows()
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
     # print _stats(s)

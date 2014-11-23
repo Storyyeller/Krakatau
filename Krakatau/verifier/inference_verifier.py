@@ -130,7 +130,7 @@ class InstructionNode(object):
     _flag_vals = {1<<0:'NO_RETURN', 1<<1:'NEED_CONSTRUCTOR',
         1<<2:'NOT_CONSTRUCTED'}
 
-    def __init__(self, code, offsetList, key):
+    def __init__(self, code, offsetToIndex, indexToOffset, key):
         self.key = key
         assert(self.key is not None) #if it is this will cause problems with origin tracking
 
@@ -143,7 +143,10 @@ class InstructionNode(object):
         self.op = self.instruction[0]
 
         self.visited, self.changed = False, False
-        self.offsetList = offsetList #store for usage calculating JSRs and the like
+        #store for usage calculating JSRs, finding successor instructions and the like
+        self.offsetToIndex = offsetToIndex
+        self.indexToOffset = indexToOffset
+
         self._verifyOpcodeOperands()
         self._precomputeValues()
 
@@ -156,7 +159,7 @@ class InstructionNode(object):
 
     def _verifyOpcodeOperands(self):
         def isTargetLegal(addr):
-            return addr is not None and addr in self.offsetList
+            return addr is not None and addr in self.offsetToIndex
         def verifyCPType(ind, types):
             if ind < 0 or ind >= self.cpool.size():
                 self.error('Invalid constant pool index {}', ind)
@@ -273,8 +276,8 @@ class InstructionNode(object):
 
     def _precomputeValues(self):
         #local_tag, local_ind, parsed_desc, successors
-        off_i = self.offsetList.index(self.key)
-        self.next_instruction = self.offsetList[off_i+1] #None if end of code
+        off_i = self.offsetToIndex[self.key]
+        self.next_instruction = self.indexToOffset[off_i+1] #None if end of code
 
         #cache these, since they're not state dependent  and don't produce errors anyway
         self.before, self.after = getSpecificStackCode(self.code, self.instruction)
@@ -694,8 +697,8 @@ class InstructionNode(object):
 
         if self.op == opnames.RET and not isException:
             #Get the instruction before other
-            off_i = self.offsetList.index(other.key)
-            jsrnode = iNodes[self.offsetList[off_i-1]]
+            off_i = self.offsetToIndex[other.key]
+            jsrnode = iNodes[self.indexToOffset[off_i-1]]
 
             if jsrnode.returnedFrom is not None and jsrnode.returnedFrom != self.key:
                 jsrnode.error('Multiple returns to jsr')
@@ -848,8 +851,10 @@ def verifyBytecode(code):
     args = tuple(args)
     assert(len(args) <= code.locals)
 
-    offsets = tuple(sorted(code.bytecode.keys())) + (None,) #sentinel at end as invalid index
-    iNodes = [InstructionNode(code, offsets, key) for key in offsets[:-1]]
+    offsets = sorted(code.bytecode.keys())
+    offset_rmap = {v:i for i,v in enumerate(offsets)}
+    offsets.append(None) # Sentinel for end of code
+    iNodes = [InstructionNode(code, offset_rmap, offsets, key) for key in offsets[:-1]]
     iNodeLookup = {n.key:n for n in iNodes}
 
     keys = frozenset(iNodeLookup)

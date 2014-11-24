@@ -84,13 +84,14 @@ class ClassFile(object):
         self.attributes_raw = get_attributes_raw(bytestream, ic_indices)
         assert(bytestream.size() == 0)
 
-        self.flags = set(name for name,mask in ClassFile.flagVals.items() if (mask & flags))
+        self.flags = frozenset(name for name,mask in ClassFile.flagVals.items() if (mask & flags))
         self.cpool = constant_pool.ConstPool(const_pool_raw)
         self.name = self.cpool.getArgsCheck('Class', self.this)
         self.elementsLoaded = False
 
         self.env = self.supername = self.hierarchy = None
         self.fields = self.methods = self.attributes = None
+        self.all_interfaces = None
 
     def loadSupers(self, env, name, subclasses):
         self.env = env
@@ -98,15 +99,23 @@ class ClassFile(object):
 
         if self.super:
             self.supername = self.cpool.getArgsCheck('Class', self.super)
-            # if superclass is cached, we can assume it is free from circular inheritance
-            # since it must have been loaded successfully on a previous run
-            if not self.env.isCached(self.supername):
-                self.env.getClass(self.supername, subclasses + (name,), partial=True)
-            self.hierarchy = self.env.getSupers(self.supername) + (self.name,)
+            superclass = self.env.getClass(self.supername, subclasses + (name,), partial=True)
+            self.hierarchy = superclass.hierarchy + (self.name,)
+
+            # Now get all interfaces for this class (recursively)
+            interfaces = self.env.getInterfaces(self.supername)
+            if 'INTERFACE' in self.flags:
+                interfaces |= {self.name}
+            for index in self.interfaces_raw:
+                iname = self.cpool.getArgsCheck('Class', index)
+                if iname not in interfaces:
+                    interfaces |= self.env.getInterfaces(iname)
+            self.all_interfaces = interfaces
         else:
             assert(name == 'java/lang/Object')
             self.supername = None
             self.hierarchy = (self.name,)
+            self.all_interfaces = frozenset()
 
     def loadElements(self, keepRaw=False):
         if self.elementsLoaded:

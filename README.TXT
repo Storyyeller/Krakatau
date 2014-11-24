@@ -54,11 +54,6 @@ that are difficult or impossible to decompile at all thanks to the limitations
 of the Java language. In most cases, Krakatau will try to at least produce
 readable pseudocode, but sometimes it may just throw an exception.
 
-Note: decompilation produces a file called "cache.txt" in the current
-    directory. This stores information about the standard library so it
-    doesn't have to be loaded every time. However, if you change the library,
-    you should delete the cache.
-
 Warning: Output on Windows uses UNC-style paths, which means that depending on
     the input class name, it may create files which are difficult or impossible
     to access through Windows Explorer or other non-UNC aware tools.

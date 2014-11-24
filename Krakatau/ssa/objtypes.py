@@ -3,23 +3,37 @@ from ..error import ClassLoaderError
 
 #types are represented by classname, dimension
 #primative types are .int, etc since these cannot be valid classnames since periods are forbidden
-NullTT = '.null', 0
-ObjectTT = 'java/lang/Object', 0
-StringTT = 'java/lang/String', 0
-ThrowableTT = 'java/lang/Throwable', 0
-ClassTT = 'java/lang/Class', 0
+def TypeTT(baset, dim):
+    assert(dim >= 0)
+    return baset, dim
 
-BoolTT = '.boolean', 0
-IntTT = '.int', 0
-LongTT = '.long', 0
-FloatTT = '.float', 0
-DoubleTT = '.double', 0
+NullTT = TypeTT('.null', 0)
+ObjectTT = TypeTT('java/lang/Object', 0)
+StringTT = TypeTT('java/lang/String', 0)
+ThrowableTT = TypeTT('java/lang/Throwable', 0)
+ClassTT = TypeTT('java/lang/Class', 0)
 
-ByteTT = '.byte', 0
-CharTT = '.char', 0
-ShortTT = '.short', 0
+BoolTT = TypeTT('.boolean', 0)
+IntTT = TypeTT('.int', 0)
+LongTT = TypeTT('.long', 0)
+FloatTT = TypeTT('.float', 0)
+DoubleTT = TypeTT('.double', 0)
+
+ByteTT = TypeTT('.byte', 0)
+CharTT = TypeTT('.char', 0)
+ShortTT = TypeTT('.short', 0)
 
 BExpr = '.bexpr' #bool or byte
+
+def baset(tt): return tt[0]
+def dim(tt): return tt[1]
+def withDimInc(tt, inc): return TypeTT(baset(tt), dim(tt)+inc)
+def withNoDim(tt): return TypeTT(baset(tt), 0)
+
+def className(tt): return baset(tt) if not baset(tt).startswith('.') else None
+def primName(tt): return baset(tt)[1:] if baset(tt).startswith('.') else None
+
+###############################################################################
 
 def isSubtype(env, x, y):
     if x == y or y == ObjectTT or x == NullTT:

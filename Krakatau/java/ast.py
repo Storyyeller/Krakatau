@@ -244,29 +244,29 @@ class StringStatement(JavaStatement):
     def tree(self, printer, tree): return ['stringS', self.s]
 
 #############################################################################################################################################
-_assignable_sprims = '.byte','.short','.char'
-_assignable_lprims = '.int','.long','.float','.double'
+# Careful, order is important here!
+_assignable_sprims = objtypes.ByteTT, objtypes.ShortTT, objtypes.CharTT
+_assignable_lprims = objtypes.IntTT, objtypes.LongTT, objtypes.FloatTT, objtypes.DoubleTT
 
-def isObject(tt):
-    return tt == objtypes.NullTT or tt[1] > 0 or not tt[0][0].startswith('.')
-
-def isPrimativeAssignable(fromt, to):
-    x, y = fromt[0], to[0]
-    assert(fromt[1] == to[1] == 0)
+def isPrimativeAssignable(x, y): #x = fromt, y = to
+    assert(objtypes.dim(x) == objtypes.dim(y) == 0)
 
     if x == y or (x in _assignable_sprims and y in _assignable_lprims):
         return True
     elif (x in _assignable_lprims and y in _assignable_lprims):
         return _assignable_lprims.index(x) <= _assignable_lprims.index(y)
     else:
-        return x == '.byte' and y == '.short'
+        return (x, y) == (objtypes.ByteTT, objtypes.ShortTT)
+
+def isReferenceType(tt):
+    return tt == objtypes.NullTT or objtypes.dim(tt) or (objtypes.className(tt) is not None)
 
 def isJavaAssignable(env, fromt, to):
     if fromt is None or to is None: #this should never happen, except during debugging
         return True
 
-    if isObject(to):
-        assert(isObject(fromt))
+    if isReferenceType(to):
+        assert(isReferenceType(fromt))
         #todo - make it check interfaces too
         return objtypes.isSubtype(env, fromt, to)
     else: #allowed if numeric conversion is widening
@@ -359,10 +359,7 @@ class ArrayAccess(JavaExpression):
         self.fmt = '{}[{}]'
 
     @property
-    def dtype(self):
-        base, dim = self.params[0].dtype
-        assert(dim>0)
-        return base, dim-1
+    def dtype(self): return objtypes.withDimInc(self.params[0].dtype, -1)
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -371,8 +368,8 @@ class ArrayAccess(JavaExpression):
 
 class ArrayCreation(JavaExpression):
     def __init__(self, tt, *sizeargs):
-        base, dim = tt
-        self.params = (TypeName((base,0)),) + sizeargs
+        dim = objtypes.dim(tt)
+        self.params = (TypeName(objtypes.withNoDim(tt)),) + sizeargs
         self.dtype = tt
         assert(dim >= len(sizeargs) > 0)
         self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(dim-len(sizeargs))
@@ -436,7 +433,7 @@ class Cast(JavaExpression):
         tt, expr = self.dtype, self.params[1]
         # "Impossible" casts are a compile error in Java.
         # This can be fixed with an intermediate cast to Object
-        if isObject(tt):
+        if isReferenceType(tt):
             if not isJavaAssignable(env, tt, expr.dtype):
                 if not isJavaAssignable(env, expr.dtype, tt):
                     expr = makeCastExpr(objtypes.ObjectTT, expr)
@@ -662,15 +659,15 @@ class TypeName(JavaExpression):
         self.tt = tt
 
     def print_(self, printer, print_):
-        name, dim = self.tt
-        if name[0] == '.': #primative type:
-            name = name[1:]
-        else:
+        name = objtypes.className(self.tt)
+        if name is not None:
             name = printer.className(name)
             name = escapeString(name.replace('/','.'))
-        s = name + '[]'*dim
-        if s.rpartition('.')[0] == 'java.lang':
-            s = s.rpartition('.')[2]
+            if name.rpartition('.')[0] == 'java.lang':
+                name = name.rpartition('.')[2]
+        else:
+            name = objtypes.primName(self.tt)
+        s = name + '[]'*objtypes.dim(self.tt)
         return s
 
     def tree(self, printer, tree): return self.tt

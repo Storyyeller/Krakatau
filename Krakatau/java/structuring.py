@@ -4,7 +4,7 @@ ddict = collections.defaultdict
 from .. import graph_util
 from . import graphproxy
 
-from ..ssa import ssa_jumps
+from ..ssa import ssa_jumps, objtypes
 from ..ssa.exceptionset import ExceptionSet
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 
@@ -273,7 +273,7 @@ def structureExceptions(nodes):
             del n.outvars[en]
 
             for tt in cset.getTopTTs():
-                top = ExceptionSet.fromTops(cset.env, tt[0])
+                top = ExceptionSet.fromTops(cset.env, objtypes.className(tt))
                 new = en.indirectEdges([])
                 new.predecessors.append(n)
                 n.successors.append(new)

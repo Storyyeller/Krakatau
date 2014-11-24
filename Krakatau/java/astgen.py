@@ -33,8 +33,8 @@ class VarInfo(object):
                 if var.type == ssa_types.SSA_OBJECT:
                     tt = uc.getSingleTType() #temp hack
                     if uc.types.isBoolOrByteArray():
-                        tt = objtypes.BExpr, tt[1]+1
-                        assert((objtypes.BoolTT[0], tt[1]) in uc.types.exact)
+                        tt = objtypes.TypeTT(objtypes.BExpr, objtypes.dim(tt)+1)
+                        # assert((objtypes.BoolTT[0], tt[1]) in uc.types.exact)
                 else:
                     tt = _ssaToTT[var.type]
                 self._tts[var] = tt
@@ -104,10 +104,7 @@ def _convertJExpr(op, getExpr, clsname):
     elif isinstance(op, ssa_ops.CheckCast):
         expr = ast.Cast(ast.TypeName(op.target_tt), params[0])
     elif isinstance(op, ssa_ops.Convert):
-        typecode = {ssa_types.SSA_INT:'.int', ssa_types.SSA_LONG:'.long', ssa_types.SSA_FLOAT:'.float',
-            ssa_types.SSA_DOUBLE:'.double'}[op.target]
-        tt = typecode, 0
-        expr = ast.makeCastExpr(tt, params[0])
+        expr = ast.makeCastExpr(_ssaToTT[op.target], params[0])
     elif isinstance(op, (ssa_ops.FCmp, ssa_ops.ICmp)):
         boolt = objtypes.BoolTT
         cn1, c0, c1 = ast.Literal.N_ONE, ast.Literal.ZERO, ast.Literal.ONE
@@ -123,7 +120,7 @@ def _convertJExpr(op, getExpr, clsname):
 
         if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
             printLeft = (op.target != clsname) #Don't print classname if it is a static field in current class
-            tt = op.target, 0 #Doesn't handle arrays, but they don't have any fields anyway
+            tt = objtypes.TypeTT(op.target, 0) #Doesn't handle arrays, but they don't have any fields anyway
             expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, op, printLeft=printLeft)
         else:
             expr = ast.FieldAccess(params[0], op.name, dtype, op)
@@ -142,7 +139,7 @@ def _convertJExpr(op, getExpr, clsname):
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
         target_tt = op.target_tt
 
-        if target_tt[1] and op.name == "clone": #In Java, T[].clone returns T[] rather than Object
+        if objtypes.dim(target_tt) and op.name == "clone": #In Java, T[].clone returns T[] rather than Object
             ret_type = target_tt
 
         if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
@@ -160,11 +157,9 @@ def _convertJExpr(op, getExpr, clsname):
     elif isinstance(op, ssa_ops.New):
         expr = ast.Dummy('//<unmerged new> {}', [ast.TypeName(op.tt)], isNew=True)
     elif isinstance(op, ssa_ops.NewArray):
-        base, dim = op.baset
-        expr = ast.ArrayCreation((base, dim+1), params[0])
+        expr = ast.ArrayCreation(op.tt, params[0])
     elif isinstance(op, ssa_ops.Truncate):
-        typecode = {(True,16):'.short', (False,16):'.char', (True,8):'.byte'}[op.signed, op.width]
-        tt = typecode, 0
+        tt = {(True,16): objtypes.ShortTT, (False,16): objtypes.CharTT, (True,8): objtypes.ByteTT}[op.signed, op.width]
         expr = ast.Cast(ast.TypeName(tt), params[0])
     if op.rval is not None and expr:
         expr = ast.Assignment(getExpr(op.rval), expr)

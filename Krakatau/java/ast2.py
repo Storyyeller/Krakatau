@@ -1,5 +1,6 @@
 from . import ast
 from .stringescape import escapeString as escape
+from ..ssa import objtypes
 
 class Comments(object):
     def __init__(self):
@@ -23,7 +24,7 @@ class MethodDef(object):
             self.isStaticInit, self.isConstructor = True, False
         elif name == '<init>':
             self.isStaticInit, self.isConstructor = False, True
-            self.clsname = ast.TypeName((class_.name, 0))
+            self.clsname = ast.TypeName(objtypes.TypeTT(class_.name, 0))
         else:
             self.isStaticInit, self.isConstructor = False, False
 
@@ -80,9 +81,9 @@ class ClassDef(object):
     def __init__(self, flags, isInterface, name, superc, interfaces, fields, methods):
         self.flagstr = flags + ' ' if flags else ''
         self.isInterface = isInterface
-        self.name = ast.TypeName((name,0))
-        self.super = ast.TypeName((superc,0)) if superc is not None else None
-        self.interfaces = [ast.TypeName((iname,0)) for iname in interfaces]
+        self.name = ast.TypeName(objtypes.TypeTT(name,0))
+        self.super = ast.TypeName(objtypes.TypeTT(superc,0)) if superc is not None else None
+        self.interfaces = [ast.TypeName(objtypes.TypeTT(iname,0)) for iname in interfaces]
         self.fields = fields
         self.methods = methods
         if superc == 'java/lang/Object':

@@ -248,6 +248,7 @@ class StringStatement(JavaStatement):
 _assignable_sprims = objtypes.ByteTT, objtypes.ShortTT, objtypes.CharTT
 _assignable_lprims = objtypes.IntTT, objtypes.LongTT, objtypes.FloatTT, objtypes.DoubleTT
 
+# Also used in boolize.py
 def isPrimativeAssignable(x, y): #x = fromt, y = to
     assert(objtypes.dim(x) == objtypes.dim(y) == 0)
 
@@ -676,7 +677,7 @@ class TypeName(JavaExpression):
 
 class CatchTypeNames(JavaExpression): #Used for caught exceptions, which can have multiple types specified
     def __init__(self, env, tts):
-        assert(tts and not any(zip(*tts)[1])) #at least one type, no array types
+        assert(tts and not any(objtypes.dim(tt) for tt in tts)) #at least one type, no array types
         self.tnames = map(TypeName, tts)
         self.dtype = objtypes.commonSupertype(env, tts)
 

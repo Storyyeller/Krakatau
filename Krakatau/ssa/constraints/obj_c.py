@@ -16,9 +16,9 @@ class TypeConstraint(ValueType):
         self.isBot = objtypes.ObjectTT in supers
 
         temp = self.supers | self.exact
-        assert(not temp or min(zip(*temp)[1]) >= 0)
         assert(objtypes.NullTT not in temp)
-        assert(not any(tt[0].startswith('.') for tt in supers))
+        assert(all(objtypes.isBaseTClass(tt) for tt in supers))
+        assert(all(objtypes.dim(tt) < 999 for tt in exact))
 
     @staticmethod
     def fromTops(*args):
@@ -34,8 +34,9 @@ class TypeConstraint(ValueType):
     def isBoolOrByteArray(self):
         if self.supers or len(self.exact) != 2:
             return False
-        bases, dims = zip(*self.exact)
-        return dims[0] == dims[1] and sorted(bases) == [objtypes.BoolTT[0], objtypes.ByteTT[0]]
+        tt1, tt2 = self.exact
+        bases = objtypes.baset(tt1), objtypes.baset(tt2)
+        return objtypes.dim(tt1) == objtypes.dim(tt2) and sorted(bases) == [objtypes.baset(objtypes.BoolTT), objtypes.baset(objtypes.ByteTT)]
 
     @staticmethod
     def reduce(env, supers, exact):

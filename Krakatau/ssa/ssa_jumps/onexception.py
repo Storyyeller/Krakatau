@@ -1,5 +1,6 @@
 from .base import BaseJump
 from .goto import Goto
+from .. import objtypes
 from ..exceptionset import  CatchSetManager, ExceptionSet
 from ..constraints import ObjectConstraint
 
@@ -57,7 +58,7 @@ class OnException(BaseJump):
         if x is None:
             mask = ExceptionSet.EMPTY
         else:
-            mask = ExceptionSet(x.types.env, [(name,()) for name,dim in x.types.supers | x.types.exact])
+            mask = ExceptionSet(x.types.env, [(objtypes.className(tt),()) for tt in x.types.supers | x.types.exact])
         self.cs.newMask(mask)
         return self.reduceSuccessors([])
 
@@ -68,7 +69,8 @@ class OnException(BaseJump):
                     return None
                 t = x.types
                 top_tts = t.supers | t.exact
-                tops = [tt[0] for tt in top_tts]
+                tops = [objtypes.className(tt) for tt in top_tts]
+                assert(None not in tops)
                 if 'java/lang/Object' in tops:
                     tops = 'java/lang/Throwable',
                 mask = ExceptionSet.fromTops(t.env, *tops)
@@ -78,7 +80,7 @@ class OnException(BaseJump):
                     return None,
                 else:
                     ntops = zip(*eset.pairs)[0]
-                    return ObjectConstraint.fromTops(t.env, [(base,0) for base in ntops], [], nonnull=True),
+                    return ObjectConstraint.fromTops(t.env, [objtypes.TypeTT(base,0) for base in ntops], [], nonnull=True),
             return propagateConstraints
         else:
             #In fallthrough case, no exception so always return invalid

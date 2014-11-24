@@ -1,5 +1,5 @@
 from .base import BaseOp
-from .. import ssa_types
+from .. import ssa_types, excepttypes
 from ..constraints import IntConstraint, ObjectConstraint
 from . import bitwise_util
 
@@ -135,7 +135,7 @@ class IUshr(BaseOp):
         return IntConstraint.range(x.width, m1>>shift, m2>>shift), None, None
 
 #############################################################################################
-exec_tts = ('java/lang/ArithmeticException', 0),
+exec_tts = excepttypes.Arithmetic,
 class IDiv(BaseOp):
     def __init__(self, parent, args):
         super(IDiv, self).__init__(parent, args, makeException=True)

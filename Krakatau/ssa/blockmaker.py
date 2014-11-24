@@ -32,7 +32,7 @@ def parseArrOrClassName(desc):
         vtypes = parseFieldDescriptor(desc, unsynthesize=False)
         tt = objtypes.verifierToSynthetic(vtypes[0])
     else:
-        tt = desc, 0
+        tt = objtypes.TypeTT(desc, 0)
     return tt
 
 def _floatOrIntMath(fop, iop):
@@ -254,7 +254,7 @@ def _ldc(maker, input_, iNode):
     elif entry_type == 'Double':
         var = makeConstVar(maker.parent, SSA_DOUBLE, args[0])
     elif entry_type == 'Class':
-        tt = args[0], 0 #todo - make this handle arrays and primatives
+        tt = objtypes.TypeTT(args[0], 0) #todo - make this handle arrays and primatives
         var = makeConstVar(maker.parent, SSA_OBJECT, tt)
         var.decltype = objtypes.ClassTT
     #Todo - handle MethodTypes and MethodHandles?
@@ -279,7 +279,7 @@ def _multinewarray(maker, input_, iNode):
     op, index, dim = iNode.instruction
     name = maker.parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(name)
-    assert(tt[1] >= dim)
+    assert(objtypes.dim(tt) >= dim)
 
     line = ssa_ops.MultiNewArray(maker.parent, input_.stack[-dim:], tt, input_.monad)
     newstack = input_.stack[:-dim] + [line.rval]
@@ -466,7 +466,7 @@ def processArrayInfo(env, newarray_info, iNode, vals):
         if i.const is None or not 0 <= i.const < arrlen:
             return
         #array element type test to make sure we don't have potential array store exceptions
-        if '.' not in baset[0] and not objtypes.isSubtype(env, x.decltype, baset):
+        if objtypes.isBaseTClass(baset) and not objtypes.isSubtype(env, x.decltype, baset):
             return
         line.outException = None
 

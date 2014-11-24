@@ -1,13 +1,13 @@
 from .base import BaseOp
 from ..ssa_types import SSA_INT
 
-from .. import excepttypes
+from .. import excepttypes, objtypes
 from ..constraints import IntConstraint, FloatConstraint, ObjectConstraint, DUMMY
 
 def getElementTypes(env, tops):
-    types = [(base,dim-1) for base,dim in tops]
-    supers = [tt for tt in types if not tt[0].startswith('.')]
-    exact = [tt for tt in types if tt[0].startswith('.')]
+    types = [objtypes.withDimInc(tt, -1) for tt in tops]
+    supers = [tt for tt in types if objtypes.isBaseTClass(tt)]
+    exact = [tt for tt in types if not objtypes.isBaseTClass(tt)]
     return ObjectConstraint.fromTops(env, supers, exact)
 
 class ArrLoad(BaseOp):

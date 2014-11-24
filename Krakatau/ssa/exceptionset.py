@@ -54,7 +54,7 @@ class ExceptionSet(ValueType):
     def __init__(self, env, pairs): #assumes arguments are in reduced form
         self.env = env
         self.pairs = frozenset([(x,frozenset(y)) for x,y in pairs])
-        assert(not pairs or '.null' not in zip(*pairs)[0])
+
         #We allow env to be None for the empty set so we can construct empty sets easily
         #Any operation resulting in a nonempty set will get its env from the nonempty argument
         assert(self.empty() or self.env is not None)
@@ -76,9 +76,9 @@ class ExceptionSet(ValueType):
 
     def getSingleTType(self): #todo - update SSA printer
         #comSuper doesn't care about order so we can freely pass in nondeterministic order
-        return objtypes.commonSupertype(self.env, [(top,0) for (top,holes) in self.pairs])
+        return objtypes.commonSupertype(self.env, [objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
-    def getTopTTs(self): return sorted([(top,0) for (top,holes) in self.pairs])
+    def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
     def __sub__(self, other):
         assert(type(self) == type(other))

@@ -1,3 +1,4 @@
+from ..ssa import objtypes
 from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
 from . import ast
 
@@ -36,8 +37,9 @@ def visitStatementTree(scope, callback):
         if item.expr is not None:
             callback(item, item.expr)
 
-int_tags = frozenset(tt[0] for tt in [IntTT, ShortTT, CharTT, ByteTT, BoolTT])
-array_tags = frozenset([ByteTT[0], BoolTT[0], BExpr])
+
+int_tags = frozenset(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
+array_tags = frozenset(map(objtypes.baset, [ByteTT, BoolTT]) + [objtypes.BExpr])
 
 def boolizeVars(root, arg_vars):
     varlist = []
@@ -55,11 +57,11 @@ def boolizeVars(root, arg_vars):
             sets.union(False, visitExpr(expr.params[1]))
 
         if isinstance(expr, ast.Local):
-            tag, dim = expr.dtype
+            tag, dim = objtypes.baset(expr.dtype), objtypes.dim(expr.dtype)
             if (dim == 0 and tag in int_tags) or (dim > 0 and tag in array_tags):
                 # the only "unknown" vars are bexpr[] and ints. All else have fixed types
-                if forceExact or (tag != BExpr and tag != IntTT[0]):
-                    sets.union(tag == BoolTT[0], expr)
+                if forceExact or (tag != BExpr and tag != objtypes.baset(IntTT)):
+                    sets.union(tag == objtypes.baset(BoolTT), expr)
                 varlist.append(expr)
                 return sets.find(expr)
         elif isinstance(expr, ast.Literal):
@@ -70,14 +72,14 @@ def boolizeVars(root, arg_vars):
             return subs[0]
         elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
             return visitExpr(expr.params[0])
-        elif expr.dtype is not None and expr.dtype[0] != BExpr:
-            return expr.dtype[0] == BoolTT[0]
+        elif expr.dtype is not None and objtypes.baset(expr.dtype) != BExpr:
+            return expr.dtype[0] == objtypes.baset(BoolTT)
         return None
 
     def visitStatement(item, expr):
         root = visitExpr(expr)
         if isinstance(item, ast.ReturnStatement):
-            forced_val = (item.tt[0] == BoolTT[0])
+            forced_val = (objtypes.baset(item.tt) == objtypes.baset(BoolTT))
             sets.union(forced_val, root)
 
     for expr in arg_vars:
@@ -86,13 +88,13 @@ def boolizeVars(root, arg_vars):
 
     #Fix the propagated types
     for var in set(varlist):
-        tag, dim = var.dtype
+        tag, dim = objtypes.baset(var.dtype), objtypes.dim(var.dtype)
         assert(tag in int_tags or (dim>0 and tag == BExpr))
         #make everything bool which is not forced to int
         if sets.find(var) != False:
-            var.dtype = BoolTT[0], dim
+            var.dtype = objtypes.withDimInc(BoolTT, dim)
         elif dim > 0:
-            var.dtype = ByteTT[0], dim
+            var.dtype = objtypes.withDimInc(ByteTT, dim)
 
     #Fix everything else back up
     def fixExpr(item, expr):
@@ -101,7 +103,7 @@ def boolizeVars(root, arg_vars):
 
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
-            if left.dtype[0] in int_tags and left.dtype[1] == 0:
+            if objtypes.baset(left.dtype) in int_tags and objtypes.dim(left.dtype) == 0:
                 if not ast.isPrimativeAssignable(right.dtype, left.dtype):
                     expr.params = left, ast.makeCastExpr(left.dtype, right)
         elif isinstance(expr, ast.BinaryInfix):

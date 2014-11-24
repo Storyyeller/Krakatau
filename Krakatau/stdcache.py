@@ -1,3 +1,5 @@
+from .error import ClassLoaderError
+
 def shouldCache(name):
     return name.startswith('java/') or name.startswith('javax/')
 
@@ -30,20 +32,34 @@ class Cache(object):
 
     def isCached(self, name): return name in self.data
 
-    def superClasses(self, name):
+    def _getClass(self, name, superErrors):
+        try:
+            return self.env.getClass(name, partial=True)
+        except ClassLoaderError as e:
+            if not suppressErrors:
+                raise e
+            return None
+
+    def superClasses(self, name, suppressErrors):
         if name in self.data:
             return self.data[name][0]
 
-        class_ = self.env.getClass(name, partial=True)
+        class_ = self._getClass(name, suppressErrors)
+        if class_ is None:
+            return None
+
         if shouldCache(name):
             self._cache_info(class_)
         return class_.getSuperclassHierarchy()
 
-    def flags(self, name):
+    def flags(self, name, suppressErrors):
         if name in self.data:
             return self.data[name][1]
 
-        class_ = self.env.getClass(name, partial=True)
+        class_ = self._getClass(name, suppressErrors)
+        if class_ is None:
+            return None
+
         if shouldCache(name):
             self._cache_info(class_)
         return class_.flags

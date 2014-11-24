@@ -28,9 +28,9 @@ class Environment(object):
         return result
 
     def isSubclass(self, name1, name2):
-        return name1 == name2 or (name2 in self.cache.superClasses(name1))
-    def getFlags(self, name): return self.cache.flags(name)
-    def getSupers(self, name): return self.cache.superClasses(name)
+        return name1 == name2 or (name2 in self.cache.superClasses(name1, False))
+    def getFlags(self, name, suppressErrors=False): return self.cache.flags(name, suppressErrors)
+    def getSupers(self, name, suppressErrors=False): return self.cache.superClasses(name, suppressErrors)
     def isCached(self, name): return self.cache.isCached(name)
 
     def _searchForFile(self, name):

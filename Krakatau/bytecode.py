@@ -1,5 +1,5 @@
 from __future__ import division
-from Krakatau import opnames
+from . import opnames
 
 def parseInstructions(bytestream, isConstructor):
     data = bytestream

@@ -1,10 +1,9 @@
 import zipfile
 import os.path
 
-from Krakatau import binUnpacker
-from Krakatau import stdcache
-from Krakatau.classfile import ClassFile
-from Krakatau.error import ClassLoaderError
+from . import binUnpacker, stdcache
+from .classfile import ClassFile
+from .error import ClassLoaderError
 
 class Environment(object):
     def __init__(self):

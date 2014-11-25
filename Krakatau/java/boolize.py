@@ -1,3 +1,6 @@
+import collections
+
+from .. import graph_util
 from ..ssa import objtypes
 from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
 from . import ast
@@ -30,17 +33,20 @@ class UnionFind(object):
             self.d[root2] = root1
 
 ##############################################################
-def visitStatementTree(scope, callback):
+def visitStatementTree(scope, callback, catchcb=None):
     for item in scope.statements:
         for sub in item.getScopes():
             visitStatementTree(sub, callback=callback)
         if item.expr is not None:
             callback(item, item.expr)
-
+        if catchcb is not None and isinstance(item, ast.TryStatement):
+            for pair in item.pairs:
+                catchcb(pair[0])
 
 int_tags = frozenset(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
 array_tags = frozenset(map(objtypes.baset, [ByteTT, BoolTT]) + [objtypes.BExpr])
 
+# Fix int/bool and byte[]/bool[] vars
 def boolizeVars(root, arg_vars):
     varlist = []
     sets = UnionFind()
@@ -112,3 +118,60 @@ def boolizeVars(root, arg_vars):
             if expr.opstr in '== != & | ^' and a.dtype == BoolTT or b.dtype == BoolTT:
                 expr.params = [ast.makeCastExpr(BoolTT, v) for v in expr.params]
     visitStatementTree(root, callback=fixExpr)
+
+# Fix vars of interface/object type
+# TODO: do this properly
+def interfaceVars(env, root, arg_vars):
+    varlist = []
+    consts = {}
+    assigns = collections.defaultdict(list)
+
+    def isInterfaceVar(expr):
+        if not isinstance(expr, ast.Local) or not objtypes.isBaseTClass(expr.dtype):
+            return False
+        if objtypes.className(expr.dtype) == objtypes.className(objtypes.ObjectTT):
+            return True
+        return 'INTERFACE' in env.getFlags(objtypes.className(expr.dtype))
+
+    def updateConst(var, tt):
+        assert(tt == objtypes.NullTT or objtypes.isBaseTClass(tt))
+        varlist.append(var)
+        if var not in consts:
+            consts[var] = tt
+        else:
+            consts[var] = objtypes.commonSupertype(env, [consts[var], tt])
+
+    def visitStatement(item, expr):
+        if isinstance(expr, ast.Assignment) and objtypes.isBaseTClass(expr.dtype):
+            left, right = expr.params
+            if isInterfaceVar(left):
+                if isInterfaceVar(right):
+                    assigns[left].append(right)
+                    varlist.append(right)
+                    varlist.append(left)
+                else:
+                    updateConst(left, right.dtype)
+
+    def visitCatchDecl(decl):
+        updateConst(decl.local, decl.typename.dtype)
+
+    for expr in arg_vars:
+        if objtypes.isBaseTClass(expr.dtype):
+            updateConst(expr, expr.dtype)
+    visitStatementTree(root, callback=visitStatement, catchcb=visitCatchDecl)
+
+    # Now calculate actual types and fix
+    newtypes = {}
+
+    # visit variables in topological order. Doesn't handle case of loops, but this is a temporary hack anyway
+    order = graph_util.topologicalSort(varlist, lambda v:assigns[v])
+    for var in order:
+        assert(var not in newtypes)
+
+        tts = [newtypes.get(right, objtypes.ObjectTT) for right in assigns[var]]
+        if var in consts:
+            tts.append(consts[var])
+        newtypes[var] = newtype = objtypes.commonSupertype(env, tts)
+        if newtype != objtypes.ObjectTT and newtype != var.dtype:
+            assert(objtypes.baset(var.dtype) == objtypes.baset(objtypes.ObjectTT))
+            var.dtype = newtype

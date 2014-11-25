@@ -823,6 +823,7 @@ def generateAST(method, graph, forbidden_identifiers):
         assert(_generateJumps(ast_root, set(), dryRun=True) is None)
         _preorder(ast_root, _fixObjectCreations)
         boolize.boolizeVars(ast_root, argsources)
+        boolize.interfaceVars(env, ast_root, argsources)
         _simplifyBlocks(ast_root)
         assert(_generateJumps(ast_root, set(), dryRun=True) is None)
 

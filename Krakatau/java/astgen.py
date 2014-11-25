@@ -264,7 +264,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         declt = ast.CatchTypeNames(info.env, current.toptts)
 
         if current.catchvar is None: #exception is ignored and hence not referred to by the graph, so we need to make our own
-            catchvar = info.customVar(declt, 'ignoredException')
+            catchvar = info.customVar(declt.dtype, 'ignoredException')
         else:
             catchvar = info.var(catchnode, current.catchvar)
         decl = ast.VariableDeclarator(declt, catchvar)

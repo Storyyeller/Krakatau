@@ -345,7 +345,7 @@ class JavaExpression(object):
     def isLocalAssign(self): return isinstance(self, Assignment) and isinstance(self.params[0], Local)
 
     def __repr__(self):
-        return type(self).__name__.rpartition('.')[-1] + ' ' + print_(self)
+        return type(self).__name__.rpartition('.')[-1] + ' ' + self.print_(None, None)
     __str__ = __repr__
 
 class ArrayAccess(JavaExpression):

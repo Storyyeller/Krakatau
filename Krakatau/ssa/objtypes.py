@@ -107,7 +107,7 @@ def declTypeToActual(env, decltype):
     #Verifier treats bool[]s and byte[]s as interchangeable, so it could really be either
     if newdim and (name == baset(ByteTT) or name == baset(BoolTT)):
         return [], [withDimInc(ByteTT, newdim), withDimInc(BoolTT, newdim)]
-    elif name[0] == '.': #primative types can't be subclassed anyway
+    elif not isBaseTClass(decltype): #primative types can't be subclassed anyway
         return [], [decltype]
 
     flags = env.getFlags(name, suppressErrors=True)

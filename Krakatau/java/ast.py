@@ -353,7 +353,7 @@ class ArrayAccess(JavaExpression):
         if params[0].dtype == objtypes.NullTT:
             #Unfortunately, Java doesn't really support array access on null constants
             #So we'll just cast it to Object[] as a hack
-            param = makeCastExpr(('java/lang/Object',1), params[0])
+            param = makeCastExpr(objtypes.withDimInc(objtypes.ObjectTT, 1), params[0])
             params = param, params[1]
 
         self.params = params

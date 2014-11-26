@@ -369,11 +369,13 @@ class ArrayAccess(JavaExpression):
 
 class ArrayCreation(JavaExpression):
     def __init__(self, tt, *sizeargs):
-        dim = objtypes.dim(tt)
+        self.dim = objtypes.dim(tt)
         self.params = (TypeName(objtypes.withNoDim(tt)),) + sizeargs
         self.dtype = tt
-        assert(dim >= len(sizeargs) > 0)
-        self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(dim-len(sizeargs))
+        assert(self.dim >= len(sizeargs) > 0)
+        self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(self.dim-len(sizeargs))
+
+    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.dim]
 
 class Assignment(JavaExpression):
     precedence = 21
@@ -491,7 +493,7 @@ class FieldAccess(JavaExpression):
         else:
             trip = self.op.target, self.op.name, self.op.desc
         left = tree(self.params[0]) if self.printLeft else None
-        return [self.__class__.__name__, trip, left, isinstance(self.params[0], TypeName)]
+        return [self.__class__.__name__, trip, left]
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -671,7 +673,7 @@ class TypeName(JavaExpression):
         s = name + '[]'*objtypes.dim(self.tt)
         return s
 
-    def tree(self, printer, tree): return self.tt
+    def tree(self, printer, tree): return [self.__class__.__name__, self.tt]
 
     def complexity(self): return -1 #exprs which have this as a param won't be bumped up to 1 uncessarily
 

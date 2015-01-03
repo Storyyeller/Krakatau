@@ -134,7 +134,6 @@ def interfaceVars(env, root, arg_vars):
         return 'INTERFACE' in env.getFlags(objtypes.className(expr.dtype))
 
     def updateConst(var, tt):
-        assert(tt == objtypes.NullTT or objtypes.isBaseTClass(tt))
         varlist.append(var)
         if var not in consts:
             consts[var] = tt

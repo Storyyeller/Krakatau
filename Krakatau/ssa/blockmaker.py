@@ -603,7 +603,8 @@ class BlockMaker(object):
         instr = iNode.instruction
 
         # internal variables won't have any preset type info associated, so we should add in the info from the verifier
-        assert(len(inslots.stack) == len(iNode.stack) and len(inslots.locals) == len(iNode.locals))
+        assert(len(inslots.stack) == len(iNode.stack) and len(inslots.locals) >= len(iNode.locals))
+        assert(all(x is None for x in inslots.locals[len(iNode.locals):]))
         for ivar, vt in zip(inslots.stack + inslots.locals, iNode.stack + iNode.locals):
             if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
                 parent.setObjVarData(ivar, vt, initMap)

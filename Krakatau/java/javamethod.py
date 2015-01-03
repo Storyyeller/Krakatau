@@ -321,6 +321,7 @@ def _simplifyBlocks(scope):
         newitems += reversed(vals)
     scope.statements = newitems[::-1]
 
+
 _op2bits = {'==':2, '!=':13, '<':1, '<=':3, '>':4, '>=':6}
 _bit2ops_float = {v:k for k,v in _op2bits.items()}
 _bit2ops = {(v & 7):k for k,v in _op2bits.items()}
@@ -712,7 +713,7 @@ def _fallsThrough(scope, usedBreakTargets):
     if not scope.statements:
         return True
     last = scope.statements[-1]
-    if isinstance(last, ( ast.JumpStatement, ast.ReturnStatement, ast.ThrowStatement)):
+    if isinstance(last, (ast.JumpStatement, ast.ReturnStatement, ast.ThrowStatement)):
         return False
     elif not last.getScopes():
         return True
@@ -725,6 +726,8 @@ def _fallsThrough(scope, usedBreakTargets):
     elif isinstance(last, ast.SwitchStatement):
         return not last.hasDefault() or _fallsThrough(last.getScopes[-1], usedBreakTargets)
     else:
+        if isinstance(last, ast.IfStatement) and len(last.getScopes()) < 2:
+            return True
         return any(_fallsThrough(sub, usedBreakTargets) for sub in last.getScopes())
 
 def _chooseJump(choices, breakPair, continuePair):

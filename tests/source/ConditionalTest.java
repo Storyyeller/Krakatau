@@ -8,6 +8,13 @@ public class ConditionalTest{
 		test(false);
 		test((s = -42));
 		test(f = f);
+
+		testLabels(0, 0);
+		testLabels(0, 2);
+		testLabels(2, 2);
+		testLabels(2, 3);
+		testLabels(3, 3);
+		testLabels(1, 1);
 	}
 
 	static void test(boolean b) {
@@ -50,5 +57,55 @@ public class ConditionalTest{
 		System.out.println(j - 0x1p-51);
 		System.out.println(j - 0x1p-52);
 	}
+
+	static void testLabels(int arg1, int arg2) {
+		System.out.print("x0");
+		boolean b;
+        label5: {
+            label2: {
+                label0: {
+                    label1: {
+                        label3: {
+                            label4: {
+                                if (arg1 >= 2)
+                                {
+                                    break label4;
+                                }
+                                if (foo(arg2, 2))
+                                {
+                                    break label3;
+                                }
+                                {
+                                    break label2;
+                                }
+                            }
+                            if (foo(arg2 & 1, 1))
+                            {
+                                break label1;
+                            }
+                            if (foo(arg1 & 1, 1))
+                            {
+                                break label0;
+                            }
+                        }
+                        b = false;
+                        break label5;
+                    }
+                    System.out.print("x1");
+                    b = false;
+                    break label5;
+                }
+                System.out.print("x2");
+                b = true;
+                break label5;
+            }
+            System.out.print("x3");
+            b = true;
+        }
+        System.out.print("x4");
+        System.out.println(b);
+	}
+
+	static boolean foo(int x, int y) {return x < y;}
 
 }\u001a

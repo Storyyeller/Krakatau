@@ -732,9 +732,9 @@ class InstructionNode(object):
             #it is important to replicate this because it can affect whether a class verifies or not
             #because an existing INVALID on the stack passes isAssignable but throws an error when merged
             #this can happpen if there is a previous new instruction followed by a jsr
-            if any(not isAssignable(self.env, new, old) for new,old in zip(newstack, oldstack)):
+            if any(not isAssignable(self.env, new, old) for new, old in zip(newstack, oldstack)):
                 other.changed = True
-                other.stack = tuple(mergeTypes(self.env, new, old) for new,old in zip(newstack, oldstack))
+                other.stack = tuple(mergeTypes(self.env, new, old) for new, old in zip(newstack, oldstack))
                 if T_INVALID in other.stack:
                     other.error('Incompatible types in merged stack')
 
@@ -753,7 +753,7 @@ class InstructionNode(object):
 
             if okcount < len(other.locals):
                 merged = list(other.locals[:okcount])
-                merged += [mergeTypes(self.env, new, old) for new,old in zipped[okcount:]]
+                merged += [mergeTypes(self.env, new, old) for new, old in zipped[okcount:]]
                 while merged and merged[-1] == T_INVALID:
                     merged.pop()
                 other.locals = tuple(merged)

@@ -189,15 +189,29 @@ def _pruneIfElse_cb(item):
         if not fblock.statements and fblock.doesFallthrough():
             item.scopes = tblock,
 
-    # if(A) {throw/return ... } else {B} -> if(A) {throw/return ...} {B}
+    # if(A) {B throw/return ... } else {C} -> if(A) {B throw/return ...} {C}
     if len(item.scopes) > 1:
-        if len(fblock.statements) <= 1:
+        # How much we want the block to be first, or (3, 0) if it can't be simplified
+        def priority(block):
+            # If an empty block survives to this point, it must end in a break so we can simplify in this case too
+            if not block.statements:
+                return 2, 0
+            # If any complex statements, there might be a labeled break, so it's not safe
+            if any(stmt.getScopes() for stmt in block.statements):
+                return 3, 0
+            # prefer if(...) {throw...} return... to if(...) {return...} throw...
+            if isinstance(block.statements[-1], ast.ThrowStatement):
+                return 0, len(block.statements)
+            elif isinstance(block.statements[-1], ast.ReturnStatement):
+                return 1, len(block.statements)
+            return 3, 0
+
+        if priority(fblock) < priority(tblock):
             item.expr = reverseBoolExpr(item.expr)
             tblock, fblock = item.scopes = fblock, tblock
 
-        tbs = tblock.statements
-        if not tbs or len(tbs) == 1 and isinstance(tbs[-1], (ast.ReturnStatement, ast.ThrowStatement)):
-            assert(tbs or not tblock.doesFallthrough())
+        if priority(tblock) < (3, 0):
+            assert(tblock.statements or not tblock.doesFallthrough())
             item.scopes = tblock,
             item.breakKey = fblock.continueKey
             fblock.labelable = True

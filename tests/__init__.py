@@ -10,6 +10,7 @@ registry = {
                     ['95', ' ', 'x', 'x'], ['Hello, Word!']),
     'DoubleEdge': ([], ['x']),
     'DuplicateInit': ([], ['5', '-7'], ['x', 'x', 'x']),
+    'ExceptionHandlers': tuple([str(x)] for x in range(-1, 12)),
     'floattest': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),
     'OddsAndEnds': ([], ['x'], ['42'], ['4'], ['-2'], ['-0x567'], ['-5678']),

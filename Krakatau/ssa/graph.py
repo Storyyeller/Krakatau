@@ -466,6 +466,47 @@ class SSA_Graph(object):
             self._inlineSubProc(proc)
             self._conscheck()
     ##########################################################################
+    def splitDualInedges(self):
+        # Split any blocks that have both normal and exceptional in edges
+        assert(not self.procs)
+        for block in self.blocks[:]:
+            if block is self.entryBlock:
+                continue
+            types = set(zip(*block.predecessors)[1])
+            if len(types) <= 1:
+                continue
+            assert(not isinstance(block.jump, (ssa_jumps.Return, ssa_jumps.Rethrow)))
+
+            new = self._copyBlock(block)
+            print 'Splitting', block, '->', new
+            # first fix up CFG edges
+            badpreds = [t for t in block.predecessors if t[1]]
+            new.predecessors = badpreds
+            for t in badpreds:
+                block.predecessors.remove(t)
+
+            for pred, _ in badpreds:
+                assert(isinstance(pred.jump, ssa_jumps.OnException))
+                pred.jump.replaceExceptTarget(block, new)
+
+            new.jump = ssa_jumps.Goto(self, block)
+            block.predecessors.append((new, False))
+
+            # fix up variables
+            new.phis = []
+            new.unaryConstraints = {}
+            for phi in block.phis:
+                newrval = self._copyVar(phi.rval)
+                new.unaryConstraints[newrval] = block.unaryConstraints[phi.rval]
+                newphi = ssa_ops.Phi(new, newrval)
+                new.phis.append(newphi)
+
+                for t in badpreds:
+                    arg = phi.get(t)
+                    phi.delete(t)
+                    newphi.add(t, arg)
+                phi.add((new, False), newrval)
+
     # Functions called by children ###########################################
     #assign variable names for debugging
     varnum = collections.defaultdict(itertools.count)

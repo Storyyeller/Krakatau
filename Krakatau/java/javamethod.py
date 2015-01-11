@@ -821,6 +821,7 @@ def generateAST(method, graph, forbidden_identifiers):
     tts = objtypes.verifierToSynthetic_seq(inputTypes)
 
     if graph is not None:
+        graph.splitDualInedges()
         entryNode, nodes = graphproxy.createGraphProxy(graph)
         if not method.static:
             entryNode.invars[0].name = 'this'

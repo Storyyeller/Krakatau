@@ -114,6 +114,7 @@ def createGraphProxy(ssagraph):
 
     lookup = {}
     for n in nodes:
+        assert(len(intypes[n.bkey]) != 2) #should have been handled by graph.splitDualInedges()
         if len(intypes[n.bkey]) == 2: #both normal and exceptional inedges
             n2 = n.newIndirect()
             allnodes.append(n2)

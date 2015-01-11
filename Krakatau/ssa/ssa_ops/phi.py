@@ -17,6 +17,7 @@ class Phi(object):
     def params(self): return [self.dict[k] for k in self.block.predecessors]
 
     def get(self, key): return self.dict[key]
+    def delete(self, key): del self.dict[key]
 
     #Copy these over from BaseOp so we don't need to inherit
     def replaceVars(self, rdict):

@@ -67,7 +67,7 @@ def deleteUnusued(cls):
     del cls.interfaces_raw, cls.cpool
     del cls.attributes
 
-def decompileClass(path=[], targets=None, outpath=None, skip_errors=False):
+def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_throws=False):
     out = script_util.makeWriter(outpath, '.java')
 
     e = Environment()
@@ -83,7 +83,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False):
 
             try:
                 c = e.getClass(target)
-                source = printer.visit(javaclass.generateAST(c, makeGraph, skip_errors))
+                source = printer.visit(javaclass.generateAST(c, makeGraph, skip_errors, add_throws=add_throws))
             except Exception as err:
                 if not skip_errors:
                     raise

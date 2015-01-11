@@ -466,6 +466,7 @@ class SSA_Graph(object):
             self._inlineSubProc(proc)
             self._conscheck()
     ##########################################################################
+    # Functions called by children ###########################################
     #assign variable names for debugging
     varnum = collections.defaultdict(itertools.count)
     def makeVariable(self, *args, **kwargs):

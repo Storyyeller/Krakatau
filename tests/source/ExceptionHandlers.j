@@ -170,16 +170,17 @@ LEND:
 .end method
 
 .method public static _throw : (I)V
+.throws java/lang/Throwable
 	.limit stack 111
 	.limit locals 111
 
 	iload_0
 	tableswitch 0
-		;L1
-		;L2
-		;L2b
+		L1
+		L2
+		L2b
 		L3
-		;L3b
+		L3b
 		L4
 		L4b
 		L5b

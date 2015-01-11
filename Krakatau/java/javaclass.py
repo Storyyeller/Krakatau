@@ -3,7 +3,7 @@ import struct
 from ..ssa import objtypes
 from ..verifier.descriptors import parseFieldDescriptor
 
-from . import ast, ast2, javamethod
+from . import ast, ast2, javamethod, throws
 from .reserved import reserved_identifiers
 
 def loadConstValue(cpool, index):
@@ -50,7 +50,7 @@ def _getMethod(method, cb, forbidden_identifiers, skip_errors):
         return code_ast
 
 # Method argument allows decompilng only a single method, primarily useful for debugging
-def generateAST(cls, cb, skip_errors, method=None):
+def generateAST(cls, cb, skip_errors, method=None, add_throws=False):
     methods = cls.methods if method is None else [cls.methods[method]]
     fi = set(reserved_identifiers)
     for field in cls.fields:
@@ -65,4 +65,6 @@ def generateAST(cls, cb, skip_errors, method=None):
 
     field_defs = [_getField(f) for f in cls.fields]
     method_defs = [_getMethod(m, cb, forbidden_identifiers, skip_errors) for m in methods]
+    if add_throws:
+        throws.addSingle(cls.env, method_defs)
     return ast2.ClassDef(' '.join(myflags), isInterface, cls.name, superc, interfaces, field_defs, method_defs)

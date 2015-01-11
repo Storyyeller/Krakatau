@@ -19,6 +19,7 @@ class MethodDef(object):
         self.body = body
         self.comments = Comments()
         self.triple = class_.name, name, desc
+        self.throws = None
 
         if name == '<clinit>':
             self.isStaticInit, self.isConstructor = True, False
@@ -40,6 +41,9 @@ class MethodDef(object):
             name = printer.methodName(*self.triple)
             header += '{}{} {}({})'.format(self.flagstr, print_(self.retType), escape(name), argstr)
 
+        if self.throws is not None:
+            header += ' throws ' + print_(self.throws)
+
         if self.body is None:
             return header + ';\n'
         else:
@@ -53,6 +57,7 @@ class MethodDef(object):
             'params': map(tree, self.paramDecls),
             'comments': self.comments.lines,
             'body': tree(self.body),
+            'throws': tree(self.throws),
         }
 
 class FieldDef(object):

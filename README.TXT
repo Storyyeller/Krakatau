@@ -96,8 +96,8 @@ importantly the ability to directly specify constant pool references.
 A tutorial on writing Java Bytecode Assembly with Krakatau is available at
 https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
 
-The assembler uses PLY, which will generate a file called "parsetab.py" in
-the current directory.
+The assembler uses PLY, which will generate files called lextab.py and
+parsetab.py in the current directory.
 
 === Disassembly ===
 

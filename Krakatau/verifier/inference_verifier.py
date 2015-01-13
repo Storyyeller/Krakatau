@@ -803,7 +803,7 @@ class InstructionNode(object):
             self.jsrTarget = called #store for later use in ssa creation
 
         #Merge into exception handlers first
-        for (start,end),(handler,execStack) in exceptions:
+        for (start, end), (handler, execStack) in exceptions:
             if start <= self.key < end:
                 if self.op != opnames.INVOKEINIT:
                     self._mergeSingleSuccessor(handler, (execStack, newlocals, newmasks, newflags), iNodes, True)

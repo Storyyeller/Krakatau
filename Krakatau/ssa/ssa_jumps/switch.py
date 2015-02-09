@@ -14,10 +14,11 @@ class Switch(BaseJump):
             ordered = [x for x in (default,) + zip(*table)[1] if not x in tset and not tset.add(x)]
 
         self.successors = ordered
-        self.reverse = collections.defaultdict(set)
+        reverse = collections.defaultdict(set)
         for k,v in table:
             if v != default:
-                self.reverse[v].add(k)
+                reverse[v].add(k)
+        self.reverse = dict(reverse)
 
     def getNormalSuccessors(self):
         return self.successors

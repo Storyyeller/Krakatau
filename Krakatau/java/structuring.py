@@ -214,6 +214,7 @@ def structureLoops(nodes):
             if len(entries) <= 1:
                 head = entries[0]
             else:
+                assert(0)
                 #if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
                 print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
                 print '({} entry points, {} blocks)'.format(len(entries), len(scc))

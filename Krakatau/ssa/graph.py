@@ -1,4 +1,4 @@
-import itertools, collections, copy
+import itertools, collections, copy, functools
 
 from . import blockmaker, constraints, variablegraph, objtypes, subproc
 from . import ssa_jumps, ssa_ops
@@ -358,7 +358,7 @@ class SSA_Graph(object):
             block.jump.replaceVars(vard)
 
             #Fix up blocks outside the region that jump into the region.
-            for key in oldb.predecessors:
+            for key in oldb.predecessors[:]:
                 pred = key[0]
                 if pred not in excludedPreds:
                     for phi1, phi2 in zip(oldb.phis, block.phis):
@@ -387,6 +387,8 @@ class SSA_Graph(object):
                 assert(len(child.phis) == len(oldc.phis))
                 for phi1, phi2 in zip(oldc.phis, child.phis):
                     phi2.add((block, t), vard[phi1.get((oldb, t))])
+
+        self._conscheck()
         return blockd
 
     def _splitSubProc(self, proc):
@@ -522,9 +524,50 @@ class SSA_Graph(object):
                     phi.delete(t)
                     newphi.add(t, arg)
                 phi.add((new, False), newrval)
+        self._conscheck()
+
+    def fixLoops(self):
+        assert(not self.procs)
+        todo = self.blocks[:]
+        while todo:
+            newtodo = []
+            temp = set(todo)
+            sccs = graph_util.tarjanSCC(todo, lambda block:[x for x,t in block.predecessors if x in temp])
+
+            for scc in sccs:
+                if len(scc) <= 1:
+                    continue
+
+                scc_pair_set = {(x, False) for x in scc} | {(x, True) for x in scc}
+                entries = [n for n in scc if not scc_pair_set.issuperset(n.predecessors)]
+
+                if len(entries) <= 1:
+                    head = entries[0]
+                else:
+                    #if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
+                    print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
+                    print '({} entry points, {} blocks)'.format(len(entries), len(scc))
+                    def loopSuccessors(head, block):
+                        if block == head:
+                            return []
+                        return [x for x in block.jump.getSuccessors() if (x, False) in scc_pair_set]
+
+                    reaches = [(n, graph_util.topologicalSort(entries, functools.partial(loopSuccessors, n))) for n in scc]
+                    for head, reachable in reaches:
+                        reachable.remove(head)
+
+                    head, reachable = min(reaches, key=lambda t:(len(t[1]), -len(t[0].predecessors)))
+                    assert(head not in reachable)
+                    print 'Duplicating {} nodes'.format(len(reachable))
+                    blockd = self._duplicateBlocks(reachable, set(scc) - set(reachable))
+                    newtodo += map(blockd.get, reachable)
+                newtodo.extend(scc)
+                newtodo.remove(head)
+            todo = newtodo
+        self._conscheck()
 
     # Functions called by children ###########################################
-    #assign variable names for debugging
+    # assign variable names for debugging
     varnum = collections.defaultdict(itertools.count)
     def makeVariable(self, *args, **kwargs):
         var = SSA_Variable(*args, **kwargs)

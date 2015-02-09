@@ -24,8 +24,8 @@ class OnException(BaseJump):
 
     def replaceBlocks(self, blockDict):
         self.cs.replaceKeys(blockDict)
-        if self.default is not None and self.default in blockDict:
-            self.default = blockDict[self.default]
+        if self.default is not None:
+            self.default = blockDict.get(self.default, self.default)
 
     def reduceSuccessors(self, pairsToRemove):
         for (child, t) in pairsToRemove:

@@ -19,6 +19,9 @@ class ProcJumpBase(object):
     def params(self):
         return [v for v in self.input if v is not None]
 
+    def replaceBlocks(self, blockDict):
+        self.target = blockDict.get(self.target, self.target)
+
     def getExceptSuccessors(self): return ()
     def getSuccessors(self): return self.getNormalSuccessors()
     def getSuccessorPairs(self): return [(x,False) for x in self.getNormalSuccessors()]
@@ -44,9 +47,6 @@ class DummyRet(ProcJumpBase):
     def __init__(self, inslots, target):
         self.target = target
         self.input = flattenslots(inslots)
-
-    def replaceBlocks(self, blockDict):
-        self.target = blockDict[self.target]
 
     def replaceVars(self, varDict):
         self.input = [varDict.get(v,v) for v in self.input]

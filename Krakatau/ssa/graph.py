@@ -330,20 +330,16 @@ class SSA_Graph(object):
         assert(self.entryBlock not in temp and proc.target in temp and temp.isdisjoint(proc.jsrblocks))
         return region
 
-    def _splitSubProc(self, proc):
-        #Splits a proc into two, with one callsite using the new proc instead
-        #this involves duplicating the body of the procedure
-        #the new proc is appended to the list of procs so it can work properly
-        #with the stack processing in inlineSubprocs
-        assert(len(proc.jsrblocks) > 1)
-        target, retblock = proc.target, proc.retblock
-        region = self._region(proc)
-        blockd_all = {b:b for b in self.blocks}
+    def _duplicateBlocks(self, region, excludedPreds):
+        # Duplicate a region of blocks. All inedges will be redirected to the new blocks
+        # except for those from excludedPreds
+        excludedPreds = excludedPreds | set(region)
+        outsideBlocks = [b for b in self.blocks if b not in excludedPreds]
 
         blockd, vard = {}, {}
         for oldb in region:
             block = blockd[oldb] = self._newBlockFrom(oldb)
-            block.unaryConstraints = {self._copyVar(k, vard):v for k,v in oldb.unaryConstraints.items()}
+            block.unaryConstraints = {self._copyVar(k, vard):v for k, v in oldb.unaryConstraints.items()}
             block.phis = [ssa_ops.Phi(block, vard[oldphi.rval]) for oldphi in oldb.phis]
 
             for op in oldb.lines:
@@ -357,43 +353,60 @@ class SSA_Graph(object):
                         outv.origin = new
                 block.lines.append(new)
 
+            assert(set(vard).issuperset(oldb.jump.params))
             block.jump = oldb.jump.clone()
             block.jump.replaceVars(vard)
 
-        #can't fix up jump blocks until they've all been created, obviously
-        blockd_all.update(blockd)
+            #Fix up blocks outside the region that jump into the region.
+            for key in oldb.predecessors:
+                pred = key[0]
+                if pred not in excludedPreds:
+                    for phi1, phi2 in zip(oldb.phis, block.phis):
+                        phi2.add(key, phi1.get(key))
+                        del phi1.dict[key]
+                    oldb.predecessors.remove(key)
+                    block.predecessors.append(key)
+
+        #fix up jump targets of newly created blocks
         for oldb, block in blockd.items():
-            block.jump.replaceBlocks(blockd_all)
+            block.jump.replaceBlocks(blockd)
             for suc, t in block.jump.getSuccessorPairs():
                 suc.predecessors.append((block, t))
+
+        #update the jump targets of predecessor blocks
+        for block in outsideBlocks:
+            block.jump.replaceBlocks(blockd)
 
         for old, new in vard.items():
             assert(type(old.origin) == type(new.origin))
 
+        #Fill in phi args in successors of new blocks
         for oldb, block in blockd.items():
             for oldc, t in oldb.jump.getSuccessorPairs():
-                child = blockd_all[oldc]
+                child = blockd.get(oldc, oldc)
                 assert(len(child.phis) == len(oldc.phis))
                 for phi1, phi2 in zip(oldc.phis, child.phis):
                     phi2.add((block, t), vard[phi1.get((oldb, t))])
+        return blockd
 
-        #now fix up entry points to subproc
+    def _splitSubProc(self, proc):
+        #Splits a proc into two, with one callsite using the new proc instead
+        #this involves duplicating the body of the procedure
+        #the new proc is appended to the list of procs so it can work properly
+        #with the stack processing in inlineSubprocs
+        assert(len(proc.jsrblocks) > 1)
+        target, retblock = proc.target, proc.retblock
+        region = self._region(proc)
+
         split_jsrs = [proc.jsrblocks.pop()]
-        target2 = blockd[target]
-        assert(len(target.phis) == len(target2.phis))
-        for jsr in split_jsrs:
-            key = jsr, False
-            for phi1, phi2 in zip(target.phis, target2.phis):
-                phi2.add(key, phi1.get(key))
-                del phi1.dict[key]
-            #fix up jsr predecessors/successors
-            target.predecessors.remove(key)
-            target2.predecessors.append(key)
-            assert(jsr.jump.target == target)
-            jsr.jump.target = target2
+        blockd = self._duplicateBlocks(region, set(proc.jsrblocks))
 
         newproc = subproc.ProcInfo(blockd[proc.retblock], blockd[proc.target])
         newproc.jsrblocks = split_jsrs
+        #Sanity check
+        for temp in self.procs + [newproc]:
+            for jsr in temp.jsrblocks:
+                assert(jsr.jump.target == temp.target)
         return newproc
 
     def _inlineSubProc(self, proc):

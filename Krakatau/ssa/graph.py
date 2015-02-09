@@ -196,7 +196,7 @@ class SSA_Graph(object):
         assert(len(set(keys)) == len(keys))
         temp = [self.entryBlock]
         for proc in self.procs:
-            temp += [proc.target, proc.retblock]
+            temp += [proc.retblock]
             temp += proc.jsrblocks
         assert(len(set(temp)) == len(temp))
 

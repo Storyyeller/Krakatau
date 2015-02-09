@@ -311,7 +311,7 @@ class SSA_Graph(object):
                 parent.jump = ssa_jumps.Goto(self, child)
 
     # Subprocedure stuff #####################################################
-    def _copyBlock(self, block):
+    def _newBlockFrom(self, block):
         b = BasicBlock(next(self.block_numberer))
         self.blocks.append(b)
         return b
@@ -324,6 +324,7 @@ class SSA_Graph(object):
         return v
 
     def _region(self, proc):
+        # Find the set of blocks 'in' a subprocedure, i.e. those reachable from the target that can reach the ret block
         region = graph_util.topologicalSort([proc.retblock], lambda block:[] if block == proc.target else [b for b,t in block.predecessors])
         temp = set(region)
         assert(self.entryBlock not in temp and proc.target in temp and temp.isdisjoint(proc.jsrblocks))
@@ -341,7 +342,7 @@ class SSA_Graph(object):
 
         blockd, vard = {}, {}
         for oldb in region:
-            block = blockd[oldb] = self._copyBlock(oldb)
+            block = blockd[oldb] = self._newBlockFrom(oldb)
             block.unaryConstraints = {self._copyVar(k, vard):v for k,v in oldb.unaryConstraints.items()}
             block.phis = [ssa_ops.Phi(block, vard[oldphi.rval]) for oldphi in oldb.phis]
 
@@ -396,7 +397,7 @@ class SSA_Graph(object):
         return newproc
 
     def _inlineSubProc(self, proc):
-        #Inline a proc with single callsite in place
+        #Inline a proc with single callsite inplace
         assert(len(proc.jsrblocks) == 1)
         target, retblock = proc.target, proc.retblock
         region = self._region(proc)
@@ -406,13 +407,14 @@ class SSA_Graph(object):
         ftblock = jsrop.fallthrough
 
         #first we find any vars that bypass the proc since we have to pass them through the new blocks
-        skipvars = [phi.get((jsrblock,False)) for phi in ftblock.phis]
+        skipvars = [phi.get((jsrblock, False)) for phi in ftblock.phis]
         skipvars = [var for var in skipvars if var.origin is not jsrop]
         #will need to change if we ever add a pass to create new skipvars
         assert(set(skipvars) <= jsrop.debug_skipvars)
 
         svarcopy = {(var, block):self._copyVar(var) for var, block in itertools.product(skipvars, region)}
         for var, block in itertools.product(skipvars, region):
+            # Create a new phi for the passed through var for this block
             rval = svarcopy[var, block]
             phi = ssa_ops.Phi(block, rval)
             block.phis.append(phi)
@@ -462,6 +464,7 @@ class SSA_Graph(object):
                 #push new subproc onto stack
                 self.procs.append(self._splitSubProc(proc))
                 self._conscheck()
+            # When a subprocedure has only one call point, it can just be inlined instead of splitted
             print 'inlining', proc
             self._inlineSubProc(proc)
             self._conscheck()
@@ -477,7 +480,7 @@ class SSA_Graph(object):
                 continue
             assert(not isinstance(block.jump, (ssa_jumps.Return, ssa_jumps.Rethrow)))
 
-            new = self._copyBlock(block)
+            new = self._newBlockFrom(block)
             print 'Splitting', block, '->', new
             # first fix up CFG edges
             badpreds = [t for t in block.predecessors if t[1]]

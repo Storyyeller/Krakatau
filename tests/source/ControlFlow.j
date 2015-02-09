@@ -134,50 +134,9 @@ LMERGE:
 
 LS0:
 	bipush 64
-	jsr LXWRITE
-	lookupswitch
-		0 : LS0
-		1 : LS1
-		2 : LS2
-		default : LS3
-
-LS1:
-	bipush 32
-	jsr LXWRITE
-	lookupswitch
-		0 : LS1
-		3 : LS2
-		4 : LS0
-		default : LS3
-
-LS2:
-	bipush 16
-	jsr LXWRITE
-	lookupswitch
-		0 : LS3
-		1 : LS0
-		2 : LS1
-		4 : LS1
-		default : LS0
-
-LS3:
-	bipush 8
-	jsr LXWRITE
-	lookupswitch
-		0 : LS0
-		1 : LS1
-		2 : LS3
-		default : LS2
-
-LXWRITE:
-	astore_1
+LSUB_BEGIN_0:
 	ixor
-	jsr LWRITE
-	iconst_5
-	irem
-	ret 1
-
-LWRITE:
+	aconst_null
 	iinc 2 1
 	swap
 	aload_0
@@ -190,9 +149,98 @@ LWRITE:
 	iload_2
 	caload
 	dup
-	ret 3
+	iconst_5
+	irem
+LSUB_END_0:
+	lookupswitch
+		0 : LS0
+		1 : LS1
+		2 : LS2
+		default : LS3
 
-.catch java/lang/IndexOutOfBoundsException from LWRITE to LEND using LEND
+LS1:
+	bipush 32
+LSUB_BEGIN_1:
+	ixor
+	aconst_null
+	iinc 2 1
+	swap
+	aload_0
+	swap
+	iload_2
+	swap
+	castore
+	astore_3
+	dup
+	iload_2
+	caload
+	dup
+	iconst_5
+	irem
+LSUB_END_1:
+	lookupswitch
+		0 : LS1
+		3 : LS2
+		4 : LS0
+		default : LS3
+
+LS2:
+	bipush 16
+LSUB_BEGIN_2:
+	ixor
+	aconst_null
+	iinc 2 1
+	swap
+	aload_0
+	swap
+	iload_2
+	swap
+	castore
+	astore_3
+	dup
+	iload_2
+	caload
+	dup
+	iconst_5
+	irem
+LSUB_END_2:
+	lookupswitch
+		0 : LS3
+		1 : LS0
+		2 : LS1
+		4 : LS1
+		default : LS0
+
+LS3:
+	bipush 8
+LSUB_BEGIN_3:
+	ixor
+	aconst_null
+	iinc 2 1
+	swap
+	aload_0
+	swap
+	iload_2
+	swap
+	castore
+	astore_3
+	dup
+	iload_2
+	caload
+	dup
+	iconst_5
+	irem
+LSUB_END_3:
+	lookupswitch
+		0 : LS0
+		1 : LS1
+		2 : LS3
+		default : LS2
+
+.catch java/lang/IndexOutOfBoundsException from LSUB_BEGIN_0 to LSUB_END_0 using LEND
+.catch java/lang/IndexOutOfBoundsException from LSUB_BEGIN_1 to LSUB_END_1 using LEND
+.catch java/lang/IndexOutOfBoundsException from LSUB_BEGIN_2 to LSUB_END_2 using LEND
+.catch java/lang/IndexOutOfBoundsException from LSUB_BEGIN_3 to LSUB_END_3 using LEND
 
 LEND:
     getstatic java/lang/System out Ljava/io/PrintStream;

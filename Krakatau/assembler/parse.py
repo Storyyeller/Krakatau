@@ -187,7 +187,7 @@ def p_methodhandle_notref(p):
 
 def p_methodtype_notref(p):
     '''methodtype_notref : utf8_notref'''
-    p[0] = PoolRef('Methodtype', p[1])
+    p[0] = PoolRef('MethodType', p[1])
 
 addRule(assign1, 'bootstrap_arg', 'ref') #TODO - allow inline constants and strings?
 listRule('bootstrap_arg')

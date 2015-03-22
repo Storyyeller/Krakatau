@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 import java.util.*;
 
 public class ArgumentTypes{

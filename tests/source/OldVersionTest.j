@@ -1,3 +1,4 @@
+; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 .version 45 2
 .class public OldVersionTest
 .super java/lang/Object

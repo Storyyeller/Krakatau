@@ -1,3 +1,5 @@
+; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
+
 .class public SkipJSR
 .super java/lang/Object
 

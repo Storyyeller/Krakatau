@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public class TryWithResources extends RuntimeException implements AutoCloseable {
     public static TryWithResources $ = new TryWithResources(5);
     public final int i;

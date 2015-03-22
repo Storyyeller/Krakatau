@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public class UnicodeTest \u007b
 	final static String \ufe4f\u2167 = "\uFEFF\uD800\uD8D8\uDFFD";
 	transient static short x\u03A7x = 5;

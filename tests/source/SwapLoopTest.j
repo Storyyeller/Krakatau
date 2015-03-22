@@ -1,3 +1,4 @@
+; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 .version 49 0
 .class public SwapLoopTest
 .super java/lang/Object

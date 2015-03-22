@@ -1,3 +1,4 @@
+; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 .version 49 49
 .class public ControlFlow
 .super java/lang/Object

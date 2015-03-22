@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public final strictfp class OddsAndEnds {
 
 	static private void test(float f, Object o){

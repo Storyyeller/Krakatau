@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public class BoolizeTest{
 
 	static void main(boolean x, int y) {}

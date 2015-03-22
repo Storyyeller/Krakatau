@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 abstract public class floattest {
 	static final float e = 2.7182818459f;
 	static double d = 2.7182818459;

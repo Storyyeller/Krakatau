@@ -24,12 +24,12 @@ def assembleClass(log, filename, makeLineNumbers, jasmode, debug=0):
 if __name__== "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau bytecode assembler')
-    parser.add_argument('-out',help='Path to generate files in')
+    parser.add_argument('-out', help='Path to generate files in')
     parser.add_argument('-g', action='store_true', help="Add line number information to the generated class")
     parser.add_argument('-jas', action='store_true', help="Enable Jasmin compatibility mode")
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('-q', action='store_true', help="Only display warnings and errors")
-    parser.add_argument('target',help='Name of file to assemble')
+    parser.add_argument('target', help='Name of file to assemble')
     args = parser.parse_args()
 
     log = script_util.Logger('warning' if args.q else 'info')

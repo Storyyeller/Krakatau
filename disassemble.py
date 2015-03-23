@@ -12,7 +12,7 @@ def readFile(filename):
     with open(filename, 'rb') as f:
         return f.read()
 
-def disassembleClass(readTarget, targets=None, outpath=None):
+def disassembleClass(readTarget, targets=None, outpath=None, printCPool=False):
     out = script_util.makeWriter(outpath, '.j')
     # targets = targets[::-1]
     start_time = time.time()
@@ -27,7 +27,7 @@ def disassembleClass(readTarget, targets=None, outpath=None):
             class_ = ClassFile(stream)
             class_.loadElements(keepRaw=True)
 
-            source = Krakatau.assembler.disassembler.disassemble(class_)
+            source = Krakatau.assembler.disassembler.disassemble(class_, printCPool=printCPool)
             filename = out.write(class_.name, source)
             print 'Class written to', filename
             print time.time() - start_time, ' seconds elapsed'
@@ -37,10 +37,11 @@ if __name__== "__main__":
 
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
-    parser.add_argument('-out',help='Path to generate files in')
+    parser.add_argument('-out', help='Path to generate files in')
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
-    parser.add_argument('-path',help='Jar to look for class in')
-    parser.add_argument('target',help='Name of class or jar file to decompile')
+    parser.add_argument('-path', help='Jar to look for class in')
+    parser.add_argument('-cpool', action='store_true', help='Print constant pool')
+    parser.add_argument('target', help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
     targets = script_util.findFiles(args.target, args.r, '.class')
@@ -58,4 +59,4 @@ if __name__== "__main__":
     else:
         readTarget = readFile
 
-    disassembleClass(readTarget, targets, args.out)
+    disassembleClass(readTarget, targets, args.out, args.cpool)

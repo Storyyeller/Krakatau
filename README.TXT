@@ -110,6 +110,9 @@ OUT : File or directory name where source files are to be written. Defaults
 
 -r : Disassembles all .class files found in the directory target (recursively)
 
+-cpool : Print out all constant pool entries at the end of the class. Default is
+    to only print them when necessary.
+
 target : Filename or jar name to disassemble. If a jar is specified, all
     classes in the jar will be disassembled. If -r is specified, this should
     be a directory.

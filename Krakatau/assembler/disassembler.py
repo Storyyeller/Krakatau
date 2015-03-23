@@ -146,8 +146,11 @@ class PoolManager(object):
         parts += [':', self.multiref(args[1])]
         return ' '.join(parts)
 
-    def printConstDefs(self, add):
+    def printConstDefs(self, add, printAll=False):
         defs = {}
+
+        if printAll:
+            self.used = {i for i, entry in self.const_pool.getEnumeratePoolIter()}
 
         while self.used:
             temp, self.used = self.used, set()
@@ -471,7 +474,7 @@ def disOtherClassAttribute(name_ind, name, bytes_, add, poolm):
         return
     disCFMAttribute(name_ind, name, bytes_, add, poolm)
 
-def disassemble(cls):
+def disassemble(cls, printCPool=False):
     lines = []
     add = lines.append
     poolm = PoolManager(cls.cpool)
@@ -534,5 +537,5 @@ def disassemble(cls):
         disMethod(method, add, poolm)
         add('')
 
-    poolm.printConstDefs(add)
+    poolm.printConstDefs(add, printAll=printCPool)
     return '\n'.join(lines)

@@ -6,7 +6,7 @@ from functools import partial
 
 #Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
 
-copyright = '''Krakatau  Copyright (C) 2012-14  Robert Grosse
+copyright = '''Krakatau  Copyright (C) 2012-15  Robert Grosse
 This program is provided as open source under the GNU General Public License.
 See LICENSE.TXT for more details.
 '''

@@ -14,7 +14,7 @@ class Code(object):
         #Old versions use shorter fields for stack, locals, and code length
         field_fmt = ">HHL" if self.class_.version > (45,2) else ">BBH"
         self.stack, self.locals, codelen = bytestream.get(field_fmt)
-        assert(codelen > 0 and codelen < 65536)
+        # assert(codelen > 0 and codelen < 65536)
         self.bytecode_raw = bytestream.getRaw(codelen)
         self.codelen = codelen
 
@@ -28,7 +28,7 @@ class Code(object):
             assert(self.stack >= 1)
 
         # print 'Parsing code for', method.name, method.descriptor, method.flags
-        codestream = binUnpacker.binUnpacker(data = self.bytecode_raw)
+        codestream = binUnpacker.binUnpacker(data=self.bytecode_raw)
         self.bytecode = bytecode.parseInstructions(codestream, self.isIdConstructor)
         self.attributes = fixAttributeNames(attributes_raw, self.class_.cpool)
 

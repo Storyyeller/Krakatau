@@ -30,7 +30,7 @@ class ExpressionStatement(JavaStatement):
         self.expr = expr
 
     def print_(self, printer, print_): return print_(self.expr) + ';'
-    def tree(self, printer, tree): return ['exprS', tree(self.expr)]
+    def tree(self, printer, tree): return [self.__class__.__name__, tree(self.expr)]
 
 class LocalDeclarationStatement(JavaStatement):
     def __init__(self, decl, expr=None):
@@ -42,7 +42,7 @@ class LocalDeclarationStatement(JavaStatement):
             return '{} = {};'.format(print_(self.decl), print_(self.expr))
         return print_(self.decl) + ';'
 
-    def tree(self, printer, tree): return ['declS', tree(self.expr), tree(self.decl)]
+    def tree(self, printer, tree): return [self.__class__.__name__, tree(self.expr), tree(self.decl)]
 
     def addCastsAndParens(self, env):
         if self.expr is not None:
@@ -58,7 +58,7 @@ class ReturnStatement(JavaStatement):
         self.tt = tt
 
     def print_(self, printer, print_): return 'return {};'.format(print_(self.expr)) if self.expr is not None else 'return;'
-    def tree(self, printer, tree): return ['retS', tree(self.expr)]
+    def tree(self, printer, tree): return [self.__class__.__name__, tree(self.expr)]
 
     def addCastsAndParens(self, env):
         if self.expr is not None:
@@ -71,7 +71,7 @@ class ThrowStatement(JavaStatement):
     def __init__(self, expr):
         self.expr = expr
     def print_(self, printer, print_): return 'throw {};'.format(print_(self.expr))
-    def tree(self, printer, tree): return ['throwS', tree(self.expr)]
+    def tree(self, printer, tree): return [self.__class__.__name__, tree(self.expr)]
 
 class JumpStatement(JavaStatement):
     def __init__(self, target, isFront):
@@ -82,7 +82,7 @@ class JumpStatement(JavaStatement):
         label = ' ' + self.label if self.label is not None else ''
         return self.keyword + label + ';'
 
-    def tree(self, printer, tree): return ['jumpS', self.keyword, self.label]
+    def tree(self, printer, tree): return [self.__class__.__name__, self.keyword, self.label]
 
 #Compound Statements
 sbcount = itertools.count()
@@ -128,7 +128,7 @@ class TryStatement(LazyLabelBase):
 
     def tree(self, printer, tree):
         parts = [map(tree, t) for t in self.pairs]
-        return ['tryS', self.label, tree(self.tryb), parts]
+        return [self.__class__.__name__, self.label, tree(self.tryb), parts]
 
 class IfStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, scopes):
@@ -157,7 +157,7 @@ class IfStatement(LazyLabelBase):
         parts = [print_(x) for x in parts]
         return '{}if ({})\n{}\nelse{sep}{}'.format(lbl, *parts, sep=sep)
 
-    def tree(self, printer, tree): return ['ifS', self.label, tree(self.expr), map(tree, self.scopes)]
+    def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), map(tree, self.scopes)]
 
 class SwitchStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, expr, pairs):
@@ -189,7 +189,7 @@ class SwitchStatement(LazyLabelBase):
         parts = []
         for keys, scope in self.pairs:
             parts.append([[None] if keys is None else sorted(keys), tree(scope)])
-        return ['switchS', self.label, tree(self.expr), parts]
+        return [self.__class__.__name__, self.label, tree(self.expr), parts]
 
 class WhileStatement(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, parts):
@@ -204,7 +204,7 @@ class WhileStatement(LazyLabelBase):
         parts = print_(self.expr), print_(self.parts[0])
         return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
 
-    def tree(self, printer, tree): return ['whileS', self.label, tree(self.expr), tree(self.parts[0])]
+    def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), tree(self.parts[0])]
 
 class StatementBlock(LazyLabelBase):
     def __init__(self, labelfunc, begink, endk, statements, jumpk, labelable=True):
@@ -234,7 +234,7 @@ class StatementBlock(LazyLabelBase):
         common = [x for x in zip(*blists) if len(set(x)) == 1]
         return common[-1][0]
 
-    def tree(self, printer, tree): return ['blockS', self.label, map(tree, self.statements)]
+    def tree(self, printer, tree): return ['BlockStatement', self.label, map(tree, self.statements)]
 
 #Temporary hack
 class StringStatement(JavaStatement):
@@ -392,6 +392,8 @@ class Assignment(JavaExpression):
             expr = makeCastExpr(left.dtype, right, fixEnv=env)
             self.params = left, expr
 
+    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), '']
+
 _binary_ptable = ['* / %', '+ -', '<< >> >>>',
     '< > <= >= instanceof', '== !=',
     '&', '^', '|', '&&', '||']
@@ -423,7 +425,7 @@ class BinaryInfix(JavaExpression):
             elif p.precedence == myprec and i > 0 and not associative:
                 self.params[i] = Parenthesis(p)
 
-    def tree(self, printer, tree): return [self.__class__.__name__, self.opstr, tree(self.params[0]), tree(self.params[1])]
+    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.opstr]
 
 class Cast(JavaExpression):
     precedence = 5
@@ -492,8 +494,7 @@ class FieldAccess(JavaExpression):
             trip = None, self.name, None
         else:
             trip = self.op.target, self.op.name, self.op.desc
-        left = tree(self.params[0]) if self.printLeft else None
-        return [self.__class__.__name__, trip, left]
+        return [self.__class__.__name__, map(tree, self.params), trip, self.printLeft]
 
     def addParens_sub(self):
         p0 = self.params[0]
@@ -616,7 +617,7 @@ class MethodInvocation(JavaExpression):
 
     def tree(self, printer, tree):
         trip = self.op.target, self.op.name, self.op.desc
-        return [self.__class__.__name__, trip, self.name, self.hasLeft, map(tree, self.params)]
+        return [self.__class__.__name__, map(tree, self.params), trip, self.name, self.hasLeft]
 
     def addCasts_sub(self, env):
         newparams = []
@@ -704,7 +705,7 @@ class UnaryPrefix(JavaExpression):
         if p0.precedence > 5 or (isinstance(p0, UnaryPrefix) and p0.opstr[0] == self.opstr[0]):
             self.params[0] = Parenthesis(p0)
 
-    def tree(self, printer, tree): return [self.__class__.__name__, self.opstr, tree(self.params[0])]
+    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.opstr, False]
 
 class Dummy(JavaExpression):
     def __init__(self, fmt, params, isNew=False):

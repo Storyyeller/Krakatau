@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 '''Script for testing the decompiler.
 
 On the first run tests/*.test files will be created with expected results for each test.

@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 import os.path, time
 
 import Krakatau

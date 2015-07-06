@@ -705,7 +705,7 @@ class UnaryPrefix(JavaExpression):
         if p0.precedence > 5 or (isinstance(p0, UnaryPrefix) and p0.opstr[0] == self.opstr[0]):
             self.params[0] = Parenthesis(p0)
 
-    def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.opstr, False]
+    def tree(self, printer, tree): return ['Unary', map(tree, self.params), self.opstr, False]
 
 class Dummy(JavaExpression):
     def __init__(self, fmt, params, isNew=False):

@@ -123,6 +123,7 @@ class ClassDef(object):
     # Experimental - don't use!
     def tree(self, printer, tree):
         return {
+            'rawname': objtypes.className(self.name.tt),
             'name': tree(self.name),
             'super': tree(self.super),
             'flags': self.flagstr.split(),

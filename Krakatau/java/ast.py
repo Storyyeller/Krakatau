@@ -20,6 +20,10 @@ class JavaStatement(object):
     expr = None #provide default for subclasses that don't have an expression
     def getScopes(self): return ()
 
+    def fixLiterals(self):
+        if self.expr is not None:
+            self.expr = self.expr.fixLiterals()
+
     def addCastsAndParens(self, env):
         if self.expr is not None:
             self.expr.addCasts(env)
@@ -327,6 +331,10 @@ class JavaExpression(object):
         self.params = [param.replaceSubExprs(rdict) for param in self.params]
         return self
 
+    def fixLiterals(self):
+        self.params = [param.fixLiterals() for param in self.params]
+        return self
+
     def addCasts(self, env):
         for param in self.params:
             param.addCasts(env)
@@ -502,17 +510,8 @@ class FieldAccess(JavaExpression):
             self.params[0] = Parenthesis(p0)
 
 def printFloat(x, isSingle):
-    #TODO make this less hackish. We only really need the parens if it's preceded by unary minus
-    #note: NaN may have arbitrary sign
-    if math.copysign(1.0, x) == -1.0 and not math.isnan(x):
-        return '(-{})'.format(printFloat(math.copysign(x, 1.0), isSingle))
-
+    assert(x >= 0.0 and not math.isinf(x))
     suffix = 'f' if isSingle else ''
-    if math.isnan(x):
-        return '(0.0{0}/0.0{0})'.format(suffix)
-    elif math.isinf(x):
-        return '(1.0{0}/0.0{0})'.format(suffix)
-
     if isSingle and x > 0.0:
         #Try to find more compract representation for floats, since repr treats everything as doubles
         m, e = math.frexp(x)
@@ -529,35 +528,51 @@ class Literal(JavaExpression):
     def __init__(self, vartype, val):
         self.dtype = vartype
         self.val = val
-
-        self.str = None
-        if vartype == objtypes.StringTT:
-            self.str = '"' + escapeString(val) + '"'
-        elif vartype == objtypes.IntTT:
-            self.str = str(val)
-        elif vartype == objtypes.LongTT:
-            self.str = str(val) + 'L'
-        elif vartype == objtypes.FloatTT or vartype == objtypes.DoubleTT:
-            assert(type(val) == float)
-            self.str = printFloat(val, vartype == objtypes.FloatTT)
-        elif vartype == objtypes.NullTT:
-            self.str = 'null'
-        elif vartype == objtypes.ClassTT:
+        if self.dtype == objtypes.ClassTT:
             self.params = [TypeName(val)]
-            self.fmt = '{}.class'
-        elif vartype == objtypes.BoolTT:
-            self.str = 'true' if val else 'false'
-        else:
-            assert(0)
+
+    def getStr(self):
+        if self.dtype == objtypes.StringTT:
+            return '"' + escapeString(self.val) + '"'
+        elif self.dtype == objtypes.IntTT:
+            return str(self.val)
+        elif self.dtype == objtypes.LongTT:
+            return str(self.val) + 'L'
+        elif self.dtype == objtypes.FloatTT or self.dtype == objtypes.DoubleTT:
+            return printFloat(self.val, self.dtype == objtypes.FloatTT)
+        elif self.dtype == objtypes.NullTT:
+            return 'null'
+        elif self.dtype == objtypes.BoolTT:
+            return 'true' if self.val else 'false'
+
+    def fixLiterals(self):
+        # From the point of view of the Java Language, there is no such thing as a negative literal.
+        # This replaces invalid literal values with unary minus (and division for non-finite floats)
+        if self.dtype == objtypes.IntTT or self.dtype == objtypes.LongTT:
+            if self.val < 0:
+                return UnaryPrefix('-', Literal(self.dtype, -self.val))
+        elif self.dtype == objtypes.FloatTT or self.dtype == objtypes.DoubleTT:
+            x = self.val
+            zero = Literal.DZERO if self.dtype == objtypes.DoubleTT else Literal.FZERO
+            if math.isnan(x):
+                return BinaryInfix('/', [zero, zero])
+            elif math.isinf(x): #+/- inf
+                numerator = Literal(self.dtype, math.copysign(1.0, x)).fixLiterals()
+                return BinaryInfix('/', [numerator, zero])
+            # finite negative numbers
+            if math.copysign(1.0, x) == -1.0:
+                return UnaryPrefix('-', Literal(self.dtype, math.copysign(x, 1.0)))
+
+        return self
 
     def print_(self, printer, print_):
-        if self.str is None:
+        if self.dtype == objtypes.ClassTT:
             #for printing class literals
-            return self.fmt.format(print_(self.params[0]))
-        return self.str
+            return '{}.class'.format(print_(self.params[0]))
+        return self.getStr()
 
     def tree(self, printer, tree):
-        result = tree(self.params[0]) if self.str is None else self.str
+        result = tree(self.params[0]) if self.dtype == objtypes.ClassTT else self.getStr()
         return [self.__class__.__name__, result, self.dtype]
 
     def _key(self): return self.dtype, self.val

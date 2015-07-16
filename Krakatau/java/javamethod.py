@@ -716,6 +716,9 @@ def _fixExprStatements(scope, item, namegen):
             item = ast.LocalDeclarationStatement(decl, right)
     return [item]
 
+def _fixLiterals(scope, item):
+    item.fixLiterals()
+
 def _addCastsAndParens(scope, item, env):
     item.addCastsAndParens(env)
 
@@ -857,6 +860,7 @@ def generateAST(method, graph, forbidden_identifiers):
 
         _createDeclarations(ast_root, argsources)
         _preorder(ast_root, partial(_fixExprStatements, namegen=namegen))
+        _preorder(ast_root, _fixLiterals)
         _preorder(ast_root, partial(_addCastsAndParens, env=env))
         _generateJumps(ast_root, set())
         _pruneVoidReturn(ast_root)

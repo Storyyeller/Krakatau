@@ -14,7 +14,7 @@ def loadConstValue(cpool, index):
     tt = {'Int':objtypes.IntTT, 'Long':objtypes.LongTT,
         'Float':objtypes.FloatTT, 'Double':objtypes.DoubleTT,
         'String':objtypes.StringTT}[entry_type]
-    return ast.Literal(tt, args[0])
+    return ast.Literal(tt, args[0]).fixLiterals()
 
 def _getField(field):
     flags = [x.lower() for x in sorted(field.flags) if x not in ('SYNTHETIC','ENUM')]

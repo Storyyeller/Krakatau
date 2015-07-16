@@ -41,4 +41,16 @@ class Switch(BaseJump):
             self.reverse = {v:self.reverse[v] for v in temp[1:]}
         return self
 
-    #TODO - implement constrainJumps and getSuccessorConstraints
+    ###############################################################################
+    def constrainJumps(self, x):
+        if x is None:
+            return None
+        # Only bother handling case of constant x
+        if x.min == x.max:
+            target = self.successors[0]
+            for v, vals in self.reverse.items():
+                if x.min in vals:
+                    target = v
+            return Goto(self.parent, target)
+        return self
+    #TODO - implement getSuccessorConstraints

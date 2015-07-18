@@ -441,35 +441,6 @@ _instructionHandlers = {
                         vops.DUP2X2: genericStackUpdate,
                         }
 
-def processArrayInfo(env, newarray_info, iNode, vals):
-    #There is an unfortunate tendency among Java programmers to hardcode large arrays
-    #resulting in the generation of thousands of instructions simply initializing an array
-    #With naive analysis, all of the stores can throw and so won't be merged until later
-    #Optimize for this case by keeping track of all arrays created in the block with a
-    #statically known size and type so we can mark all related instructions as nothrow and
-    #hence don't have to end the block prematurely
-    op = iNode.instruction[0]
-    line = vals.line
-
-    if op == vops.NEWARRAY or op == vops.ANEWARRAY:
-        lenvar = line.params[1]
-        assert(lenvar.type == SSA_INT)
-        if lenvar.const is not None and lenvar.const >= 0:
-            #has known, positive dim
-            newarray_info[line.rval] = lenvar.const, line.baset
-            line.outException = None
-    elif op == vops.ARRSTORE or op == vops.ARRSTORE_OBJ:
-        m, a, i, x = line.params
-        if a not in newarray_info:
-            return
-        arrlen, baset = newarray_info[a]
-        if i.const is None or not 0 <= i.const < arrlen:
-            return
-        #array element type test to make sure we don't have potential array store exceptions
-        if objtypes.isBaseTClass(baset) and not objtypes.isSubtype(env, x.decltype, baset):
-            return
-        line.outException = None
-
 def slotsRvals(inslots):
     stack = [(None if phi is None else phi.rval) for phi in inslots.stack]
     locals = [(None if phi is None else phi.rval) for phi in inslots.locals]
@@ -517,7 +488,7 @@ class BlockMaker(object):
             if node.instruction[0] in (vops.JSR, vops.RET):
                 jump_targets.append(node.key)
         for key in jump_targets:
-            if key not in self.blockd:
+            if key not in self.blockd: # jump_targets may have duplicates
                 self.makeBlock(key)
 
         self.exceptionhandlers = []
@@ -526,29 +497,157 @@ class BlockMaker(object):
             self.exceptionhandlers.append((start, end, self.blockd[handler], catchtype))
         self.exceptionhandlers.append((0, 65536, self.rethrowBlock, 'java/lang/Throwable'))
 
-        #pseudocode loop
-        block = self.entryBlock
-        curslots = slotsRvals(block.inslots)
-        newarray_info = {}
+        # State variables for the append/builder loop
+        self.current_block = self.entryBlock
+        self.current_slots = slotsRvals(self.current_block.inslots)
         for node in self.iNodes:
-            if not self.continueBlock(node, block):
-                if node.key not in self.blockd:
-                    self.makeBlock(node.key)
+            # First do a quick check if we have to start a new block
+            if not self._canContinueBlock(node):
+                self._startNewBlock(node.key)
 
-                if block.jump is None:
-                    block.jump = ssa_jumps.Goto(parent, self.blockd[node.key])
-                oldblock, block = block, self.blockd[node.key]
-                if curslots is not None:
-                    self.mergeIn((oldblock, False), node.key, curslots)
-                curslots = slotsRvals(block.inslots)
-                newarray_info = {}
-            curslots = self.appendInstrToBlock(block, node, curslots, newarray_info) #arrinfo modified in place
+            vals, outslot_norm = self._getInstrLine(node)
+            if not self._canAppendInstrToCurrent(node.key, vals):
+                self._startNewBlock(node.key)
+                vals, outslot_norm = self._getInstrLine(node)
 
+            assert(self._canAppendInstrToCurrent(node.key, vals))
+            self._appendInstr(node, vals, outslot_norm)
+
+        # do sanity checks
         assert(len(self.blocks) == len(self.blockd))
         for block in self.blocks:
             assert(block.jump is not None and block.phis is not None)
             assert(len(block.predecessors) == len(set(block.predecessors)))
+            # cleanup temp vars
             block.inslots = None
+            block.throwvars = None
+            block.chpairs = None
+            block.locals_at_first_except = None
+
+    def _canContinueBlock(self, node):
+        return (node.key not in self.blockd) and self.current_block.jump is None #fallthrough goto left as None
+
+    def _chPairsAt(self, address):
+        chpairs = []
+        for (start, end, handler, catchtype) in self.exceptionhandlers:
+            if start <= address < end:
+                chpairs.append((catchtype, handler))
+        return chpairs
+
+    def _canAppendInstrToCurrent(self, address, vals):
+        # If appending exception line to block with existing exceptions, make sure the handlers are the same
+        # Also make sure that locals and monad are compatible with all other exceptions in the block
+        # If appending a jump, make sure there is no existing exceptions
+        block = self.current_block
+        if block.chpairs is not None:
+            if vals.jump:
+                return False
+            if vals.line is not None and vals.line.outException is not None:
+                inslots = self.current_slots
+                if inslots.locals != block.locals_at_first_except:
+                    return False
+                chpairs = self._chPairsAt(address)
+                return chpairs == block.chpairs
+        assert(block.jump is None)
+        return True
+
+    def _startNewBlock(self, key):
+        ''' We can't continue appending to the current block, so start a new one (or use existing one at location) '''
+        # Make new block
+        if key not in self.blockd:
+            self.makeBlock(key)
+
+        # Finish current block
+        block = self.current_block
+        curslots = self.current_slots
+        assert(block.key != key)
+        if block.jump is None:
+            if block.chpairs is not None:
+                assert(block.throwvars)
+                self._addOnException(block, self.blockd[key], curslots)
+            else:
+                assert(not block.throwvars)
+                block.jump = ssa_jumps.Goto(self.parent, self.blockd[key])
+
+        if curslots is not None:
+            self.mergeIn((block, False), key, curslots)
+
+        # Update state
+        self.current_block = self.blockd[key]
+        self.current_slots = slotsRvals(self.current_block.inslots)
+
+    def _getInstrLine(self, iNode):
+        parent, initMap = self.parent, self.initMap
+        inslots = self.current_slots
+        instr = iNode.instruction
+
+        # internal variables won't have any preset type info associated, so we should add in the info from the verifier
+        assert(len(inslots.stack) == len(iNode.stack) and len(inslots.locals) >= len(iNode.locals))
+        assert(all(x is None for x in inslots.locals[len(iNode.locals):]))
+        for ivar, vt in zip(inslots.stack + inslots.locals, iNode.stack + iNode.locals):
+            if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
+                parent.setObjVarData(ivar, vt, initMap)
+
+        vals = _instructionHandlers[instr[0]](self, inslots, iNode)
+        newstack = vals.newstack if vals.newstack is not None else inslots.stack
+        newlocals = vals.newlocals if vals.newlocals is not None else inslots.locals
+        newmonad = vals.line.outMonad if (vals.line and vals.line.outMonad) else inslots.monad
+        outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
+        return vals, outslot_norm
+
+    def _addOnException(self, block, fallthrough, outslot_norm):
+        parent = self.parent
+        assert(block.throwvars and block.chpairs is not None)
+        ephi = ssa_ops.ExceptionPhi(parent, block.throwvars)
+        block.lines.append(ephi)
+
+        assert(block.jump is None)
+        block.jump = ssa_jumps.OnException(parent, ephi.outException, block.chpairs, fallthrough)
+        # The monad param isn't correct, but we're not really using it anyway. TODO: fix
+        outslot_except = slots_t(monad=outslot_norm.monad, locals=block.locals_at_first_except, stack=[ephi.outException])
+        for suc in block.jump.getExceptSuccessors():
+            self.mergeIn((block, True), suc.key, outslot_except)
+
+    def _appendInstr(self, iNode, vals, outslot_norm):
+        parent = self.parent
+        block = self.current_block
+        line, jump = vals.line, vals.jump
+        if line is not None:
+            block.lines.append(line)
+        block.jump = jump
+
+        if line is not None and line.outException is not None:
+            block.throwvars.append(line.outException)
+            chpairs = self._chPairsAt(iNode.key)
+            assert(block.chpairs is None or block.chpairs == chpairs)
+            block.chpairs = chpairs
+
+            inslots = self.current_slots
+            assert(block.locals_at_first_except is None or inslots.locals == block.locals_at_first_except)
+            block.locals_at_first_except = inslots.locals
+
+            # Return and Throw must be immediately ended because they don't have normal fallthrough
+            # CheckCast must terminate block because cast type hack later on requires casts to be at end of block
+            if iNode.instruction[0] in (vops.RETURN, vops.THROW) or isinstance(line, ssa_ops.CheckCast):
+                fallthrough = self.getExceptFallthrough(iNode)
+                self._addOnException(block, fallthrough, outslot_norm)
+
+        if block.jump is None:
+            unmerged_slots = outslot_norm
+        else:
+            assert(isinstance(block.jump, ssa_jumps.OnException) or not block.throwvars)
+            unmerged_slots = None
+            # Make sure that branch targets are distinct, since this is assumed everywhere
+            # Only necessary for if statements as the other jumps merge targets automatically
+            # If statements with both branches jumping to same target are replaced with gotos
+            block.jump = block.jump.reduceSuccessors([])
+
+            if isinstance(block.jump, subproc.ProcCallOp):
+                self.mergeJSROut(iNode, block, outslot_norm)
+            else:
+                for suc in block.jump.getNormalSuccessors():
+                    self.mergeIn((block, False), suc.key, outslot_norm)
+        self.current_slots = unmerged_slots
 
     def _makePhiFromVType(self, block, vt):
         var = self.parent.makeVarFromVtype(vt, self.initMap)
@@ -583,10 +682,6 @@ class BlockMaker(object):
         self.blockd[target_key].predecessors.append(from_key)
 
     ###########################################################
-    def continueBlock(self, node, block):
-        '''Can we continue appending to current block?'''
-        return (node.key not in self.blockd) and block.jump is None #fallthrough goto left as None
-
     def getExceptFallthrough(self, iNode):
         vop = iNode.instruction[0]
         if vop == vops.RETURN:
@@ -597,55 +692,6 @@ class BlockMaker(object):
         if key not in self.blockd:
             self.makeBlock(key)
         return self.blockd[key]
-
-    def appendInstrToBlock(self, block, iNode, inslots, newarray_info):
-        parent, initMap = self.parent, self.initMap
-        instr = iNode.instruction
-
-        # internal variables won't have any preset type info associated, so we should add in the info from the verifier
-        assert(len(inslots.stack) == len(iNode.stack) and len(inslots.locals) >= len(iNode.locals))
-        assert(all(x is None for x in inslots.locals[len(iNode.locals):]))
-        for ivar, vt in zip(inslots.stack + inslots.locals, iNode.stack + iNode.locals):
-            if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
-                parent.setObjVarData(ivar, vt, initMap)
-
-        vals = _instructionHandlers[instr[0]](self, inslots, iNode)
-        processArrayInfo(parent.env, newarray_info, iNode, vals) #modifies newarray_info and vals
-
-        line, jump = vals.line, vals.jump
-        newstack = vals.newstack if vals.newstack is not None else inslots.stack
-        newlocals = vals.newlocals if vals.newlocals is not None else inslots.locals
-        newmonad = line.outMonad if (line and line.outMonad) else inslots.monad
-        outslot_norm = slots_t(monad=newmonad, locals=newlocals, stack=newstack)
-
-        if line is not None:
-            block.lines.append(line)
-
-        if line is not None and line.outException is not None:
-            assert(jump is None)
-            fallthrough = self.getExceptFallthrough(iNode)
-            jump = ssa_jumps.OnException(parent, iNode.key, line, self.exceptionhandlers, fallthrough)
-
-            outslot_except = slots_t(monad=newmonad, locals=newlocals, stack=[line.outException])
-            for suc in jump.getExceptSuccessors():
-                self.mergeIn((block, True), suc.key, outslot_except)
-
-        block.jump = jump
-        if jump is None:
-            unmerged_slots = outslot_norm
-        else:
-            unmerged_slots = None
-            #Make sure that branch targets are distinct, since this is assumed everywhere
-            #Only necessary for if statements as the other jumps merge targets automatically
-            #If statements with both branches jumping to same target are replaced with gotos
-            block.jump = jump = jump.reduceSuccessors([])
-
-            if isinstance(jump, subproc.ProcCallOp):
-                self.mergeJSROut(iNode, block, outslot_norm)
-            else:
-                for suc in jump.getNormalSuccessors():
-                    self.mergeIn((block, False), suc.key, outslot_norm)
-        return unmerged_slots
 
     def mergeJSROut(self, jsrnode, block, outslot_norm):
         retnode = self.iNodeD[jsrnode.returnedFrom]

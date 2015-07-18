@@ -4,7 +4,7 @@ from ..constraints import ObjectConstraint, IntConstraint
 
 class CheckCast(BaseOp):
     def __init__(self, parent, target, args):
-        super(CheckCast, self).__init__(parent,args, makeException=True)
+        super(CheckCast, self).__init__(parent, args, makeException=True)
         self.env = parent.env
         self.target_tt = target
         self.outExceptionCons = ObjectConstraint.fromTops(parent.env, [], (excepttypes.ClassCast,), nonnull=True)
@@ -18,7 +18,7 @@ class CheckCast(BaseOp):
 
 class InstanceOf(BaseOp):
     def __init__(self, parent, target, args):
-        super(InstanceOf, self).__init__(parent,args)
+        super(InstanceOf, self).__init__(parent, args)
         self.env = parent.env
         self.target_tt = target
         self.rval = parent.makeVariable(ssa_types.SSA_INT, origin=self)

@@ -1,6 +1,7 @@
 import itertools
 
 from .constraints import join, meet
+from . import ssa_ops
 from .. import graph_util
 #UC = unary constraints
 
@@ -25,7 +26,7 @@ class BaseNode(object):
             if self.filterNone:
                 inputs = [x for x in inputs if x is not None]
             new = self.process(*inputs)
-            assert(len(self.output)==len(new))
+            assert(len(self.output) == len(new))
             new = tuple(join(oldv, newv) for oldv, newv in zip(self.output, new))
         return new
 
@@ -80,6 +81,7 @@ def makeGraph(env, blocks):
     #We'll be using these a lot so might as well just store one copy
     varlamb = lambda *x:x
     philamb = lambda *x:[meet(*x) if x else None]
+    e_philamb = lambda *x:[None, meet(*x) if x else None, None]
 
     for var, curUC in variables:
         n = BaseNode(varlamb, False)
@@ -102,7 +104,11 @@ def makeGraph(env, blocks):
         n.root = phi
 
     for op in ops:
-        if hasattr(op, 'propagateConstraints'):
+        if isinstance(op, ssa_ops.ExceptionPhi):
+            n = BaseNode(e_philamb, True)
+            n.sources = [(lookup[var],0) for var in op.params]
+            registerUses(n, n.sources)
+        elif hasattr(op, 'propagateConstraints'):
             n = BaseNode(op.propagateConstraints, False)
             n.sources = [(lookup[var],0) for var in op.params]
             registerUses(n, n.sources)

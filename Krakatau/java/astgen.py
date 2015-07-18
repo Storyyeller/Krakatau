@@ -43,7 +43,7 @@ class VarInfo(object):
         prefix = _prefix_map.get(expr.dtype, 'a')
         return self._namegen.getPrefix(prefix)
 
-    def _newVar(self, var, num):
+    def _newVar(self, var, num, isCast):
         tt = self._tts[var]
         if var.const is not None:
             return ast.Literal(tt, var.const)
@@ -52,6 +52,8 @@ class VarInfo(object):
             #important to not add num when it is 0, since we currently
             #use var names to force 'this'
             temp = '{}_{}'.format(var.name, num) if num else var.name
+            if isCast:
+                temp += 'c'
             namefunc = lambda expr:temp
         else:
             namefunc = self._nameCallback
@@ -69,7 +71,7 @@ class VarInfo(object):
         try:
             return self._vars[key]
         except KeyError:
-            new = self._newVar(key[1], key[0].num)
+            new = self._newVar(key[1], key[0].num, key[2])
             self._vars[key] = new
             return new
 
@@ -165,7 +167,7 @@ def _convertJExpr(op, getExpr, clsname):
         expr = ast.Assignment(getExpr(op.rval), expr)
 
     if expr is None: #Temporary hack to show what's missing
-        if isinstance(op, ssa_ops.TryReturn):
+        if isinstance(op, (ssa_ops.TryReturn, ssa_ops.ExceptionPhi)):
             return None #Don't print out anything
         else:
             return ast.StringStatement('//' + type(op).__name__)
@@ -177,20 +179,31 @@ def _createASTBlock(info, endk, node):
     op2expr = lambda op: _convertJExpr(op, getExpr, info.clsname)
 
     block = node.block
-    lines = map(op2expr, block.lines) if block is not None else []
-    lines = [x for x in lines if x is not None]
+    if block is not None:
+        split_ind = 0
+        if isinstance(block.jump, ssa_jumps.OnException):
+            # find index of first throwing instruction, so we can insert eassigns before it later
+            assert(isinstance(block.lines[-1], ssa_ops.ExceptionPhi))
+            split_ind = block.lines.index(block.lines[-1].params[0].origin)
+
+        lines_before = filter(None, map(op2expr, block.lines[:split_ind]))
+        lines_after = filter(None, map(op2expr, block.lines[split_ind:]))
+    else:
+        lines_before, lines_after = [], []
 
     # Kind of hackish: If the block ends in a cast and hence it is not known to always
     # succeed, assign the results of the cast rather than passing through the variable
-    # unchanged
+    # unchanged. The cast will actually be second to last in block.lines due to the ephi
     outreplace = {}
-    if lines and isinstance(block.lines[-1], ssa_ops.CheckCast):
-        assert(isinstance(lines[-1].expr, ast.Cast))
-        var = block.lines[-1].params[0]
-        cexpr = lines[-1].expr
-        lines[-1].expr = ast.Assignment(info.var(node, var, True), cexpr)
-        nvar = outreplace[var] = lines[-1].expr.params[0]
-        nvar.dtype = cexpr.dtype
+    if block and len(block.lines) >= 2:
+        temp_op = block.lines[-2]
+        if lines_after and isinstance(temp_op, ssa_ops.CheckCast):
+            assert(isinstance(lines_after[-1].expr, ast.Cast))
+            var = temp_op.params[0]
+            cexpr = lines_after[-1].expr
+            lines_after[-1].expr = ast.Assignment(info.var(node, var, True), cexpr)
+            nvar = outreplace[var] = lines_after[-1].expr.params[0]
+            nvar.dtype = cexpr.dtype
 
     eassigns = []
     nassigns = []
@@ -211,9 +224,9 @@ def _createASTBlock(info, endk, node):
                 if expr.params[0] != expr.params[1]:
                     nassigns.append(ast.ExpressionStatement(expr))
 
-    #Need to put exception assignments before last statement, which might throw
-    #While normal assignments must come last as they may depend on it
-    statements = lines[:-1] + eassigns + lines[-1:] + nassigns
+    # Need to put exception assignments before first throwing statement
+    # While normal assignments must come last as they may depend on it
+    statements = lines_before + eassigns + lines_after + nassigns
 
     norm_successors = node.normalSuccessors()
     jump = None if block is None else block.jump

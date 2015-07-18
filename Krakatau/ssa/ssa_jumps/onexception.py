@@ -5,14 +5,9 @@ from ..exceptionset import  CatchSetManager, ExceptionSet
 from ..constraints import ObjectConstraint
 
 class OnException(BaseJump):
-    def __init__(self, parent, key, line, exceptionhandlers, fallthrough=None):
-        super(OnException, self).__init__(parent, [line.outException])
+    def __init__(self, parent, throwvar, chpairs, fallthrough=None):
+        super(OnException, self).__init__(parent, [throwvar])
         self.default = fallthrough
-
-        chpairs = []
-        for (start, end, handler, catchtype) in exceptionhandlers:
-            if start <= key < end:
-                chpairs.append((catchtype, handler))
         self.cs = CatchSetManager(parent.env, chpairs)
         self.cs.pruneKeys()
 

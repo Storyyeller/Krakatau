@@ -2,6 +2,7 @@ import itertools, math
 
 from ..ssa import objtypes
 from .stringescape import escapeString
+from . import visitor
 
 # Explicitly cast parameters to the desired type in order to avoid potential issues with overloaded methods
 ALWAYS_CAST_PARAMS = 1
@@ -353,7 +354,7 @@ class JavaExpression(object):
     def isLocalAssign(self): return isinstance(self, Assignment) and isinstance(self.params[0], Local)
 
     def __repr__(self):
-        return type(self).__name__.rpartition('.')[-1] + ' ' + self.print_(None, None)
+        return type(self).__name__.rpartition('.')[-1] + ' ' + visitor.DefaultVisitor().visit(self)
     __str__ = __repr__
 
 class ArrayAccess(JavaExpression):

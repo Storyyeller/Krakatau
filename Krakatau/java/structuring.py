@@ -247,17 +247,12 @@ def structureExceptions(nodes):
     newinfos = []
     for n in thrownodes:
         manager = n.block.jump.cs
+        assert(len(n.block.jump.params) == 1)
         thrownvar = n.block.jump.params[0]
 
         mycsets = {}
         mytryinfos = []
         newinfos.append((n, manager.mask, mycsets, mytryinfos))
-
-        temp = ExceptionSet.EMPTY
-        for cset in manager.sets.values():
-            assert(not temp & cset)
-            temp |= cset
-        assert(temp == manager.mask)
 
         for handler, cset in manager.sets.items():
             en = n.blockdict[handler.key, True]
@@ -270,8 +265,10 @@ def structureExceptions(nodes):
             assert(len(caughtvars) <= 1)
             caughtvar = caughtvars.pop() if caughtvars else None
 
-            outvars = [(None if v == thrownvar else v) for v in n.outvars[en]]
-            del n.outvars[en]
+            outvars = n.outvars.pop(en)[:]
+            assert(outvars.count(thrownvar) <= 1)
+            if caughtvar is not None:
+                outvars[outvars.index(thrownvar)] = None
 
             for tt in cset.getTopTTs():
                 top = ExceptionSet.fromTops(cset.env, objtypes.className(tt))

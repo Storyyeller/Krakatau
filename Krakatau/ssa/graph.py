@@ -104,6 +104,7 @@ class SSA_Graph(object):
             block.phis = filterOps(block.phis)
             block.lines = filterOps(block.lines)
             block.filterVarConstraints(keepset)
+        self._conscheck()
 
     def _getSources(self): #TODO - remove
         sources = collections.defaultdict(set)
@@ -187,11 +188,13 @@ class SSA_Graph(object):
         '''Sanity check'''
         sources = self._getSources()
         for block in self.blocks:
+            assert(block.jump is not None)
             assert(sources[block] == {k for k,t in block.predecessors})
             for phi in block.phis:
                 assert(phi.rval is None or phi.rval in block.unaryConstraints)
                 for k,v in phi.dict.items():
                     assert(v.name == "UNREACHABLE" or v in k[0].unaryConstraints)
+
         keys = [block.key for block in self.blocks]
         assert(len(set(keys)) == len(keys))
         temp = [self.entryBlock]
@@ -204,6 +207,8 @@ class SSA_Graph(object):
         #Propagates unary constraints (range, type, etc.) pessimistically and optimistically
         #Assumes there are no subprocedues and this has not been called yet
         assert(not self.procs)
+        self._conscheck()
+
         varnodes, result_lookup = variablegraph.makeGraph(self.env, self.blocks)
         variablegraph.processGraph(varnodes)
         for block in self.blocks:
@@ -218,7 +223,7 @@ class SSA_Graph(object):
                         var.origin.removeOutput(var)
                         var.origin = None
                     var.name = "UNREACHABLE" #for debug printing
-                    # var.name += '-'
+                    # var.name += "-UNREACHABLE"
                 else:
                     newUC = constraints.join(oldUC, newUC)
                     block.unaryConstraints[var] = newUC
@@ -227,18 +232,27 @@ class SSA_Graph(object):
     def simplifyJumps(self):
         self._conscheck()
 
+        # remove impossible expceptions from ephis
+        for block in self.blocks:
+            if block.lines and isinstance(block.lines[-1], ssa_ops.ExceptionPhi):
+                ephi = block.lines[-1]
+                ephi.params = [var for var in ephi.params if var in block.unaryConstraints]
+
         # Also remove blocks which use a variable detected as unreachable
         def usesInvalidVar(block):
             for op in block.lines:
-                for param in op.params:
-                    if param not in block.unaryConstraints:
-                        return True
+                # ExceptionPhi is allowed to have unreachable inputs, since it's a phi, not a real op
+                if not isinstance(op, ssa_ops.ExceptionPhi):
+                    for param in op.params:
+                        if param not in block.unaryConstraints:
+                            return True
             return False
 
         for block in self.blocks:
             if usesInvalidVar(block):
                 for (child,t) in block.jump.getSuccessorPairs():
                     child.removePredPair((block,t))
+                assert(block is not self.entryBlock)
                 block.jump = None
 
         #Determine if any jumps are impossible based on known constraints of params: if(0 == 0) etc
@@ -286,10 +300,11 @@ class SSA_Graph(object):
         for block in self.blocks:
             if not isinstance(block.jump, ssa_jumps.OnException) or len(block.jump.getSuccessorPairs()) != 1:
                 continue
-            if not block.lines or not isinstance(block.lines[-1], ssa_ops.Throw):
+            if block.unaryConstraints[block.jump.params[0]].null:
                 continue
-            if block.unaryConstraints[block.lines[-1].params[0]].null:
+            if len(block.lines[-1].params) != 1 or not isinstance(block.lines[-2], ssa_ops.Throw):
                 continue
+
             candidates[block.jump.getExceptSuccessors()[0]].append(block)
 
         for child in self.blocks:
@@ -297,17 +312,21 @@ class SSA_Graph(object):
                 continue
 
             for parent in candidates[child]:
-                throw_op = parent.lines[-1]
+                ephi = parent.lines.pop()
+                throw_op = parent.lines.pop()
+
                 var1 = throw_op.params[0]
                 var2 = throw_op.outException
-                assert(parent.jump.params[0] == var2)
+                assert(ephi.params == [var2])
+                var3 = ephi.outException
+                assert(parent.jump.params[0] == var3)
 
                 for phi in child.phis:
-                    phi.replaceVars({var2: var1})
+                    phi.replaceVars({var3: var1})
                 child.replacePredPair((parent, True), (parent, False))
 
                 del parent.unaryConstraints[var2]
-                parent.lines.pop()
+                del parent.unaryConstraints[var3]
                 parent.jump = ssa_jumps.Goto(self, child)
 
     # Subprocedure stuff #####################################################
@@ -570,6 +589,8 @@ class SSA_Graph(object):
     # assign variable names for debugging
     varnum = collections.defaultdict(itertools.count)
     def makeVariable(self, *args, **kwargs):
+        # Note: Make sure this doesn't hold on to created variables in any way,
+        # since this func may be called for temporary results that are discarded
         var = SSA_Variable(*args, **kwargs)
         # pref = args[0][0][0].replace('o','a')
         # var.name = pref + str(next(self.varnum[pref]))
@@ -655,5 +676,6 @@ def ssaFromVerified(code, iNodes):
                 bvars.append(phi.get((block, t)))
         assert(None not in bvars)
         block.unaryConstraints = {var:makeConstraint(var) for var in set(bvars)}
+
     parent._conscheck()
     return parent

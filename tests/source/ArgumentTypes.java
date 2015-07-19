@@ -41,10 +41,12 @@ public class ArgumentTypes{
 		byte[] z = {1,2,3,45,6};
 		boolean[] w = {false, true, false};
 		Object[] v = a;
+		CharSequence[] u = a;
 
-		System.out.println(main(v));
-		System.out.println(main(w));
-		System.out.println(main(z));
+		println(main(u));
+		println(main(v));
+		println(main(w));
+		println(main(z));
 
 		char c = 'C';
 		System.out.println(c);
@@ -62,7 +64,18 @@ public class ArgumentTypes{
 		return null;
 	}
 
+	public static Object main(CharSequence[] x)[] {
+		if (x == null) {return null;}
+		CharSequence[] y = new CharSequence[x.length + 1];
+		System.arraycopy(x, 0, y, 1, x.length);
+		y[0] = new StringBuffer(45).append((long)y.length).append(45);
+		return y;
+	}
+
 	public static void foo(byte b) {print(b);}
 	public static void foo2(byte b) {print(b != 0 ? 1 : 0);}
 	public static void print(int i) {System.out.println(i);}
+
+	protected static void println(Object x) {System.out.println(x);}
+	protected static void println(Object[] x) {println(java.util.Arrays.deepToString(x));}
 }

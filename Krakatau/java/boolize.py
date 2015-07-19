@@ -171,6 +171,6 @@ def interfaceVars(env, root, arg_vars):
         if var in consts:
             tts.append(consts[var])
         newtypes[var] = newtype = objtypes.commonSupertype(env, tts)
-        if newtype != objtypes.ObjectTT and newtype != var.dtype:
+        if newtype != objtypes.ObjectTT and newtype != var.dtype and newtype != objtypes.NullTT:
             assert(objtypes.baset(var.dtype) == objtypes.baset(objtypes.ObjectTT))
             var.dtype = newtype

@@ -63,7 +63,7 @@ def reverseBoolExpr(expr):
             left, right = expr.params
             #be sure not to reverse floating point comparisons since it's not equivalent for NaN
             if expr.opstr in symbols[:2] or (left.dtype not in floatts and right.dtype not in floatts):
-                return ast.BinaryInfix(sym2, (left,right), objtypes.BoolTT)
+                return ast.BinaryInfix(sym2, [left, right], objtypes.BoolTT)
     elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
         return expr.params[0]
     return ast.UnaryPrefix('!', expr)
@@ -346,7 +346,7 @@ def _getBitfield(expr):
             # We don't want to merge expressions if they could have side effects
             # so only allow literals and locals
             if all(isinstance(p, (ast.Literal, ast.Local)) for p in expr.params):
-                return _op2bits[expr.opstr], tuple(expr.params)
+                return _op2bits[expr.opstr], list(expr.params)
         elif expr.opstr in ('&','&&','|','||'):
             bits1, args1 = _getBitfield(expr.params[0])
             bits2, args2 = _getBitfield(expr.params[1])

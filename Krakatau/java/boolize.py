@@ -111,7 +111,7 @@ def boolizeVars(root, arg_vars):
             left, right = expr.params
             if objtypes.baset(left.dtype) in int_tags and objtypes.dim(left.dtype) == 0:
                 if not ast.isPrimativeAssignable(right.dtype, left.dtype):
-                    expr.params = left, ast.makeCastExpr(left.dtype, right)
+                    expr.params = [left, ast.makeCastExpr(left.dtype, right)]
         elif isinstance(expr, ast.BinaryInfix):
             a, b = expr.params
             #shouldn't need to do anything here for arrays

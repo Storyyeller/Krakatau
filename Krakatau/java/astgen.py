@@ -133,7 +133,7 @@ def _convertJExpr(op, getExpr, clsname):
     elif isinstance(op, ssa_ops.FNeg):
         expr = ast.UnaryPrefix('-', params[0])
     elif isinstance(op, ssa_ops.InstanceOf):
-        args = params[0], ast.TypeName(op.target_tt)
+        args = [params[0], ast.TypeName(op.target_tt)]
         expr = ast.BinaryInfix('instanceof', args, dtype=objtypes.BoolTT)
     elif isinstance(op, ssa_ops.Invoke):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)

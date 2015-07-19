@@ -297,7 +297,7 @@ def makeCastExpr(newtt, expr, fixEnv=None):
     if newtt == objtypes.IntTT and expr.dtype == objtypes.BoolTT:
         return Ternary(expr, Literal.ONE, Literal.ZERO)
     elif newtt == objtypes.BoolTT and expr.dtype == objtypes.IntTT:
-        return BinaryInfix('!=', (expr, Literal.ZERO), objtypes.BoolTT)
+        return BinaryInfix('!=', [expr, Literal.ZERO], objtypes.BoolTT)
 
     ret = Cast(TypeName(newtt), expr)
     if fixEnv is not None:
@@ -313,8 +313,8 @@ def makeCastExpr(newtt, expr, fixEnv=None):
 # Associativity: L = Left, R = Right, A = Full
 
 class JavaExpression(object):
-    precedence = 0 #Default precedence
-    params = () #for subclasses that don't have params
+    precedence = 0 # Default precedence
+    params = [] # for subclasses that don't have params
 
     def complexity(self): return 1 + max(e.complexity() for e in self.params) if self.params else 0
 
@@ -346,7 +346,7 @@ class JavaExpression(object):
     def addParens(self):
         for param in self.params:
             param.addParens()
-        self.params = list(self.params) #make it easy for children to edit
+        self.params = list(self.params) # Copy before editing, just to be extra safe
         self.addParens_sub()
 
     def addParens_sub(self): pass
@@ -365,7 +365,7 @@ class ArrayAccess(JavaExpression):
             param = makeCastExpr(objtypes.withDimInc(objtypes.ObjectTT, 1), params[0])
             params = param, params[1]
 
-        self.params = params
+        self.params = list(params)
         self.fmt = '{}[{}]'
 
     @property
@@ -379,7 +379,7 @@ class ArrayAccess(JavaExpression):
 class ArrayCreation(JavaExpression):
     def __init__(self, tt, *sizeargs):
         self.dim = objtypes.dim(tt)
-        self.params = (TypeName(objtypes.withNoDim(tt)),) + sizeargs
+        self.params = [TypeName(objtypes.withNoDim(tt))] + list(sizeargs)
         self.dtype = tt
         assert(self.dim >= len(sizeargs) > 0)
         self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(self.dim-len(sizeargs))
@@ -389,7 +389,7 @@ class ArrayCreation(JavaExpression):
 class Assignment(JavaExpression):
     precedence = 21
     def __init__(self, *params):
-        self.params = params
+        self.params = list(params)
         self.fmt = '{} = {}'
 
     @property
@@ -399,7 +399,7 @@ class Assignment(JavaExpression):
         left, right = self.params
         if not isJavaAssignable(env, right.dtype, left.dtype):
             expr = makeCastExpr(left.dtype, right, fixEnv=env)
-            self.params = left, expr
+            self.params = [left, expr]
 
     def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), '']
 
@@ -440,7 +440,7 @@ class Cast(JavaExpression):
     precedence = 5
     def __init__(self, *params):
         self.dtype = params[0].tt
-        self.params = params
+        self.params = list(params)
         self.fmt = '({}){}'
 
     def fix(self, env):
@@ -451,7 +451,7 @@ class Cast(JavaExpression):
             if not isJavaAssignable(env, tt, expr.dtype):
                 if not isJavaAssignable(env, expr.dtype, tt):
                     expr = makeCastExpr(objtypes.ObjectTT, expr)
-                    self.params = self.params[0], expr
+                    self.params = [self.params[0], expr]
         return self
 
     def addCasts_sub(self, env): self.fix(env)
@@ -651,7 +651,7 @@ class MethodInvocation(JavaExpression):
 
 class Parenthesis(JavaExpression):
     def __init__(self, param):
-        self.params = param,
+        self.params = [param]
         self.fmt = '({})'
 
     @property
@@ -660,7 +660,7 @@ class Parenthesis(JavaExpression):
 class Ternary(JavaExpression):
     precedence = 20
     def __init__(self, *params):
-        self.params = params
+        self.params = list(params)
         self.fmt = '{} ? {} : {}'
 
     @property

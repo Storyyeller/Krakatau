@@ -147,15 +147,34 @@ class InstructionNode(object):
         self.offsetToIndex = offsetToIndex
         self.indexToOffset = indexToOffset
 
-        self._verifyOpcodeOperands()
-        self._precomputeValues()
-
         #Field correspondences
         # invoke*: op2.fi -> target_type
         # new, checkcast, newarray, anewarray, multinewarray, instanceof:
         #   op.fi -> push_type
         # new: op2.fi -> target_type
         self.out_state = None #store out state for JSR/RET instructions for ssa_construction
+
+        # Fields to be assigned later
+        self.after = None
+        self.before = None
+        self.flags = None
+        self.isThisCtor = None
+        self.jsrTarget = None
+        self.local_ind = None
+        self.local_tag = None
+        self.locals = None
+        self.masks = None
+        self.next_instruction = None
+        self.parsed_desc = None
+        self.protected = False
+        self.push_type = None
+        self.returnedFrom = None
+        self.stack = None
+        self.successors = None
+        self.target_type = None
+
+        self._verifyOpcodeOperands()
+        self._precomputeValues()
 
     def _verifyOpcodeOperands(self):
         def isTargetLegal(addr):
@@ -203,7 +222,7 @@ class InstructionNode(object):
             ind = self.instruction[1]
             verifyCPType(ind, ['Field'])
             if op in (opnames.PUTFIELD, opnames.GETFIELD):
-                self._setProtected(True)
+                self._setProtected(isfield=True)
         elif op in _invoke_ops:
             ind = self.instruction[1]
             expected = {opnames.INVOKEINTERFACE:'InterfaceMethod', opnames.INVOKEDYNAMIC:'NameAndType'}.get(op, 'Method')
@@ -234,7 +253,7 @@ class InstructionNode(object):
                 if self.instruction[3] != 0:
                     self.error('Final bytes must be zero in {}', op)
             elif op in (opnames.INVOKEVIRTUAL, opnames.INVOKESPECIAL, opnames.INVOKEINIT):
-                self._setProtected(False)
+                self._setProtected(isfield=False)
 
         elif op in (opnames.INSTANCEOF, opnames.CHECKCAST, opnames.NEW, opnames.ANEWARRAY, opnames.MULTINEWARRAY):
             ind = self.instruction[1]
@@ -335,7 +354,6 @@ class InstructionNode(object):
             self.successors = next_,
 
     def _setProtected(self, isfield):
-        self.protected = False
         target, name, desc = self.cpool.getArgsCheck(('Field' if isfield else 'Method'), self.instruction[1])
 
         # Not sure what Hotspot actually does here, but this is hopefully close enough

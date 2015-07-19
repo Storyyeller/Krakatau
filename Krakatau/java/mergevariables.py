@@ -25,6 +25,8 @@ class EqualityData(object):
         # None represents the top value (i.e. this point has not been visited yet)
         self.d = d.copy() if d is not None else None
 
+    def _newval(self): return object()
+
     def initialize(self): #initialize to bottom value (all variables unequal)
         assert(self.d is None)
         self.d = {}
@@ -36,7 +38,7 @@ class EqualityData(object):
             if var1 in self.d:
                 del self.d[var1]
         else:
-            self.d[var1] = self.d.setdefault(var2, object())
+            self.d[var1] = self.d.setdefault(var2, self._newval())
             assert(self.iseq(var1, var2))
 
     def iseq(self, var1, var2):
@@ -57,7 +59,7 @@ class EqualityData(object):
                 matches = [k for k in todo if d1[k] is d1[cur] and d2[k] is d2[cur]]
                 if not matches:
                     continue
-                new[cur] = object()
+                new[cur] = self._newval()
                 for k in matches:
                     new[k] = new[cur]
                 todo = [k for k in todo if k not in new]
@@ -158,7 +160,7 @@ class VarMergeInfo(object):
         else:
             info.extracount += 1
 
-    #process helper guncs
+    #process helper funcs
     def iseq(self, block, index, v1, v2):
         return self.equality[block][index].iseq(v1, v2)
 
@@ -172,7 +174,7 @@ class VarMergeInfo(object):
             self._doGraphReplacements()
 
         blocks = self.graph.blocks
-        vok = {b:3 for b in blocks} #use bitmask v1ok = 1<<0, v2ok = 1<<1
+        vok = {b:3 for b in blocks} # use bitmask v1ok = 1<<0, v2ok = 1<<1
 
         stack = [b for b in blocks if v1 in b.vars or v2 in b.vars]
         while stack:

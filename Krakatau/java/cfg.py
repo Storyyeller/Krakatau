@@ -20,7 +20,7 @@ class DUBlock(object):
         self.lines = []     # 3 types of lines: ('use', var), ('def', (var, var2_opt)), or ('canthrow', None)
         self.e_successors = []
         self.n_successors = []
-        self.vars = None #vars used or defined within the block. Does NOT include caught exceptions
+        self.vars = None # vars used or defined within the block. Does NOT include caught exceptions
 
     def canThrow(self): return ('canthrow', None) in self.lines
 

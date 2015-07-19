@@ -598,11 +598,6 @@ class SSA_Graph(object):
 
     def setObjVarData(self, var, vtype, initMap):
         vtype2 = initMap.get(vtype, vtype)
-
-        # Intern the variable object types to save a little memory
-        # in the case of excessively long methods with large numbers
-        # of identical variables, such as sun/util/resources/TimeZoneNames_*
-        # TODO: probably not necessary any more due to other optimizations
         tt = objtypes.verifierToSynthetic(vtype2)
         assert(var.decltype is None or var.decltype == tt)
         var.decltype = tt

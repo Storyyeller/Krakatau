@@ -741,7 +741,7 @@ def _fallsThrough(scope, usedBreakTargets):
     if isinstance(last, ast.WhileStatement):
         return last.expr != ast.Literal.TRUE
     elif isinstance(last, ast.SwitchStatement):
-        return not last.hasDefault() or _fallsThrough(last.getScopes[-1], usedBreakTargets)
+        return not last.hasDefault() or _fallsThrough(last.getScopes()[-1], usedBreakTargets)
     else:
         if isinstance(last, ast.IfStatement) and len(last.getScopes()) < 2:
             return True

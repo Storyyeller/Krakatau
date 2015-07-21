@@ -61,7 +61,7 @@ class OnException(BaseJump):
         if t:
             def propagateConstraints(x):
                 if x is None:
-                    return None
+                    return None,
                 t = x.types
                 top_tts = t.supers | t.exact
                 tops = [objtypes.className(tt) for tt in top_tts]

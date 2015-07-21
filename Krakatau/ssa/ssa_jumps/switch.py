@@ -1,6 +1,8 @@
+import collections
+
 from .base import BaseJump
 from .goto import Goto
-import collections
+from ..constraints import IntConstraint
 
 class Switch(BaseJump):
     def __init__(self, parent, default, table, arguments):
@@ -43,14 +45,22 @@ class Switch(BaseJump):
 
     ###############################################################################
     def constrainJumps(self, x):
-        if x is None:
-            return None
-        # Only bother handling case of constant x
-        if x.min == x.max:
-            target = self.successors[0]
-            for v, vals in self.reverse.items():
-                if x.min in vals:
-                    target = v
-            return Goto(self.parent, target)
-        return self
-    #TODO - implement getSuccessorConstraints
+        impossible = []
+        for child in self.successors:
+            func = self.getSuccessorConstraints((child,False))
+            results = func(x)
+            if results[0] is None:
+                impossible.append((child,False))
+        return self.reduceSuccessors(impossible)
+
+    def getSuccessorConstraints(self, (block, t)):
+        cmin, cmax = -1<<31, (1<<31)-1
+        if block in self.reverse:
+            cmin = min(self.reverse[block])
+            cmax = max(self.reverse[block])
+
+        def propagateConstraints(x):
+            if x is None:
+                return None,
+            return IntConstraint.range(x.width, max(cmin, x.min), min(cmax, x.max)),
+        return propagateConstraints

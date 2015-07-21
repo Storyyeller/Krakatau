@@ -1,8 +1,10 @@
 import collections
 
 from .base import BaseJump
+from .ifcmp import If
 from .goto import Goto
 from ..constraints import IntConstraint
+from ..ssa_types import SSA_INT
 
 class Switch(BaseJump):
     def __init__(self, parent, default, table, arguments):
@@ -29,7 +31,7 @@ class Switch(BaseJump):
         self.successors = [blockDict.get(key,key) for key in self.successors]
         self.reverse = {blockDict.get(k,k):v for k,v in self.reverse.items()}
 
-    def reduceSuccessors(self, pairsToRemove):
+    def reduceSuccessors(self, pairsToRemove, block=None):
         temp = list(self.successors)
         for (child, t) in pairsToRemove:
             temp.remove(child)
@@ -38,7 +40,16 @@ class Switch(BaseJump):
             return None
         elif len(temp) == 1:
             return Goto(self.parent, temp.pop())
-        elif len(temp) < len(self.successors):
+        elif len(temp) == 2 and block is not None:
+            # Try to replace with an if statement
+            cases = self.reverse[temp[-1]]
+            if len(cases) == 1:
+                const = self.parent.makeVariable(SSA_INT, origin=self)
+                const.const = cases.pop()
+                block.unaryConstraints[const] = IntConstraint.const(32, const.const)
+                return If(self.parent, 'eq', temp, self.params + [const])
+
+        if len(temp) < len(self.successors):
             self.successors = temp
             self.reverse = {v:self.reverse[v] for v in temp[1:]}
         return self

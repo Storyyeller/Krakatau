@@ -267,6 +267,9 @@ class SSA_Graph(object):
                     #This block has no valid successors, meaning it must be unreachable
                     #It _should_ be removed automatically in the call to condenseBlocks()
                     continue
+                else:
+                    block.jump = block.jump.reduceSuccessors([], block=block)
+                    assert(block.jump)
 
                 newEdges = block.jump.getSuccessorPairs()
                 if newEdges != oldEdges:

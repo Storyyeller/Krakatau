@@ -25,7 +25,7 @@ class ProcJumpBase(object):
     def getExceptSuccessors(self): return ()
     def getSuccessors(self): return self.getNormalSuccessors()
     def getSuccessorPairs(self): return [(x,False) for x in self.getNormalSuccessors()]
-    def reduceSuccessors(self, pairsToRemove): return self
+    def reduceSuccessors(self, pairsToRemove, block=None): return self
 
 class ProcCallOp(ProcJumpBase):
     def __init__(self, target, fallthrough, inslots, outslots):

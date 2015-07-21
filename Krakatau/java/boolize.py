@@ -87,6 +87,8 @@ def boolizeVars(root, arg_vars):
         if isinstance(item, ast.ReturnStatement):
             forced_val = (objtypes.baset(item.tt) == objtypes.baset(BoolTT))
             sets.union(forced_val, root)
+        elif isinstance(item, ast.SwitchStatement):
+            sets.union(False, root) # Switch must take an int, not a bool
 
     for expr in arg_vars:
         visitExpr(expr, forceExact=True)

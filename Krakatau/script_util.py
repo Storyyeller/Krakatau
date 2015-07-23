@@ -68,7 +68,7 @@ def sanitizePart(s, suffix, prev):
     if isPartOk(s, prev) and suffix not in s:
         return s
     ok = ''.join(c for c in s if c in pref_disp_chars)
-    return ok[:8] + '__' + hashlib.md5(s).hexdigest()
+    return ok[:8] + '__' + hashlib.md5(s.encode('utf8')).hexdigest()
 
 def winSanitizePath(base, suffix, prevs, s):
     if isPathOk(s, prevs):
@@ -78,7 +78,7 @@ def winSanitizePath(base, suffix, prevs, s):
             prevs[i][sp.lower()] = sp
         path = '\\'.join(sparts)
     else:
-        path = '__' + hashlib.md5(s).hexdigest()
+        path = '__' + hashlib.md5(s.encode('utf8')).hexdigest()
         prevs[0][path.lower()] = path
     return '\\\\?\\{}\\{}{}'.format(base, path, suffix)
 

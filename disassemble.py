@@ -21,7 +21,7 @@ def disassembleClass(readTarget, targets=None, outpath=None, printCPool=False):
 
     with out:
         for i,target in enumerate(targets):
-            print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
+            print 'processing target {}, {}/{} remaining'.format(target.encode('utf8'), len(targets)-i, len(targets))
 
             data = readTarget(target)
             stream = Krakatau.binUnpacker.binUnpacker(data=data)
@@ -30,7 +30,7 @@ def disassembleClass(readTarget, targets=None, outpath=None, printCPool=False):
 
             source = Krakatau.assembler.disassembler.disassemble(class_, printCPool=printCPool)
             filename = out.write(class_.name, source)
-            print 'Class written to', filename
+            print 'Class written to', filename.encode('utf8')
             print time.time() - start_time, ' seconds elapsed'
 
 if __name__== "__main__":

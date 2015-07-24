@@ -62,12 +62,10 @@ class SSA_Graph(object):
     def condenseBlocks(self):
         assert(not self.procs)
         old = self.blocks
-        #Can't do a consistency check on entry as the graph may be in an inconsistent state at this point
-        #Since the purpose of this function is to prune unreachable blocks from self.blocks
-
+        # Can't do a consistency check on entry as the graph may be in an inconsistent state at this point
+        # Since the purpose of this function is to prune unreachable blocks from self.blocks
         sccs = graph_util.tarjanSCC([self.entryBlock], lambda block:block.jump.getSuccessors())
-        sccs = list(reversed(sccs))
-        self.blocks = list(itertools.chain.from_iterable(map(reversed, sccs)))
+        self.blocks = list(itertools.chain.from_iterable(map(reversed, sccs[::-1])))
 
         assert(set(self.blocks) <= set(old))
         if len(self.blocks) < len(old):

@@ -18,6 +18,8 @@ def join(*cons):
     return cons[0].join(*cons[1:])
 
 def meet(*cons):
+    if not cons:
+        return None
     return cons[0].meet(*cons[1:])
 
 DUMMY = DummyConstraint()

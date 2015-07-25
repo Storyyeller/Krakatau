@@ -64,7 +64,7 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
 
     print 'Attempting to compile'
     _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=temppath)
-    if stderr:
+    if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
         print 'Compile failed:'
         print stderr
         return False

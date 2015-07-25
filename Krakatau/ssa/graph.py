@@ -1,7 +1,7 @@
 import itertools, collections, copy, functools
 
-from . import blockmaker, constraints, variablegraph, objtypes, subproc
-from . import ssa_jumps, ssa_ops
+from . import blockmaker, constraints, objtypes, subproc
+from . import ssa_jumps, ssa_ops, constraints
 from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
 
@@ -74,6 +74,8 @@ class SSA_Graph(object):
                 for pair in block.predecessors[:]:
                     if pair[0] not in kept:
                         block.removePredPair(pair)
+            return [b for b in old if b not in kept]
+        return []
 
     def removeUnusedVariables(self):
         assert(not self.procs)
@@ -191,7 +193,7 @@ class SSA_Graph(object):
             for phi in block.phis:
                 assert(phi.rval is None or phi.rval in block.unaryConstraints)
                 for k,v in phi.dict.items():
-                    assert(v.name == "UNREACHABLE" or v in k[0].unaryConstraints)
+                    assert(v in k[0].unaryConstraints)
 
         keys = [block.key for block in self.blocks]
         assert(len(set(keys)) == len(keys))
@@ -201,97 +203,166 @@ class SSA_Graph(object):
             temp += proc.jsrblocks
         assert(len(set(temp)) == len(temp))
 
-    def constraintPropagation(self):
-        #Propagates unary constraints (range, type, etc.) pessimistically and optimistically
-        #Assumes there are no subprocedues and this has not been called yet
+    def copyPropagation(self):
+        # Loop aware copy propagation
         assert(not self.procs)
         self._conscheck()
 
-        varnodes, result_lookup = variablegraph.makeGraph(self.env, self.blocks)
-        variablegraph.processGraph(varnodes)
+        # The goal is to propagate constants that would never be inferred pessimistically
+        # due to the prescence of loops. Variables that aren't derived from a constant or phi
+        # are treated as opaque and variables are processed by SCC in topological order.
+        # For each scc, we can infer that it is the meet of all inputs that come from variables
+        # in different sccs that come before it in topological order, thus ignoring variables
+        # in the current scc (the loop problem).
+        v2b = {}
+        assigns = collections.OrderedDict()
         for block in self.blocks:
-            for var, oldUC in block.unaryConstraints.items():
-                newUC = result_lookup[var].output[0]
-                # var.name = makename(var)
-                if newUC is None:
-                    # This variable is overconstrainted, meaning it must be unreachable
-                    del block.unaryConstraints[var]
+            for var in block.unaryConstraints:
+                v2b[var] = block
+            for phi in block.phis:
+                assigns[phi.rval] = map(phi.get, block.predecessors)
 
-                    if var.origin is not None:
-                        var.origin.removeOutput(var)
-                        var.origin = None
-                    var.name = "UNREACHABLE" #for debug printing
-                    # var.name += "-UNREACHABLE"
-                else:
-                    newUC = constraints.join(oldUC, newUC)
-                    block.unaryConstraints[var] = newUC
+        UCs = {}
+        sccs = graph_util.tarjanSCC(assigns, lambda v:assigns.get(v, []))
+        for scc in sccs:
+            if all(var in assigns for var in scc):
+                invars = sum(map(assigns.get, scc), [])
+                inputs = [UCs[invar] for invar in invars if invar in UCs]
+                assert(inputs)
+                uc = constraints.meet(*inputs)
+
+                for var in scc:
+                    old = v2b[var].unaryConstraints[var]
+                    v2b[var].unaryConstraints[var] = UCs[var] = constraints.join(uc, old)
+            else:
+                # There is a root in this scc, so we can't do anything
+                for var in scc:
+                    UCs[var] = v2b[var].unaryConstraints[var]
+
         self._conscheck()
 
-    def simplifyJumps(self):
+    def abstractInterpert(self):
+        # Sparse conditional constant propagation and type inference
+        assert(not self.procs)
         self._conscheck()
 
-        # remove impossible expceptions from ephis
-        for block in self.blocks:
-            if block.lines and isinstance(block.lines[-1], ssa_ops.ExceptionPhi):
-                ephi = block.lines[-1]
-                ephi.params = [var for var in ephi.params if var in block.unaryConstraints]
-
-        # Also remove blocks which use a variable detected as unreachable
-        def usesInvalidVar(block):
-            for op in block.lines:
-                # ExceptionPhi is allowed to have unreachable inputs, since it's a phi, not a real op
-                if not isinstance(op, ssa_ops.ExceptionPhi):
-                    for param in op.params:
-                        if param not in block.unaryConstraints:
-                            return True
-            return False
-
-        for block in self.blocks:
-            if usesInvalidVar(block):
-                for (child,t) in block.jump.getSuccessorPairs():
-                    child.removePredPair((block,t))
-                assert(block is not self.entryBlock)
-                block.jump = None
-
-        #Determine if any jumps are impossible based on known constraints of params: if(0 == 0) etc
-        for block in self.blocks:
-            if hasattr(block.jump, 'constrainJumps'):
-                assert(block.jump.params)
-                oldEdges = block.jump.getSuccessorPairs()
-                UCs = map(block.unaryConstraints.get, block.jump.params)
-                block.jump = block.jump.constrainJumps(*UCs)
-
-                if block.jump is None:
-                    #This block has no valid successors, meaning it must be unreachable
-                    #It _should_ be removed automatically in the call to condenseBlocks()
-                    continue
-                else:
-                    block.jump = block.jump.reduceSuccessors([], block=block)
-                    assert(block.jump)
-
-                newEdges = block.jump.getSuccessorPairs()
-                if newEdges != oldEdges:
-                    pruned = [x for x in oldEdges if x not in newEdges]
-                    for (child,t) in pruned:
-                        child.removePredPair((block,t))
-
-        #Unreachable blocks may not automatically be removed by jump.constrainJumps
-        #Because it only looks at its own params
-        badblocks = set(block for block in self.blocks if block.jump is None)
-        newbad = set()
-        while badblocks:
+        visit_counts = collections.defaultdict(int)
+        dirty_phis = set(itertools.chain.from_iterable(block.phis for block in self.blocks))
+        while dirty_phis:
             for block in self.blocks:
-                if block.jump is None:
+                assert(block in self.blocks)
+                UCs = block.unaryConstraints
+                dirty = visit_counts[block] == 0
+                for phi in block.phis:
+                    if phi in dirty_phis:
+                        dirty_phis.remove(phi)
+                        inputs = [key[0].unaryConstraints[phi.get(key)] for key in block.predecessors]
+                        out = constraints.meet(*inputs)
+                        old = UCs[phi.rval]
+                        UCs[phi.rval] = out = constraints.join(old, out)
+                        dirty = dirty or out != old
+                        assert(out)
+
+                if not dirty or visit_counts[block] >= 5:
                     continue
+                visit_counts[block] += 1
 
-                badpairs = [(child,t) for child,t in block.jump.getSuccessorPairs() if child in badblocks]
-                block.jump = block.jump.reduceSuccessors(badpairs)
-                if block.jump is None:
-                    newbad.add(block)
-            badblocks, newbad = newbad, set()
+                dirty_vars = set()
+                last_line = block.lines[-1] if block.lines else None # Keep reference handy to exception phi, if any
+                for i, op in enumerate(block.lines):
+                    if hasattr(op, 'propagateConstraints'):
+                        output_vars = op.getOutputs()
+                        inputs = [UCs[var] for var in op.params]
+                        assert(None not in inputs)
+                        outputs = op.propagateConstraints(*inputs)
+                        # if isinstance(op, ssa_ops.CheckCast):
+                        #     import pdb;pdb.set_trace()
 
-        self.condenseBlocks()
-        self._conscheck()
+                        must_throw = False
+                        for var, out in zip(output_vars, outputs):
+                            if var is None:
+                                continue
+                            old = UCs[var]
+                            UCs[var] = out = constraints.join(old, out)
+                            if out is None:
+                                if var is op.outException:
+                                    assert(isinstance(last_line, ssa_ops.ExceptionPhi))
+                                    last_line.params.remove(var)
+                                else:
+                                    must_throw = True
+                                op.removeOutput(var) # Note, this must be done after the op.outException check!
+                                del UCs[var]
+
+                            elif out != old:
+                                dirty_vars.add(var)
+
+                        if must_throw:
+                            # Return val (or monad) is now None but wasn't before,
+                            # meaning that the instruction must throw. Remove all code
+                            # after this in the basic block and adjust exception code
+                            # at end as appropriate
+                            assert(isinstance(last_line, ssa_ops.ExceptionPhi))
+                            assert(i < len(block.lines) and op.outException)
+                            removed = block.lines[i+1:-1]
+                            block.lines = block.lines[:i+1] + [last_line]
+                            for op2 in removed:
+                                if op2.outException:
+                                    last_line.params.remove(op2.outException)
+                                for var in op2.getOutputs():
+                                    if var is not None:
+                                        del UCs[var]
+                            break
+
+                # now handle end of block
+                if isinstance(last_line, ssa_ops.ExceptionPhi):
+                    inputs = map(UCs.get, last_line.params)
+                    out = constraints.meet(*inputs)
+                    old = UCs[last_line.outException]
+                    UCs[last_line.outException] = out = constraints.join(old, out)
+                    if out is None:
+                        del UCs[last_line.outException]
+                    elif out != old:
+                        dirty_vars.add(last_line.outException)
+
+                # prune jumps
+                dobreak = False
+                if hasattr(block.jump, 'constrainJumps'):
+                    assert(block.jump.params)
+                    oldEdges = block.jump.getSuccessorPairs()
+                    inputs = map(UCs.get, block.jump.params)
+                    block.jump = block.jump.constrainJumps(*inputs)
+
+                    newEdges = block.jump.getSuccessorPairs()
+                    if newEdges != oldEdges:
+                        pruned = [x for x in oldEdges if x not in newEdges]
+                        for (child,t) in pruned:
+                            child.removePredPair((block,t))
+
+                        removed_blocks = self.condenseBlocks()
+                        # In case where no blocks were removed, self.blocks will possibly be in a different
+                        # order than the version of self.blocks we are iterating over, but it still has the
+                        # same contents, so this should be safe. If blocks were removed, we break out of the
+                        # list and restart to avoid the possibility of processing an unreachable block.
+                        dobreak = len(removed_blocks) > 0
+                        for removed in removed_blocks:
+                            for phi in removed.phis:
+                                dirty_phis.discard(phi)
+
+                # update dirty set
+                for child, t in block.jump.getSuccessorPairs():
+                    assert(child in self.blocks)
+                    for phi in child.phis:
+                        if phi.get((block, t)) in dirty_vars:
+                            dirty_phis.add(phi)
+                if dobreak:
+                    break
+
+        # Try to turn switches into if statements - note that this may
+        # introduce a new variable and this modify block.unaryConstraints
+        # However, it won't change the control flow graph structure
+        for block in self.blocks:
+            if isinstance(block.jump, ssa_jumps.Switch):
+                block.jump = block.jump.reduceSuccessors([], block=block)
 
     def simplifyThrows(self):
         # Try to turn throws into gotos where possible. This primarily helps with certain patterns of try-with-resources

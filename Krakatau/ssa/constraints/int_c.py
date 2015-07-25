@@ -37,3 +37,12 @@ class IntConstraint(ValueType):
         xmin = min(c.min for c in cons)
         xmax = max(c.max for c in cons)
         return IntConstraint(cons[0].width, xmin, xmax)
+
+    def __str__(self):
+        t = 'Int' if self.width == 32 else 'Long'
+        if self.min == self.max:
+            return '{}({})'.format(t, self.min)
+        elif self == self.bot(self.width):
+            return t
+        return '{}({}, {})'.format(t, self.min, self.max)
+    __repr__ = __str__

@@ -44,7 +44,7 @@ class Switch(BaseJump):
             # Try to replace with an if statement
             cases = self.reverse[temp[-1]]
             if len(cases) == 1:
-                const = self.parent.makeVariable(SSA_INT, origin=self)
+                const = self.parent.makeVariable(SSA_INT)
                 const.const = cases.pop()
                 block.unaryConstraints[const] = IntConstraint.const(32, const.const)
                 return If(self.parent, 'eq', temp, self.params + [const])
@@ -65,13 +65,17 @@ class Switch(BaseJump):
         return self.reduceSuccessors(impossible)
 
     def getSuccessorConstraints(self, (block, t)):
-        cmin, cmax = -1<<31, (1<<31)-1
         if block in self.reverse:
             cmin = min(self.reverse[block])
             cmax = max(self.reverse[block])
-
-        def propagateConstraints(x):
-            if x is None:
-                return None,
-            return IntConstraint.range(x.width, max(cmin, x.min), min(cmax, x.max)),
+            def propagateConstraints(x):
+                if x is None:
+                    return None,
+                return IntConstraint.range(x.width, max(cmin, x.min), min(cmax, x.max)),
+        else:
+            allcases = set().union(*self.reverse.values())
+            def propagateConstraints(x):
+                if x is None or (x.min == x.max and x.min in allcases):
+                    return None,
+                return x,
         return propagateConstraints

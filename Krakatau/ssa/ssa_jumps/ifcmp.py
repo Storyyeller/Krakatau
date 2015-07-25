@@ -20,7 +20,7 @@ class If(BaseJump):
     def getNormalSuccessors(self):
         return self.successors
 
-    def reduceSuccessors(self, pairsToRemove, block=None):
+    def reduceSuccessors(self, pairsToRemove):
         temp = set(self.successors)
         for (child, t) in pairsToRemove:
             temp.remove(child)

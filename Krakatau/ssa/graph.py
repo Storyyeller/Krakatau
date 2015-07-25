@@ -362,7 +362,7 @@ class SSA_Graph(object):
         # However, it won't change the control flow graph structure
         for block in self.blocks:
             if isinstance(block.jump, ssa_jumps.Switch):
-                block.jump = block.jump.reduceSuccessors([], block=block)
+                block.jump = block.jump.simplifyToIf(block)
 
     def simplifyThrows(self):
         # Try to turn throws into gotos where possible. This primarily helps with certain patterns of try-with-resources

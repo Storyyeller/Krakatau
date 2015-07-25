@@ -22,7 +22,7 @@ class OnException(BaseJump):
         if self.default is not None:
             self.default = blockDict.get(self.default, self.default)
 
-    def reduceSuccessors(self, pairsToRemove, block=None):
+    def reduceSuccessors(self, pairsToRemove):
         for (child, t) in pairsToRemove:
             if t:
                 self.cs.mask -= self.cs.sets[child]

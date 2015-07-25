@@ -31,7 +31,7 @@ class Switch(BaseJump):
         self.successors = [blockDict.get(key,key) for key in self.successors]
         self.reverse = {blockDict.get(k,k):v for k,v in self.reverse.items()}
 
-    def reduceSuccessors(self, pairsToRemove, block=None):
+    def reduceSuccessors(self, pairsToRemove):
         temp = list(self.successors)
         for (child, t) in pairsToRemove:
             temp.remove(child)
@@ -40,18 +40,22 @@ class Switch(BaseJump):
             return None
         elif len(temp) == 1:
             return Goto(self.parent, temp.pop())
-        elif len(temp) == 2 and block is not None:
-            # Try to replace with an if statement
-            cases = self.reverse[temp[-1]]
-            if len(cases) == 1:
-                const = self.parent.makeVariable(SSA_INT)
-                const.const = cases.pop()
-                block.unaryConstraints[const] = IntConstraint.const(32, const.const)
-                return If(self.parent, 'eq', temp, self.params + [const])
 
         if len(temp) < len(self.successors):
             self.successors = temp
             self.reverse = {v:self.reverse[v] for v in temp[1:]}
+        return self
+
+    def simplifyToIf(self, block):
+        # Try to replace with an if statement if possible
+        # e.g. switch(x) {case C: ... default: ...} -> if (x == C) {...} else {...}
+        if len(self.successors) == 2:
+            cases = self.reverse[self.successors[-1]]
+            if len(cases) == 1:
+                const = self.parent.makeVariable(SSA_INT)
+                const.const = cases.pop()
+                block.unaryConstraints[const] = IntConstraint.const(32, const.const)
+                return If(self.parent, 'eq', self.successors, self.params + [const])
         return self
 
     ###############################################################################

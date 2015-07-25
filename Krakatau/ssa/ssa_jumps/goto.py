@@ -11,7 +11,7 @@ class Goto(BaseJump):
     def getNormalSuccessors(self):
         return self.successors
 
-    def reduceSuccessors(self, pairsToRemove, block=None):
+    def reduceSuccessors(self, pairsToRemove):
         if (self.successors[0], False) in pairsToRemove:
             return None
         return self

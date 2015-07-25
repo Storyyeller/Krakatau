@@ -210,30 +210,8 @@ def structureLoops(nodes):
 
             scc_set = set(scc)
             entries = [n for n in scc if not scc_set.issuperset(n.predecessors)]
-
-            if len(entries) <= 1:
-                head = entries[0]
-            else:
-                assert(0)
-                #if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
-                print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
-                print '({} entry points, {} blocks)'.format(len(entries), len(scc))
-
-                def loopSuccessors(head, block):
-                    if block == head:
-                        return []
-                    return [x for x in block.successors if x in scc_set]
-
-                reaches = [(n, graph_util.topologicalSort(entries, functools.partial(loopSuccessors, n))) for n in scc]
-                for head, reachable in reaches:
-                    reachable.remove(head)
-
-                head, reachable = min(reaches, key=lambda t:(len(t[1]), -len(t[0].predecessors)))
-                assert(head not in reachable)
-                print 'Duplicating {} nodes'.format(len(reachable))
-                newnodes = graphproxy.duplicateNodes(reachable, scc_set)
-                newtodo += newnodes
-                nodes += newnodes
+            assert(len(entries) == 1)
+            head = entries[0]
 
             newtodo.extend(scc)
             newtodo.remove(head)

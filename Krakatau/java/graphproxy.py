@@ -41,7 +41,7 @@ class BlockProxy(object):
         self.predecessors.append(new)
         return new
 
-    def newDuplicate(self): #for use by duplicateNodes
+    def newDuplicate(self): #for use by structuring.structure return inlining
         new = BlockProxy(self.bkey, self.counter, self.block)
         new.invars = self.invars
         new.outvars = self.outvars.copy()
@@ -66,31 +66,6 @@ class BlockProxy(object):
         return fmt.format(self.bkey, self.num)
     __repr__ = __str__
 
-def duplicateNodes(reachable, scc_set):
-    nodes = reachable[:]
-    assert(nodes and unique(nodes))
-    assert(scc_set.issuperset(nodes))
-    dups = [(n, n.newDuplicate()) for n in nodes]
-    dupmap = dict(dups)
-
-    temp = scc_set.copy()
-    innodes = itertools.chain.from_iterable(n.predecessors for n in nodes)
-    innodes = [x for x in innodes if not x in temp and not temp.add(x)]
-
-    for n in innodes:
-        n.replaceSuccessors(dupmap)
-
-    S = set(innodes)
-    for old, new in dups:
-        for p in old.predecessors[:]:
-            if p in S:
-                old.predecessors.remove(p)
-                new.predecessors.append(p)
-        new.replaceSuccessors(dupmap)
-        for c in new.successors:
-            c.predecessors.append(new)
-
-    return zip(*dups)[1]
 
 def createGraphProxy(ssagraph):
     assert(not ssagraph.procs) #should have already been inlined
@@ -115,23 +90,14 @@ def createGraphProxy(ssagraph):
     lookup = {}
     for n in nodes:
         assert(len(intypes[n.bkey]) != 2) #should have been handled by graph.splitDualInedges()
-        if len(intypes[n.bkey]) == 2: #both normal and exceptional inedges
-            n2 = n.newIndirect()
-            allnodes.append(n2)
-        else:
-            n2 = n
 
         if False in intypes[n.bkey]:
             lookup[n.bkey, False] = n
         if True in intypes[n.bkey]:
-            lookup[n2.bkey, True] = n2
+            lookup[n.bkey, True] = n
     assert(unique(lookup.values()))
 
     for n in nodes:
-        if n.block is None:
-            n.blockdict = None
-            continue
-
         n.blockdict = lookup
         block = n.block
         for (block2, t) in block.jump.getSuccessorPairs():

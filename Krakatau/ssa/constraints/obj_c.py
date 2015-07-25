@@ -20,10 +20,6 @@ class TypeConstraint(ValueType):
         assert(all(objtypes.isBaseTClass(tt) for tt in supers))
         assert(all(objtypes.dim(tt) < 999 for tt in exact))
 
-    @staticmethod
-    def fromTops(*args):
-        return TypeConstraint(*args)
-
     def _key(self): return self.supers, self.exact
     def __nonzero__(self): return bool(self.supers or self.exact)
 

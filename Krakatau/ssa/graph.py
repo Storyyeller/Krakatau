@@ -275,8 +275,6 @@ class SSA_Graph(object):
                         inputs = [UCs[var] for var in op.params]
                         assert(None not in inputs)
                         outputs = op.propagateConstraints(*inputs)
-                        # if isinstance(op, ssa_ops.CheckCast):
-                        #     import pdb;pdb.set_trace()
 
                         must_throw = False
                         for var, out in zip(output_vars, outputs):

@@ -34,11 +34,6 @@ class CatchSetManager(object):
     def copy(self):
         return CatchSetManager(0,0,(self.env, self.sets.copy(), self.mask))
 
-    def replaceKey(self, old, new):
-        assert(old in self.sets and new not in self.sets)
-        self.sets[new] = self.sets[old]
-        del self.sets[old]
-
     def replaceKeys(self, replace):
         self.sets = collections.OrderedDict((replace.get(key,key), val) for key, val in self.sets.items())
 

@@ -33,9 +33,6 @@ class Phi(object):
         assert(var == self.rval)
         self.rval = None
 
-    def replaceOutVars(self, vardict):
-        self.rval = vardict.get(self.rval)
-
 # An extended basic block can contain multiple throwing instructions
 # but the OnException jump expects a single param. The solution is
 # to create a dummy op that behaves like a phi function, selecting

@@ -523,6 +523,7 @@ class BlockMaker(object):
             block.throwvars = None
             block.chpairs = None
             block.locals_at_first_except = None
+            block.monad_at_first_except = None
 
     def _canContinueBlock(self, node):
         return (node.key not in self.blockd) and self.current_block.jump is None #fallthrough goto left as None
@@ -604,7 +605,7 @@ class BlockMaker(object):
         assert(block.jump is None)
         block.jump = ssa_jumps.OnException(parent, ephi.outException, block.chpairs, fallthrough)
         # The monad param isn't correct, but we're not really using it anyway. TODO: fix
-        outslot_except = slots_t(monad=outslot_norm.monad, locals=block.locals_at_first_except, stack=[ephi.outException])
+        outslot_except = slots_t(monad=block.monad_at_first_except, locals=block.locals_at_first_except, stack=[ephi.outException])
         for suc in block.jump.getExceptSuccessors():
             self.mergeIn((block, True), suc.key, outslot_except)
 
@@ -625,6 +626,7 @@ class BlockMaker(object):
             inslots = self.current_slots
             assert(block.locals_at_first_except is None or inslots.locals == block.locals_at_first_except)
             block.locals_at_first_except = inslots.locals
+            block.monad_at_first_except = block.monad_at_first_except or inslots.monad
 
             # Return and Throw must be immediately ended because they don't have normal fallthrough
             # CheckCast must terminate block because cast type hack later on requires casts to be at end of block

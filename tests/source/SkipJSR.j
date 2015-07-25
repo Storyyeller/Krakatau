@@ -18,8 +18,12 @@
     .limit locals 11
     .limit stack 11
 
-    ; Test a non-regular loop inside nested subprocedures
+    ; JSR as goto
+    jsr_w L1
+L1: jsr L2
+L2: pop2
 
+    ; Test a non-regular loop inside nested subprocedures
     aload_0
     arraylength
     istore_0
@@ -78,14 +82,14 @@ LLOOP_TAIL:
     goto_w LLOOP_ENTRY_1
 LLOOP_EXIT:
     swap
-    astore_1
+    wide astore 1
     pop
     ret 1
 
 LPRINT:
     iinc 0 17
     getstatic java/lang/System out Ljava/io/PrintStream;
-    iload 0
+    wide iload 0
     iload_2
     imul
     invokevirtual java/io/PrintStream println (I)V
@@ -95,7 +99,7 @@ LPRINT:
 .end method
 
 .method public static skipJSR : ([Ljava/lang/String;)V
-    .limit locals 11
+    .limit locals 1111
     .limit stack 11
 
     iconst_1
@@ -131,10 +135,10 @@ LS_2:
     arraylength
     iadd
     istore_1
-    ret 3
+    wide ret 333
 
 LSUB:
-    astore_3
+    wide astore 333
     aload_0
     iload_1
     dup_x1

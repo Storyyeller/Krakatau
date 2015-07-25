@@ -115,3 +115,9 @@ class ObjectConstraint(ValueType):
         null = any(c.null for c in cons)
         types = TypeConstraint.meet(*(c.types for c in cons))
         return  ObjectConstraint(null, types)
+
+    def __str__(self):
+        if not self.types:
+            return 'Obj(null)'
+        return 'Obj({}, {}, {})'.format(self.null, sorted(self.types.supers), sorted(self.types.exact))
+    __repr__ = __str__

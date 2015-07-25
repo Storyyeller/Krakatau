@@ -267,6 +267,7 @@ class SSA_Graph(object):
                     continue
                 visit_counts[block] += 1
 
+                must_throw = False
                 dirty_vars = set()
                 last_line = block.lines[-1] if block.lines else None # Keep reference handy to exception phi, if any
                 for i, op in enumerate(block.lines):
@@ -276,7 +277,6 @@ class SSA_Graph(object):
                         assert(None not in inputs)
                         outputs = op.propagateConstraints(*inputs)
 
-                        must_throw = False
                         for var, out in zip(output_vars, outputs):
                             if var is None:
                                 continue
@@ -329,6 +329,10 @@ class SSA_Graph(object):
                     oldEdges = block.jump.getSuccessorPairs()
                     inputs = map(UCs.get, block.jump.params)
                     block.jump = block.jump.constrainJumps(*inputs)
+                    # No exception case ordinarily won't be pruned, so we have to handle it explicitly
+                    if must_throw and isinstance(block.jump, ssa_jumps.OnException):
+                        fallthrough = block.jump.getNormalSuccessors()[0]
+                        block.jump = block.jump.reduceSuccessors([(fallthrough, False)])
 
                     newEdges = block.jump.getSuccessorPairs()
                     if newEdges != oldEdges:

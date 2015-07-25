@@ -37,7 +37,7 @@ def verifierToSSAType(vtype):
 # handlers. Due to the use of SSA, we also require that there are no changes to the locals between the
 # first and last throwing instruction.
 class BasicBlock(object):
-    __slots__ = "key phis lines jump unaryConstraints predecessors inslots throwvars chpairs locals_at_first_except".split()
+    __slots__ = "key phis lines jump unaryConstraints predecessors inslots throwvars chpairs locals_at_first_except monad_at_first_except".split()
 
     def __init__(self, key):
         self.key = key
@@ -56,6 +56,7 @@ class BasicBlock(object):
         self.throwvars = []
         self.chpairs = None
         self.locals_at_first_except = None
+        self.monad_at_first_except = None
 
     def getSuccessors(self):
         return self.jump.getSuccessors()

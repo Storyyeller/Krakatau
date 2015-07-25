@@ -31,6 +31,26 @@ public class TryCatchTest {
         } catch (IOException e){
             System.out.println(e);
         }
+
+        test2(54); test2(0);
+    }
+
+    static String x; static int i;
+    public static void test2(int i) {
+        String[] x = null;
+        try {
+            TryCatchTest.i = 54/i;
+            TryCatchTest.x = x[0];
+            System.out.println(x);}
+        catch (RuntimeException e) {}
+        catch (Throwable e) {x = new String[0];}
+
+        try {
+            TryCatchTest.i = 54/i;
+            TryCatchTest.x = x[0] = "";
+            System.out.println(x);}
+        catch (RuntimeException e) {}
+        catch (Throwable e) {x = new String[-1];}
     }
 
     // This function was added because it breaks Procyon 0.5.25

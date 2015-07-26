@@ -15,11 +15,11 @@ class Environment(object):
         self.path.append(path)
 
     def getClass(self, name, subclasses=tuple(), partial=False):
-        if name in subclasses:
-            raise ClassLoaderError('ClassCircularityError', (name, subclasses))
         try:
             result = self.classes[name]
         except KeyError:
+            if name in subclasses:
+                raise ClassLoaderError('ClassCircularityError', (name, subclasses))
             result = self._loadClass(name, subclasses)
         if not partial:
             result.loadElements()

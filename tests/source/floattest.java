@@ -53,4 +53,6 @@ abstract public class floattest {
 	    System.out.println((float)(null==self?1.00000017881393421514957253748434595763683319091796875001f:.0f));
 	    System.out.println((float)(null==self?1.00000017881393421514957253748434595763683319091796875001d:.0d));
 	}
+
+	abstract void classIsAbstract();
 }

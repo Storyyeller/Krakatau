@@ -224,6 +224,9 @@ class InstructionNode(object):
             if op in (opnames.PUTFIELD, opnames.GETFIELD):
                 self._setProtected(isfield=True)
         elif op in _invoke_ops:
+            if op == opnames.INVOKEDYNAMIC:
+                self.error('Decompilation of code containing InvokeDynamic is not currently supported')
+
             ind = self.instruction[1]
             expected = {opnames.INVOKEINTERFACE:'InterfaceMethod', opnames.INVOKEDYNAMIC:'NameAndType'}.get(op, 'Method')
             verifyCPType(ind, [expected])

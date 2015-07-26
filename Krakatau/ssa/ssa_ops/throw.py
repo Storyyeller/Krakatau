@@ -11,5 +11,5 @@ class Throw(BaseOp):
         if x.null:
             t = x.types
             exact = list(t.exact) + [excepttypes.NullPtr]
-            return None, ObjectConstraint.fromTops(t.env, t.supers, exact, nonnull=True), None
-        return None, x, None
+            return None, ObjectConstraint.fromTops(t.env, t.supers, exact, nonnull=True)
+        return None, x

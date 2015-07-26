@@ -85,7 +85,7 @@ def createGraphProxy(ssagraph):
             entryNode = n
             invars = ssagraph.inputArgs #store them in the node so we don't have to keep track seperately
             invars = [x for x in invars if x is not None] #will have None placeholders for Long and Double arguments
-        n.invars = [v for v in invars if v.type != ssa_types.SSA_MONAD]
+        n.invars = invars
 
     lookup = {}
     for n in nodes:
@@ -102,7 +102,6 @@ def createGraphProxy(ssagraph):
         block = n.block
         for (block2, t) in block.jump.getSuccessorPairs():
             out = [phi.get((block, t)) for phi in block2.phis]
-            out = [v for v in out if v.type != ssa_types.SSA_MONAD]
 
             n2 = lookup[block2.key, t]
             n.outvars[n2] = out

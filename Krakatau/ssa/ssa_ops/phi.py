@@ -2,6 +2,8 @@ from .base import BaseOp # for exceptionphi, as regular phi doesn't inherit from
 
 class Phi(object):
     __slots__ = 'block dict rval'.split()
+    has_side_effects = False
+
     def __init__(self, block, rval):
         self.block = block #used in constraint propagation
         self.dict = {}

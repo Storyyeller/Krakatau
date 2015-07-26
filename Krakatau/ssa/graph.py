@@ -82,6 +82,10 @@ class SSA_Graph(object):
         roots = [x for x in self.inputArgs if x is not None]
         for block in self.blocks:
             roots += block.jump.params
+            for op in block.lines:
+                if op.has_side_effects:
+                    roots += op.params
+
         reachable = graph_util.topologicalSort(roots, lambda var:(var.origin.params if var.origin else []))
 
         keepset = set(reachable)
@@ -90,7 +94,7 @@ class SSA_Graph(object):
             newops = []
             for op in oldops:
                 #if any of the params is being removed due to being unreachable, we can assume the whole function can be removed
-                keep = keepset.issuperset(op.params) and not keepset.isdisjoint(op.getOutputs())
+                keep = keepset.issuperset(op.params) and (op.has_side_effects or not keepset.isdisjoint(op.getOutputs()))
                 if keep:
                     newops.append(op)
                     for v in op.getOutputs():
@@ -98,6 +102,7 @@ class SSA_Graph(object):
                             op.removeOutput(v)
                 else:
                     assert(keepset.isdisjoint(op.getOutputs()))
+                    assert(not op.has_side_effects)
             return newops
 
         for block in self.blocks:
@@ -295,7 +300,7 @@ class SSA_Graph(object):
                                 dirty_vars.add(var)
 
                         if must_throw:
-                            # Return val (or monad) is now None but wasn't before,
+                            # Return val is now None but wasn't before,
                             # meaning that the instruction must throw. Remove all code
                             # after this in the basic block and adjust exception code
                             # at end as appropriate
@@ -319,6 +324,7 @@ class SSA_Graph(object):
                     UCs[last_line.outException] = out = constraints.join(old, out)
                     if out is None:
                         del UCs[last_line.outException]
+                        block.lines.pop()
                     elif out != old:
                         dirty_vars.add(last_line.outException)
 

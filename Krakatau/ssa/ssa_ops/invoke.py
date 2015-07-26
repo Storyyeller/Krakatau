@@ -6,8 +6,10 @@ from .. import objtypes, constraints
 from ..constraints import ObjectConstraint
 
 class Invoke(BaseOp):
-    def __init__(self, parent, instr, info, args, monad, isThisCtor, target_tt):
-        super(Invoke, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
+    has_side_effects = True
+
+    def __init__(self, parent, instr, info, args, isThisCtor, target_tt):
+        super(Invoke, self).__init__(parent, args, makeException=True)
 
         self.instruction = instr
         self.target, self.name, self.desc = info
@@ -30,10 +32,8 @@ class Invoke(BaseOp):
             self.rval, self.returned = None, []
 
         # just use a fixed constraint until we can do interprocedural analysis
-        # output order is rval, exception, monad, defined by BaseOp.getOutputs
+        # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
-
-        self.mout = constraints.DUMMY
         self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
@@ -44,5 +44,5 @@ class Invoke(BaseOp):
 
     def propagateConstraints(self, *incons):
         if self.rval is None:
-            return None, self.eout, self.mout
-        return self.rout, self.eout, self.mout
+            return None, self.eout
+        return self.rout, self.eout

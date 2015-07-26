@@ -16,8 +16,10 @@ _short_constraints = {
 _short_constraints[objtypes.BoolTT] = _short_constraints[objtypes.ByteTT]
 #Assume no linkage errors occur, so only exception that can be thrown is NPE
 class FieldAccess(BaseOp):
-    def __init__(self, parent, instr, info, args, monad):
-        super(FieldAccess, self).__init__(parent, [monad]+args, makeException=('field' in instr[0]), makeMonad=True)
+    has_side_effects = True
+
+    def __init__(self, parent, instr, info, args):
+        super(FieldAccess, self).__init__(parent, args, makeException=('field' in instr[0]))
 
         self.instruction = instr
         self.target, self.name, self.desc = info
@@ -35,9 +37,8 @@ class FieldAccess(BaseOp):
             self.returned = []
 
         #just use a fixed constraint until we can do interprocedural analysis
-        #output order is rval, exception, monad, defined by BaseOp.getOutputs
+        #output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
-        self.mout = constraints.DUMMY
         self.eout = ObjectConstraint.fromTops(env, [excepttypes.NullPtr], [], nonnull=True)
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
@@ -50,11 +51,11 @@ class FieldAccess(BaseOp):
 
     def propagateConstraints(self, *incons):
         eout = None #no NPE
-        if 'field' in self.instruction[0] and incons[1].null:
+        if 'field' in self.instruction[0] and incons[0].null:
             eout = self.eout
-            if incons[1].isConstNull():
-                return None, eout, self.mout
+            if incons[0].isConstNull():
+                return None, eout
 
         if self.rval is None:
-            return None, eout, self.mout
-        return self.rout, eout, self.mout
+            return None, eout
+        return self.rout, eout

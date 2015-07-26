@@ -27,9 +27,6 @@ class VarInfo(object):
         self._tts = {}
         for block in blocks:
             for var, uc in block.unaryConstraints.items():
-                if var.type == ssa_types.SSA_MONAD:
-                    continue
-
                 if var.type == ssa_types.SSA_OBJECT:
                     tt = uc.getSingleTType() #temp hack
                     if uc.types.isBoolOrByteArray():
@@ -65,9 +62,7 @@ class VarInfo(object):
         return result
 
     def var(self, node, var, isCast=False):
-        assert(var.type != ssa_types.SSA_MONAD)
         key = node, var, isCast
-
         try:
             return self._vars[key]
         except KeyError:
@@ -85,7 +80,7 @@ _math_types += (ssa_ops.IAnd, ssa_ops.IOr, ssa_ops.IShl, ssa_ops.IShr, ssa_ops.I
 _math_types += (ssa_ops.FAdd, ssa_ops.FDiv, ssa_ops.FMul, ssa_ops.FRem, ssa_ops.FSub)
 _math_symbols = dict(zip(_math_types, '+ / * % - & | << >> >>> ^ + / * % -'.split()))
 def _convertJExpr(op, getExpr, clsname):
-    params = [getExpr(var) for var in op.params if var.type != ssa_types.SSA_MONAD]
+    params = [getExpr(var) for var in op.params]
     assert(None not in params)
     expr = None
 
@@ -237,8 +232,8 @@ def _createASTBlock(info, endk, node):
             param = info.var(node, jump.params[-1])
             statements.append(ast.ThrowStatement(param))
         else:
-            if len(jump.params) > 1: #even void returns have a monad param
-                param = info.var(node, jump.params[-1])
+            if len(jump.params) > 0:
+                param = info.var(node, jump.params[0])
                 statements.append(ast.ReturnStatement(param, info.return_tt))
             else:
                 statements.append(ast.ReturnStatement())

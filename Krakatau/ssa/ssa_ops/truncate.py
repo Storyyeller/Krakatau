@@ -31,6 +31,6 @@ class Truncate(BaseOp):
                 parts.append(-HM)
 
             assert(-HM <= min(parts) <= max(parts) <= HM-1)
-            return IntConstraint.range(intw, min(parts), max(parts)), None, None
+            return IntConstraint.range(intw, min(parts), max(parts)), None
         else:
-            return x, None, None
+            return x, None

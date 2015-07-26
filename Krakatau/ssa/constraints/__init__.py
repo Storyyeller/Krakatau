@@ -5,9 +5,8 @@ from .. import objtypes
 from .int_c import IntConstraint
 from .float_c import FloatConstraint
 from .obj_c import ObjectConstraint
-from .monad_c import MonadConstraint as DummyConstraint
 
-from ..ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT, SSA_MONAD
+from ..ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT
 
 #joins become more precise (intersection), meets become more general (union)
 #Join currently supports joining a max of two constraints
@@ -22,8 +21,6 @@ def meet(*cons):
         return None
     return cons[0].meet(*cons[1:])
 
-DUMMY = DummyConstraint()
-
 def fromConstant(env, var):
     ssa_type = var.type
     cval = var.const
@@ -37,14 +34,12 @@ def fromConstant(env, var):
         if var.decltype == objtypes.NullTT:
             return ObjectConstraint.constNull(env)
         return ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, var.decltype))
-    return DUMMY
 
 _bots = {
     SSA_INT: IntConstraint.bot(SSA_INT[1]),
     SSA_LONG: IntConstraint.bot(SSA_LONG[1]),
     SSA_FLOAT: FloatConstraint.bot(SSA_FLOAT[1]),
     SSA_DOUBLE: FloatConstraint.bot(SSA_DOUBLE[1]),
-    SSA_MONAD: DUMMY
 }
 
 def fromVariable(env, var):

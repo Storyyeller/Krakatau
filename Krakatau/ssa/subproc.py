@@ -1,7 +1,7 @@
 import copy
 
 def flattenslots(slots):
-    return [slots.monad] + slots.stack + slots.locals
+    return slots.stack + slots.locals
 
 class ProcInfo(object):
     def __init__(self, retblock, target):
@@ -33,8 +33,8 @@ class ProcCallOp(ProcJumpBase):
         self.target = target
         self.input = flattenslots(inslots)
         self.output = flattenslots(outslots)
-        self.out_localoff = 1 + len(outslots.stack) #store so we can unflatten outslots if necessary
-        self.debug_skipvars = None #keep track for debugging
+        self.out_localoff = len(outslots.stack) # store so we can unflatten outslots if necessary
+        self.debug_skipvars = None # keep track for debugging
 
         for var in self.output:
             if var is not None:
@@ -52,4 +52,4 @@ class DummyRet(ProcJumpBase):
         self.input = [varDict.get(v,v) for v in self.input]
 
     def getNormalSuccessors(self): return ()
-    def clone(self): return copy.copy(self) #target and input will be replaced later by calls to replaceBlocks/Vars
+    def clone(self): return copy.copy(self) # target and input will be replaced later by calls to replaceBlocks/Vars

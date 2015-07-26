@@ -2,7 +2,7 @@ from .base import BaseOp
 from ..ssa_types import SSA_INT
 
 from .. import excepttypes, objtypes
-from ..constraints import IntConstraint, FloatConstraint, ObjectConstraint, DUMMY
+from ..constraints import IntConstraint, FloatConstraint, ObjectConstraint
 
 def getElementTypes(env, tops):
     types = [objtypes.withDimInc(tt, -1) for tt in tops]
@@ -11,18 +11,18 @@ def getElementTypes(env, tops):
     return ObjectConstraint.fromTops(env, supers, exact)
 
 class ArrLoad(BaseOp):
-    def __init__(self, parent, args, ssatype, monad):
-        super(ArrLoad, self).__init__(parent, [monad]+args, makeException=True)
+    def __init__(self, parent, args, ssatype):
+        super(ArrLoad, self).__init__(parent, args, makeException=True)
         self.env = parent.env
         self.rval = parent.makeVariable(ssatype, origin=self)
         self.ssatype = ssatype
 
-    def propagateConstraints(self, m, a, i):
+    def propagateConstraints(self, a, i):
         etypes = (excepttypes.ArrayOOB,)
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True), None
+                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True)
 
         if self.ssatype[0] == 'int':
             rout = IntConstraint.bot(self.ssatype[1])
@@ -32,19 +32,21 @@ class ArrLoad(BaseOp):
             rout = getElementTypes(self.env, a.types.supers | a.types.exact)
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return rout, eout, None
+        return rout, eout
 
 class ArrStore(BaseOp):
-    def __init__(self, parent, args, monad):
-        super(ArrStore, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
+    has_side_effects = True
+
+    def __init__(self, parent, args):
+        super(ArrStore, self).__init__(parent, args, makeException=True)
         self.env = parent.env
 
-    def propagateConstraints(self, m, a, i, x):
+    def propagateConstraints(self, a, i, x):
         etypes = (excepttypes.ArrayOOB,)
         if a.null:
             etypes += (excepttypes.NullPtr,)
             if a.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True), m
+                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True)
 
         if isinstance(x, ObjectConstraint):
             # If the type of a is known exactly to be the single possibility T[]
@@ -56,7 +58,7 @@ class ArrStore(BaseOp):
                 etypes += (excepttypes.ArrayStore,)
 
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return None, eout, DUMMY
+        return None, eout
 
 class ArrLength(BaseOp):
     def __init__(self, parent, args):
@@ -70,7 +72,7 @@ class ArrLength(BaseOp):
         if x.null:
             etypes += (excepttypes.NullPtr,)
             if x.isConstNull():
-                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True), None
+                return None, ObjectConstraint.fromTops(self.env, [], [excepttypes.NullPtr], nonnull=True)
 
         excons = eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return IntConstraint.range(32, 0, (1<<31)-1), excons, None
+        return IntConstraint.range(32, 0, (1<<31)-1), excons

@@ -4,7 +4,7 @@ from .. import floatutil as fu
 from ..verifier import verifier_types as vtypes
 
 nt = collections.namedtuple
-slots_t = nt('slots_t', ('monad', 'locals', 'stack'))
+slots_t = nt('slots_t', ('locals', 'stack'))
 
 #types
 SSA_INT = 'int', 32
@@ -12,9 +12,6 @@ SSA_LONG = 'int', 64
 SSA_FLOAT = 'float', fu.FLOAT_SIZE
 SSA_DOUBLE = 'float', fu.DOUBLE_SIZE
 SSA_OBJECT = 'obj',
-
-#internal types
-SSA_MONAD = 'monad',
 
 def verifierToSSAType(vtype):
     vtype_dict = {vtypes.T_INT:SSA_INT,
@@ -37,7 +34,7 @@ def verifierToSSAType(vtype):
 # handlers. Due to the use of SSA, we also require that there are no changes to the locals between the
 # first and last throwing instruction.
 class BasicBlock(object):
-    __slots__ = "key phis lines jump unaryConstraints predecessors inslots throwvars chpairs locals_at_first_except monad_at_first_except".split()
+    __slots__ = "key phis lines jump unaryConstraints predecessors inslots throwvars chpairs locals_at_first_except".split()
 
     def __init__(self, key):
         self.key = key
@@ -56,7 +53,6 @@ class BasicBlock(object):
         self.throwvars = []
         self.chpairs = None
         self.locals_at_first_except = None
-        self.monad_at_first_except = None
 
     def getSuccessors(self):
         return self.jump.getSuccessors()

@@ -242,7 +242,6 @@ def structureExceptions(nodes):
             caughtvars = [v2 for (v1,v2) in zip(n.outvars[en], en.invars) if v1 == thrownvar]
             assert(len(caughtvars) <= 1)
             caughtvar = caughtvars.pop() if caughtvars else None
-
             outvars = n.outvars.pop(en)[:]
             assert(outvars.count(thrownvar) <= 1)
             if caughtvar is not None:

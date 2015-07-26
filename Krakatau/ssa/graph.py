@@ -159,6 +159,7 @@ class SSA_Graph(object):
                 for successor, t in block.jump.getSuccessorPairs():
                     successor.replacePredPair((child,t), (block,t))
                 removed.add(child)
+
         self.blocks = [b for b in self.blocks if b not in removed]
         #Fix up replace dict so it can handle multiple chained replacements
         for old in replace.keys()[:]:
@@ -321,6 +322,7 @@ class SSA_Graph(object):
                     inputs = map(UCs.get, last_line.params)
                     out = constraints.meet(*inputs)
                     old = UCs[last_line.outException]
+                    assert(out is None or not out.null)
                     UCs[last_line.outException] = out = constraints.join(old, out)
                     if out is None:
                         del UCs[last_line.outException]

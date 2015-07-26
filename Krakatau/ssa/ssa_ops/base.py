@@ -5,7 +5,7 @@ class BaseOp(SSAFunctionBase):
     has_side_effects = False
 
     def __init__(self, parent, arguments, makeException=False):
-        super(BaseOp, self).__init__(parent,arguments)
+        super(BaseOp, self).__init__(parent, arguments)
 
         self.rval = None
         self.outException = None

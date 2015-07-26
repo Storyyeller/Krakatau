@@ -140,7 +140,6 @@ class IfStatement(LazyLabelBase):
         super(IfStatement, self).__init__(labelfunc, begink, endk)
         self.expr = expr #don't rename without changing how var replacement works!
         self.scopes = scopes
-        # assert(len(self.scopes) == 1 or len(self.scopes) == 2)
 
     def getScopes(self): return self.scopes
 

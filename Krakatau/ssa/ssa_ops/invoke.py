@@ -34,7 +34,7 @@ class Invoke(BaseOp):
         # just use a fixed constraint until we can do interprocedural analysis
         # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
-        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
+        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [], nonnull=True)
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
                 supers, exact = objtypes.declTypeToActual(env, dtype)

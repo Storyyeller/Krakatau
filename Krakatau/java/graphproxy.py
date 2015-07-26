@@ -20,8 +20,12 @@ class BlockProxy(object):
         self.successors = []
         self.outvars = {}
         self.eassigns = {} #exception edge assignments, used after try constraint creation
-        #invars, blockdict
         self._key = self.bkey, self.num
+
+        # to be assigned later
+        self.invars = self.blockdict = None
+        # assigned by structuring.py calcNoLoopNeighbors
+        self.successors_nl = self.predecessors_nl = self.norm_suc_nl = None
 
     def replaceSuccessors(self, rmap):
         update = lambda k:rmap.get(k,k)

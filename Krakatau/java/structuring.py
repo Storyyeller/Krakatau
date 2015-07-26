@@ -65,10 +65,7 @@ class DominatorInfo(object):
 
     def set_extend(self, dom, nodes):
         nodes = list(nodes) + [dom]
-        if hasattr(dom, 'predecessors_nl'):
-            pred_nl_func = lambda x:x.predecessors_nl if x is not dom else []
-        else: #slower fallback for if we're called before the _noloop information is generated
-            pred_nl_func = lambda x:[y for y in x.predecessors if x is not dom and x not in self._doms[y]]
+        pred_nl_func = lambda x:x.predecessors_nl if x is not dom else []
         return frozenset(graph_util.topologicalSort(nodes, pred_nl_func))
 
     def area(self, node): return ClosedSet([k for k,v in self._doms.items() if node in v], node, self)

@@ -123,53 +123,65 @@ class SSA_Graph(object):
     def mergeSingleSuccessorBlocks(self):
         assert(not self.procs) # Make sure that all single jsr procs are inlined first
 
-        replace = {}
         removed = set()
-        sources = self._getSources()
         for block in self.blocks:
             if block in removed:
                 continue
-            while 1:
-                successors = block.jump.getSuccessorPairs() #Warning - make sure not to merge if we have a single successor with a double edge
-                if len(successors) != 1:
+            while isinstance(block.jump, (ssa_jumps.Goto, ssa_jumps.OnException)):
+                jump = block.jump
+                if len(jump.getNormalSuccessors()) != 1:
                     break
-                #Even if an exception thrown has single target, don't merge because we need a way to actually access the thrown exception
-                if isinstance(block.jump, ssa_jumps.OnException):
-                    break
-
-                #We don't bother modifying sources upon merging since the only property we care about is number of successors, which will be unchanged
-                child, jtype = successors.pop()
-                if len(sources[child]) != 1:
+                block2 = jump.getNormalSuccessors()[0]
+                fromkey = block, False
+                if block2.predecessors != [fromkey]:
                     break
 
-                #We've decided to merge the blocks, now do it
-                uCs = block.unaryConstraints
-                uCs.update(child.unaryConstraints)
-                for phi in child.phis:
-                    assert(len(phi.dict) == 1)
-                    old, new = phi.rval, phi.get((block, jtype))
-                    new = replace.get(new,new)
-                    replace[old] = new
-                    uCs[new] = constraints.join(uCs[old], uCs[new])
-                    del uCs[old]
+                jump2 = block2.jump
+                if isinstance(jump, ssa_jumps.OnException):
+                    # If this is an exception block, only merge with another exception block.
+                    # Ignore except -> goto case for simplicity
+                    if not isinstance(jump2, ssa_jumps.OnException):
+                        break
+                    # Also require exact handler match for simplicity
+                    if jump.cs.sets != jump2.cs.sets:
+                        break
+                    # Also don't merge if last instruction is a cast due to issues with the cast hack
+                    if isinstance(block.lines[-2], ssa_ops.CheckCast):
+                        break
 
-                block.lines += child.lines
-                block.jump = child.jump
+                ucs = block.unaryConstraints
+                ucs2 = block2.unaryConstraints
+                replace = {phi.rval: phi.get(fromkey) for phi in block2.phis}
+                for var2, var in replace.items():
+                    ucs[var] = constraints.join(ucs[var], ucs2.pop(var2))
+                ucs.update(ucs2)
+
+                if isinstance(jump, ssa_jumps.OnException):
+                    last = block.lines.pop()
+                    last2 = block2.lines[-1]
+                    assert(type(last) == type(last2) == ssa_ops.ExceptionPhi)
+                    last2.params += last.params
+                    # We'll use exvar2 as the new one
+                    exvar, exvar2 = last.outException, last2.outException
+                    ucs[exvar2] = constraints.meet(ucs[exvar], ucs[exvar2])
+                    assert(jump.getExceptSuccessors() == jump2.getExceptSuccessors())
+                    for successor in jump.getExceptSuccessors():
+                        successor.removePredPair((block, True))
+
+                for op in block2.lines:
+                    op.replaceVars(replace)
+                block.lines += block2.lines
+
+                jump2.replaceVars(replace)
+                block.jump = jump2
+
                 #remember to update phis of blocks referring to old child!
                 for successor, t in block.jump.getSuccessorPairs():
-                    successor.replacePredPair((child,t), (block,t))
-                removed.add(child)
-
+                    successor.replacePredPair((block2, t), (block, t))
+                    for phi in successor.phis:
+                        phi.replaceVars(replace)
+                removed.add(block2)
         self.blocks = [b for b in self.blocks if b not in removed]
-        #Fix up replace dict so it can handle multiple chained replacements
-        for old in replace.keys()[:]:
-            while replace[old] in replace:
-                replace[old] = replace[replace[old]]
-        if replace:
-            for block in self.blocks:
-                for op in block.phis + block.lines:
-                    op.replaceVars(replace)
-                block.jump.replaceVars(replace)
 
     def disconnectConstantVariables(self):
         for block in self.blocks:

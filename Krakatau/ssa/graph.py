@@ -111,15 +111,6 @@ class SSA_Graph(object):
             block.filterVarConstraints(keepset)
         self._conscheck()
 
-    def _getSources(self): #TODO - remove
-        sources = collections.defaultdict(set)
-        for block in self.blocks:
-            for child in block.getSuccessors():
-                sources[child].add(block)
-        for block in self.blocks:
-            assert(sources[block] == set(x for x,t in block.predecessors))
-        return sources
-
     def mergeSingleSuccessorBlocks(self):
         assert(not self.procs) # Make sure that all single jsr procs are inlined first
 
@@ -204,10 +195,8 @@ class SSA_Graph(object):
 
     def _conscheck(self):
         '''Sanity check'''
-        sources = self._getSources()
         for block in self.blocks:
             assert(block.jump is not None)
-            assert(sources[block] == {k for k,t in block.predecessors})
             for phi in block.phis:
                 assert(phi.rval is None or phi.rval in block.unaryConstraints)
                 for k,v in phi.dict.items():

@@ -436,11 +436,15 @@ def orderConstraints(dom, constraints, nodes):
             if item in frozen:
                 parents.add(item)
                 continue
-
             items.append(item)
-            #list comprehension adds to iset as well to ensure uniqueness
-            queue += [i2 for i2 in item.forcedup if not i2 in iset and not iset.add(i2)]
-            queue += [i2 for i2 in item.forceddown if not i2 in iset and not iset.add(i2)]
+
+            # forcedup/down are sets so to maintain deterministic behavior we have to sort them
+            # use key of target for sorting, since that should be unique
+            temp = (item.forcedup | item.forceddown) - iset
+            iset |= temp
+            assert(all(fcon.tag == 'try' for fcon in temp))
+            assert(len(set(fcon.target._key for fcon in temp)) == len(temp))
+            queue += sorted(temp, key=lambda fcon:fcon.target._key)
 
             if not item.lbound.issubset(nset):
                 nset |= item.lbound

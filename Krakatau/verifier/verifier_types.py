@@ -75,8 +75,7 @@ def _decToObjArray(fi):
 def _arrbase(fi):
     return _makeinfo(fi.tag, 0, fi.extra)
 
-def mergeTypes(env, t1, t2, forAssignment=False):
-    #Note: This function is intended to have the same results as the equivalent function in Hotspot's old inference verifier
+def mergeTypes(env, t1, t2):
     if t1 == t2:
         return t1
     #non objects must match exactly
@@ -89,8 +88,6 @@ def mergeTypes(env, t1, t2, forAssignment=False):
         return t1
 
     if t1 == OBJECT_INFO or t2 == OBJECT_INFO:
-        if forAssignment and t2.dim == 0 and 'INTERFACE' in env.getFlags(t2.extra):
-            return t2 #Hack for interface assignment
         return OBJECT_INFO
 
     if t1.dim or t2.dim:
@@ -104,22 +101,19 @@ def mergeTypes(env, t1, t2, forAssignment=False):
             t1, t2 = t2, t1
 
         if t1.dim == t2.dim:
-            res = mergeTypes(env, _arrbase(t1), _arrbase(t2), forAssignment)
+            res = mergeTypes(env, _arrbase(t1), _arrbase(t2))
             return res if res == T_INVALID else _makeinfo('.obj', t1.dim, res.extra)
         else: #t1.dim < t2.dim
             return t1 if _arrbase(t1) in (CLONE_INFO,SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
     else: #neither is array
         if 'INTERFACE' in env.getFlags(t2.extra):
-            return t2 if forAssignment else OBJECT_INFO
+            return OBJECT_INFO
 
         hierarchy1 = env.getSupers(t1.extra)
         hierarchy2 = env.getSupers(t2.extra)
         matches = [x for x,y in zip(hierarchy1, hierarchy2) if x==y]
         assert(matches[0] == 'java/lang/Object') #internal assertion
         return T_OBJECT(matches[-1])
-
-def isAssignable(env, t1, t2):
-    return mergeTypes(env, t1, t2, True) == t2
 
 #Make verifier types printable for easy debugging
 def vt_toStr(self):

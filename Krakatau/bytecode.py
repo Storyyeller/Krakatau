@@ -139,9 +139,7 @@ def getNextInstruction(data, address):
     elif byte == 0xa9:
         inst = opnames.RET, data.get('>B')
     elif byte == 0xaa: #Table Switch
-        padding = (3-address) % 4
-        padding = data.getRaw(padding)
-        #OpenJDK requires padding to be 0
+        padding = data.getRaw((3-address) % 4)
         default = data.get('>i') + address
         low = data.get('>i')
         high = data.get('>i')
@@ -149,18 +147,15 @@ def getNextInstruction(data, address):
         numpairs = high - low + 1
         offsets = [data.get('>i') + address for _ in range(numpairs)]
         jumps = zip(range(low, high+1), offsets)
-        inst = opnames.SWITCH, default, jumps, padding
+        inst = opnames.SWITCH, default, jumps
     elif byte == 0xab: #Lookup Switch
-        padding = (3-address) % 4
-        padding = data.getRaw(padding)
-        #OpenJDK requires padding to be 0
+        padding = data.getRaw((3-address) % 4)
         default = data.get('>i') + address
         numpairs = data.get('>i')
         assert(numpairs >= 0)
         pairs = [data.get('>ii') for _ in range(numpairs)]
-        keys = [k for k,v in pairs]
         jumps = [(x,(y + address)) for x,y in pairs]
-        inst = opnames.SWITCH, default, jumps, padding
+        inst = opnames.SWITCH, default, jumps
     elif byte <= 0xb1:
         op = opnames.RETURN
         t = (I,L,F,D,A,None)[byte - 0xac]

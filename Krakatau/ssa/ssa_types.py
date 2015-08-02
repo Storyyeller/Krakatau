@@ -55,9 +55,6 @@ class BasicBlock(object):
         self.chpairs = None
         self.locals_at_first_except = None
 
-    def getSuccessors(self):
-        return self.jump.getSuccessors()
-
     def filterVarConstraints(self, keepvars):
         self.unaryConstraints = {k:v for k,v in self.unaryConstraints.items() if k in keepvars}
 

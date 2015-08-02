@@ -22,7 +22,7 @@ class Switch(BaseJump):
         for k,v in table:
             if v != default:
                 reverse[v].add(k)
-        self.reverse = dict(reverse)
+        self.reverse = {k: frozenset(v) for k, v in reverse.items()}
 
     def getNormalSuccessors(self):
         return self.successors
@@ -53,7 +53,7 @@ class Switch(BaseJump):
             cases = self.reverse[self.successors[-1]]
             if len(cases) == 1:
                 const = self.parent.makeVariable(SSA_INT)
-                const.const = cases.pop()
+                const.const = min(cases)
                 block.unaryConstraints[const] = IntConstraint.const(32, const.const)
                 return If(self.parent, 'eq', self.successors, self.params + [const])
         return self

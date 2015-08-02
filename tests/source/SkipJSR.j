@@ -145,3 +145,55 @@ LSUB:
     lookupswitch
         default : LS_2
 .end method
+
+.method public static jsrStack : ([Ljava/lang/String;)V
+    .limit locals 11
+    .limit stack 11
+    ; Test for returning from JSR which isn't top of the stack
+
+    aload_0
+    arraylength
+    istore_0
+
+    jsr LTOP
+        ldc 'TM'
+        invokestatic SkipJSR print (Ljava/lang/String;)V
+    jsr LTOP
+        ldc 'TR'
+        invokestatic SkipJSR print (Ljava/lang/String;)V
+    return
+
+LTOP:
+    astore_1
+    jsr LSUB
+        ldc 'SM'
+        invokestatic SkipJSR print (Ljava/lang/String;)V
+    jsr LSUB
+        ldc 'SR'
+        invokestatic SkipJSR print (Ljava/lang/String;)V
+    return
+
+LSUB:
+    astore_2
+    iinc 0 -1
+    iload_0
+    lookupswitch
+        -1 : LBRANCH1
+        default : LBRANCH2
+
+    ; return either from this or from the caller
+LBRANCH1:
+    ret 1
+LBRANCH2:
+    ret 2
+.end method
+
+.method public static print : (Ljava/lang/String;)V
+    .limit locals 1
+    .limit stack 2
+
+    getstatic java/lang/System out Ljava/io/PrintStream;
+    aload_0
+    invokevirtual java/io/PrintStream println (Ljava/lang/Object;)V
+    return
+.end method

@@ -60,6 +60,7 @@ class CatchSetManager(object):
             assert(not v & temp)
             temp |= v
         assert(temp == self.mask)
+        assert(isinstance(self.sets, collections.OrderedDict))
 
 class ExceptionSet(ValueType):
     __slots__ = "env pairs".split()

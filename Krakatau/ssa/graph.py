@@ -757,7 +757,8 @@ def ssaFromVerified(code, iNodes):
             for phi in suc.phis:
                 bvars.append(phi.get((block, t)))
         assert(None not in bvars)
-        block.unaryConstraints = {var:makeConstraint(var) for var in set(bvars)}
+        # Note that makeConstraint can indirectly cause class loading
+        block.unaryConstraints = {var:makeConstraint(var) for var in bvars}
 
     parent._conscheck()
     return parent

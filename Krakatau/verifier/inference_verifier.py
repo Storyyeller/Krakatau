@@ -3,8 +3,8 @@ import itertools
 from .. import error as error_types
 from .. import opnames as ops
 from .. import bytecode
-from .verifier_types import T_ADDRESS, T_ARRAY, T_BYTE, T_CHAR, T_DOUBLE, T_DOUBLE2, T_FLOAT, T_INT, T_INVALID, T_LONG, T_LONG2, T_NULL, T_OBJECT, T_SHORT, T_UNINIT_OBJECT, T_UNINIT_THIS
-from .verifier_types import OBJECT_INFO, decrementDim, fullinfo_t, mergeTypes, objOrArray
+from .verifier_types import T_ADDRESS, T_ARRAY, T_BYTE, T_CHAR, T_DOUBLE, T_FLOAT, T_INT, T_INVALID, T_LONG, T_NULL, T_OBJECT, T_SHORT, T_UNINIT_OBJECT, T_UNINIT_THIS, T_INT_CONST
+from .verifier_types import OBJECT_INFO, decrementDim, fullinfo_t, mergeTypes, objOrArray, exactArrayFrom
 from .descriptors import parseFieldDescriptor, parseMethodDescriptor, parseUnboundMethodDescriptor
 
 class VerifierTypesState(object):
@@ -218,6 +218,8 @@ def _getStackResult(cpool, instr, key):
     elif op == ops.CONSTNULL:
         return T_NULL
     elif op == ops.CONST:
+        if instr[1] == 'I':
+            return T_INT_CONST(instr[2])
         return codes[instr[1]]
     elif op == ops.ARRLOAD:
         return codes.get(instr[1], T_INT)
@@ -369,6 +371,12 @@ class InstructionNode(object):
             state.push(popped[i] for i in self.stack_code)
         elif op == ops.ARRLOAD_OBJ:
             state.push([decrementDim(popped[0])])
+        elif op == ops.NEWARRAY or op == ops.ANEWARRAY:
+            arrt = self.stack_push[0]
+            size = popped[0].const
+            if size is not None:
+                arrt = exactArrayFrom(arrt, size)
+            state.push([arrt])
         else:
             state.push(self.stack_push)
 

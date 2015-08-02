@@ -2,16 +2,17 @@ import collections
 
 #Define types for Inference
 nt = collections.namedtuple
-fullinfo_t = nt('fullinfo_t', ['tag','dim','extra'])
+# Extra stores address for .new and .address and class name for object types
+# Const stores value for int constants and length for exact arrays. This isn't needed for normal verification but is
+# useful for optimizing the code later.
+fullinfo_t = nt('fullinfo_t', ['tag','dim','extra','const'])
 
-#Differences from Hotspot with our tags:
-#BOGUS changed to None. Array omitted as it is unused. Void omitted as unecessary. Boolean added
 valid_tags = ['.'+_x for _x in 'int float double double2 long long2 obj new init address byte short char boolean'.split()]
 valid_tags = frozenset([None] + valid_tags)
 
-def _makeinfo(tag, dim=0, extra=None):
+def _makeinfo(tag, dim=0, extra=None, const=None):
     assert(tag in valid_tags)
-    return fullinfo_t(tag, dim, extra)
+    return fullinfo_t(tag, dim, extra, const)
 
 T_INVALID = _makeinfo(None)
 T_INT = _makeinfo('.int')
@@ -45,6 +46,10 @@ def T_ARRAY(baset, newDimensions=1):
 def T_UNINIT_OBJECT(origin):
     return _makeinfo('.new', extra=origin)
 
+def T_INT_CONST(val):
+    assert(-0x80000000 <= val < 0x80000000)
+    return _makeinfo(T_INT.tag, const=val)
+
 OBJECT_INFO = T_OBJECT('java/lang/Object')
 CLONE_INFO = T_OBJECT('java/lang/Cloneable')
 SERIAL_INFO = T_OBJECT('java/io/Serializable')
@@ -66,8 +71,19 @@ def decrementDim(fi):
     tag = unSynthesizeType(fi).tag if fi.dim <= 1 else fi.tag
     return _makeinfo(tag, fi.dim-1, fi.extra)
 
+def exactArrayFrom(fi, size):
+    assert(fi.dim > 0)
+    if size >= 0:
+        return _makeinfo(fi.tag, fi.dim, fi.extra, size)
+    return fi
+
 def withNoDimension(fi):
     return _makeinfo(fi.tag, 0, fi.extra)
+
+def withNoConst(fi):
+    if fi.const is None:
+        return fi
+    return _makeinfo(fi.tag, fi.dim, fi.extra)
 
 def _decToObjArray(fi):
     return fi if fi.tag == '.obj' else T_ARRAY(OBJECT_INFO, fi.dim-1)
@@ -78,6 +94,12 @@ def _arrbase(fi):
 def mergeTypes(env, t1, t2):
     if t1 == t2:
         return t1
+
+    t1 = withNoConst(t1)
+    t2 = withNoConst(t2)
+    if t1 == t2:
+        return t1
+
     #non objects must match exactly
     if not objOrArray(t1) or not objOrArray(t2):
         return T_INVALID

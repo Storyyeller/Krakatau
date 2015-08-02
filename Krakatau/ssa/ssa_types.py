@@ -20,6 +20,7 @@ def verifierToSSAType(vtype):
                 vtypes.T_DOUBLE:SSA_DOUBLE}
     #These should never be passed in here
     assert(vtype.tag not in ('.new','.init'))
+    vtype = vtypes.withNoConst(vtype)
     if vtypes.objOrArray(vtype):
         return SSA_OBJECT
     elif vtype in vtype_dict:

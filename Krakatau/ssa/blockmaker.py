@@ -88,9 +88,17 @@ def _arrload_obj(maker, input_, iNode):
 def _arrstore(maker, input_, iNode):
     if getCategory(iNode.instruction[1]) > 1:
         newstack, args = input_.stack[:-4], input_.stack[-4:-1]
+        arr_vt, ind_vt = iNode.state.stack[-4:-2]
     else:
         newstack, args = input_.stack[:-3], input_.stack[-3:]
+        arr_vt, ind_vt = iNode.state.stack[-3:-1]
     line = ssa_ops.ArrStore(maker.parent, args)
+
+    # Check if we can prune the exception early because the
+    # array size and index are known constants
+    if arr_vt.const is not None and ind_vt.const is not None:
+        if 0 <= ind_vt.const < arr_vt.const:
+            line.outException = None
     return ResultDict(line=line, newstack=newstack)
 
 def _arrstore_obj(maker, input_, iNode):

@@ -90,6 +90,7 @@ def verifierToSynthetic_seq(vtypes):
 
 def verifierToSynthetic(vtype):
     assert(vtype.tag not in (None, '.address', '.double2', '.long2', '.new', '.init'))
+    vtype = vtypes.withNoConst(vtype)
 
     if vtype in _verifierConvert:
         return _verifierConvert[vtype]

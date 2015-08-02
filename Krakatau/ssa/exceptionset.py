@@ -37,6 +37,23 @@ class CatchSetManager(object):
     def replaceKeys(self, replace):
         self.sets = collections.OrderedDict((replace.get(key,key), val) for key, val in self.sets.items())
 
+    def mergeable(self, other):
+        if self.sets == other.sets:
+            return True
+        mask = self.mask & other.mask
+        sets1 = {k:v & mask for k,v in self.sets.items() if not v.isdisjoint(mask)}
+        sets2 = {k:v & mask for k,v in other.sets.items() if not v.isdisjoint(mask)}
+        return sets1 == sets2
+
+    def merge(self, other):
+        self.mask |= other.mask
+        for k, v in other.sets.items():
+            if k not in self.sets:
+                self.sets[k] = v
+            else:
+                self.sets[k] |= v
+        assert(not self._conscheck())
+
     def _conscheck(self):
         temp = ExceptionSet.EMPTY
         for v in self.sets.values():

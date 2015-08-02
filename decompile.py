@@ -54,6 +54,7 @@ def makeGraph(m):
 
     s.simplifyThrows()
     s.mergeSingleSuccessorBlocks()
+    s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
     # print _stats(s)
     return s

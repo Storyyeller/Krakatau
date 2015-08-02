@@ -133,12 +133,17 @@ class SSA_Graph(object):
                     # Ignore except -> goto case for simplicity
                     if not isinstance(jump2, ssa_jumps.OnException):
                         break
-                    # Also require exact handler match for simplicity
-                    if jump.cs.sets != jump2.cs.sets:
-                        break
                     # Also don't merge if last instruction is a cast due to issues with the cast hack
                     if isinstance(block.lines[-2], ssa_ops.CheckCast):
                         break
+                    # Make sure catch types and handlers are compatible
+                    if not jump2.cs.mergeable(jump.cs):
+                        break
+                    # For simplicity, don't allow block to have any successors which aren't already
+                    # successors of block2
+                    if not set(jump.getExceptSuccessors()).issubset(jump2.getExceptSuccessors()):
+                        break
+                    jump2.cs.merge(jump.cs)
 
                 ucs = block.unaryConstraints
                 ucs2 = block2.unaryConstraints
@@ -155,7 +160,6 @@ class SSA_Graph(object):
                     # We'll use exvar2 as the new one
                     exvar, exvar2 = last.outException, last2.outException
                     ucs[exvar2] = constraints.meet(ucs[exvar], ucs[exvar2])
-                    assert(jump.getExceptSuccessors() == jump2.getExceptSuccessors())
                     for successor in jump.getExceptSuccessors():
                         successor.removePredPair((block, True))
 

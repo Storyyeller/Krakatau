@@ -7,7 +7,7 @@ nt = collections.namedtuple
 # useful for optimizing the code later.
 fullinfo_t = nt('fullinfo_t', ['tag','dim','extra','const'])
 
-valid_tags = ['.'+_x for _x in 'int float double double2 long long2 obj new init address byte short char boolean'.split()]
+valid_tags = ['.'+_x for _x in 'int float double long obj new init address byte short char boolean'.split()]
 valid_tags = frozenset([None] + valid_tags)
 
 def _makeinfo(tag, dim=0, extra=None, const=None):
@@ -18,9 +18,7 @@ T_INVALID = _makeinfo(None)
 T_INT = _makeinfo('.int')
 T_FLOAT = _makeinfo('.float')
 T_DOUBLE = _makeinfo('.double')
-T_DOUBLE2 = _makeinfo('.double2') #Hotspot only uses these in locals, but we use them on the stack too to simplify things
 T_LONG = _makeinfo('.long')
-T_LONG2 = _makeinfo('.long2')
 
 T_NULL = _makeinfo('.obj')
 T_UNINIT_THIS = _makeinfo('.init')
@@ -29,8 +27,6 @@ T_BYTE = _makeinfo('.byte')
 T_SHORT = _makeinfo('.short')
 T_CHAR = _makeinfo('.char')
 T_BOOL = _makeinfo('.boolean') #Hotspot doesn't have a bool type, but we can use this elsewhere
-
-cat2tops = {T_LONG:T_LONG2, T_DOUBLE:T_DOUBLE2}
 
 #types with arguments
 def T_ADDRESS(entry):

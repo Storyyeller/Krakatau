@@ -85,11 +85,11 @@ _verifierConvert = {vtypes.T_INT:IntTT, vtypes.T_FLOAT:FloatTT, vtypes.T_LONG:Lo
         vtypes.T_BYTE:ByteTT, vtypes.T_BOOL:BoolTT, vtypes.T_NULL:NullTT,
         vtypes.OBJECT_INFO:ObjectTT}
 
-def verifierToSynthetic_seq(vtypes):
-    return [verifierToSynthetic(vtype) for vtype in vtypes if not (vtype.tag and vtype.tag.endswith('2'))]
+def verifierToSynthetic_seq(vts):
+    return [verifierToSynthetic(vt) for vt in vts if vt != vtypes.T_INVALID]
 
 def verifierToSynthetic(vtype):
-    assert(vtype.tag not in (None, '.address', '.double2', '.long2', '.new', '.init'))
+    assert(vtype.tag not in (None, '.address', '.new', '.init'))
     vtype = vtypes.withNoConst(vtype)
 
     if vtype in _verifierConvert:

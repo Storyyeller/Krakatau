@@ -53,6 +53,7 @@ def makeGraph(m):
     s.disconnectConstantVariables()
 
     s.simplifyThrows()
+    s.simplifyCatchIgnored()
     s.mergeSingleSuccessorBlocks()
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()

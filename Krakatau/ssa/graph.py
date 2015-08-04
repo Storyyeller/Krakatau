@@ -395,7 +395,7 @@ class SSA_Graph(object):
             candidates[block.jump.getExceptSuccessors()[0]].append(block)
 
         for child in self.blocks:
-            if len(candidates[child]) < len(child.predecessors):
+            if not candidates[child] or len(candidates[child]) < len(child.predecessors):
                 continue
 
             for parent in candidates[child]:
@@ -414,6 +414,35 @@ class SSA_Graph(object):
 
                 del parent.unaryConstraints[var2]
                 del parent.unaryConstraints[var3]
+                parent.jump = ssa_jumps.Goto(self, child)
+
+    def simplifyCatchIgnored(self):
+        # When there is a single throwing instruction, which is garuenteed to throw, has a single handler, and
+        # the caught exception is unused, turn it into a goto. This simplifies a pattern used by some obfuscators
+        # that do stuff like try{new int[-1];} catch(Exception e) {...}
+        candidates = collections.defaultdict(list)
+        for block in self.blocks:
+            if not isinstance(block.jump, ssa_jumps.OnException) or len(block.jump.getSuccessorPairs()) != 1:
+                continue
+            if len(block.lines[-1].params) != 1:
+                continue
+            candidates[block.jump.getExceptSuccessors()[0]].append(block)
+
+        for child in self.blocks:
+            if not candidates[child] or len(candidates[child]) < len(child.predecessors):
+                continue
+
+            # Make sure caught exception is unused
+            temp = candidates[child][0].lines[-1].outException
+            if any(temp in phi.params for phi in child.phis):
+                continue
+
+            for parent in candidates[child]:
+                ephi = parent.lines.pop()
+                throw_op = parent.lines.pop()
+                del parent.unaryConstraints[throw_op.outException]
+                del parent.unaryConstraints[ephi.outException]
+                child.replacePredPair((parent, True), (parent, False))
                 parent.jump = ssa_jumps.Goto(self, child)
 
     # Subprocedure stuff #####################################################

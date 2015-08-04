@@ -1,6 +1,6 @@
 ; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 
-.class public SkipJSR
+.class public JSRTests
 .super java/lang/Object
 
 .method public static main : ([Ljava/lang/String;)V
@@ -9,8 +9,8 @@
 
     aload_0
     dup
-    invokestatic SkipJSR skipJSR ([Ljava/lang/String;)V
-    invokestatic SkipJSR nestedJSRs ([Ljava/lang/String;)V
+    invokestatic JSRTests skipJSR ([Ljava/lang/String;)V
+    invokestatic JSRTests nestedJSRs ([Ljava/lang/String;)V
     return
 .end method
 
@@ -157,20 +157,20 @@ LSUB:
 
     jsr LTOP
         ldc 'TM'
-        invokestatic SkipJSR print (Ljava/lang/String;)V
+        invokestatic JSRTests print (Ljava/lang/String;)V
     jsr LTOP
         ldc 'TR'
-        invokestatic SkipJSR print (Ljava/lang/String;)V
+        invokestatic JSRTests print (Ljava/lang/String;)V
     return
 
 LTOP:
     astore_1
     jsr LSUB
         ldc 'SM'
-        invokestatic SkipJSR print (Ljava/lang/String;)V
+        invokestatic JSRTests print (Ljava/lang/String;)V
     jsr LSUB
         ldc 'SR'
-        invokestatic SkipJSR print (Ljava/lang/String;)V
+        invokestatic JSRTests print (Ljava/lang/String;)V
     return
 
 LSUB:

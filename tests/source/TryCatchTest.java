@@ -35,6 +35,7 @@ public class TryCatchTest {
         test2(54); test2(0);
         test3(args);
         System.out.println(i);
+        test4(args);
     }
 
     static String x; static int i;
@@ -64,6 +65,19 @@ public class TryCatchTest {
             i = (int)(123456L/j);
         }
         catch (Throwable e) {}
+    }
+
+    public static void test4(Object x) {
+        int y = 1;
+        try{x = new int[-1];}catch(Throwable t){
+        try{y = 52 % 0;}catch(Throwable t2){
+        try{y = ((String)null).length();}catch(Throwable t3){
+            System.out.println("test4 passed");
+            return;
+        }
+        }
+        }
+        System.out.println("fail!");
     }
 
     // This function was added because it breaks Procyon 0.5.25

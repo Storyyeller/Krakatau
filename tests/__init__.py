@@ -13,6 +13,7 @@ registry = {
     'ExceptionHandlers': tuple([str(x)] for x in range(-1, 12)),
     'floattest': ([],),
     'JSRTests': ([], ['x'], ['x', 'x', 'x', 'x']),
+    'LClassLiteralTest': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),
     'OddsAndEnds': ([], ['x'], ['42'], ['4'], ['-2'], ['-0x567'], ['-5678']),
     'OldVersionTest': ([],),

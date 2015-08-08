@@ -28,7 +28,8 @@ def makeConstVar(parent, type_, val):
     return var
 
 def parseArrOrClassName(desc):
-    if desc[0] == '[':
+    # Accept either a class or array descriptor or a raw class name.
+    if desc.startswith('[') or desc.endswith(';'):
         vtypes = parseFieldDescriptor(desc, unsynthesize=False)
         tt = objtypes.verifierToSynthetic(vtypes[0])
     else:
@@ -262,8 +263,7 @@ def _ldc(maker, input_, iNode):
     elif entry_type == 'Double':
         var = makeConstVar(maker.parent, SSA_DOUBLE, args[0])
     elif entry_type == 'Class':
-        tt = objtypes.TypeTT(args[0], 0) #todo - make this handle arrays and primatives
-        var = makeConstVar(maker.parent, SSA_OBJECT, tt)
+        var = makeConstVar(maker.parent, SSA_OBJECT, parseArrOrClassName(args[0]))
         var.decltype = objtypes.ClassTT
     #Todo - handle MethodTypes and MethodHandles?
 

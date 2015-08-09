@@ -4,32 +4,12 @@ import time, random
 import Krakatau
 import Krakatau.ssa
 from Krakatau.environment import Environment
-from Krakatau.java import javaclass
+from Krakatau.java import javaclass, visitor
 from Krakatau.verifier.inference_verifier import verifyBytecode
 from Krakatau import script_util
+
+from decompile import makeGraph
 from util import Timer
-
-def makeGraph(m):
-    v = verifyBytecode(m.code)
-    s = Krakatau.ssa.ssaFromVerified(m.code, v)
-
-    # print _stats(s)
-    if s.procs:
-        # s.mergeSingleSuccessorBlocks()
-        # s.removeUnusedVariables()
-        s.inlineSubprocs()
-
-    s.condenseBlocks()
-    s.mergeSingleSuccessorBlocks()
-    # print _stats(s)
-    s.removeUnusedVariables()
-    s.constraintPropagation()
-    s.disconnectConstantVariables()
-    s.simplifyJumps()
-    s.mergeSingleSuccessorBlocks()
-    s.removeUnusedVariables()
-    # print _stats(s)
-    return s
 
 def decompileClass(path=[], targets=None):
     e = Environment()
@@ -40,19 +20,19 @@ def decompileClass(path=[], targets=None):
         for i,target in enumerate(targets):
             for _ in range(100):
                 c = e.getClass(target)
-                source = javaclass.generateAST(c, makeGraph).print_()
+                source = visitor.DefaultVisitor().visit(javaclass.generateAST(c, makeGraph, False))
 
     with e, Timer('testing'):
         for i,target in enumerate(targets):
             for _ in range(500):
                 c = e.getClass(target)
-                source = javaclass.generateAST(c, makeGraph).print_()
+                source = visitor.DefaultVisitor().visit(javaclass.generateAST(c, makeGraph, False))
 
 if __name__== "__main__":
-    print 'Krakatau  Copyright (C) 2012-13  Robert Grosse'
+    print 'Krakatau  Copyright (C) 2012-15  Robert Grosse'
 
     import argparse
-    parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
+    parser = argparse.ArgumentParser(description='Krakatau benchmark')
     parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
     args = parser.parse_args()
 

@@ -286,9 +286,9 @@ class SSA_Graph(object):
                         output_vars = op.getOutputs()
                         inputs = [UCs[var] for var in op.params]
                         assert(None not in inputs)
-                        outputs = op.propagateConstraints(*inputs)
+                        output_info = op.propagateConstraints(*inputs)
 
-                        for var, out in zip(output_vars, outputs):
+                        for var, out in zip(output_vars, [output_info.rval, output_info.eval]):
                             if var is None:
                                 continue
                             old = UCs[var]
@@ -297,18 +297,14 @@ class SSA_Graph(object):
                                 if var is op.outException:
                                     assert(isinstance(last_line, ssa_ops.ExceptionPhi))
                                     last_line.params.remove(var)
-                                else:
-                                    must_throw = True
                                 op.removeOutput(var) # Note, this must be done after the op.outException check!
                                 del UCs[var]
-
                             elif out != old:
                                 dirty_vars.add(var)
 
-                        if must_throw:
-                            # Return val is now None but wasn't before,
-                            # meaning that the instruction must throw. Remove all code
-                            # after this in the basic block and adjust exception code
+                        if output_info.must_throw:
+                            must_throw = True
+                            # Remove all code after this in the basic block and adjust exception code
                             # at end as appropriate
                             assert(isinstance(last_line, ssa_ops.ExceptionPhi))
                             assert(i < len(block.lines) and op.outException)
@@ -344,8 +340,9 @@ class SSA_Graph(object):
                     block.jump = block.jump.constrainJumps(*inputs)
                     # No exception case ordinarily won't be pruned, so we have to handle it explicitly
                     if must_throw and isinstance(block.jump, ssa_jumps.OnException):
-                        fallthrough = block.jump.getNormalSuccessors()[0]
-                        block.jump = block.jump.reduceSuccessors([(fallthrough, False)])
+                        if block.jump.getNormalSuccessors(): # make sure it wasn't already pruned
+                            fallthrough = block.jump.getNormalSuccessors()[0]
+                            block.jump = block.jump.reduceSuccessors([(fallthrough, False)])
 
                     newEdges = block.jump.getSuccessorPairs()
                     if newEdges != oldEdges:

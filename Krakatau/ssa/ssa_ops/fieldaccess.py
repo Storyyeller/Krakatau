@@ -4,6 +4,7 @@ from ..ssa_types import verifierToSSAType, SSA_OBJECT, SSA_INT
 
 from .. import objtypes, constraints, excepttypes
 from ..constraints import IntConstraint, ObjectConstraint
+from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 # Empirically, Hotspot does enfore size restrictions on short fields
 # Except that bool is still a byte
@@ -48,14 +49,14 @@ class FieldAccess(BaseOp):
                 self.rout = _short_constraints[dtype]
             else:
                 self.rout = constraints.fromVariable(env, self.rval)
+        else:
+            self.rout = None
 
     def propagateConstraints(self, *incons):
         eout = None #no NPE
         if 'field' in self.instruction[0] and incons[0].null:
             eout = self.eout
             if incons[0].isConstNull():
-                return None, eout
+                return throw(eout)
 
-        if self.rval is None:
-            return None, eout
-        return self.rout, eout
+        return returnOrThrow(self.rout, eout)

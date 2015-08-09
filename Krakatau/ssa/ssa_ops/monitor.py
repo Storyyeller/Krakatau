@@ -1,6 +1,7 @@
 from .base import BaseOp
 from .. import excepttypes
 from ..constraints import ObjectConstraint
+from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 class Monitor(BaseOp):
     has_side_effects = True
@@ -17,4 +18,4 @@ class Monitor(BaseOp):
         if self.exit and not x.isConstNull():
             etypes += (excepttypes.MonState,)
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
-        return None, eout
+        return maybeThrow(eout)

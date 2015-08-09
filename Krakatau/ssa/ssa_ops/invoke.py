@@ -2,8 +2,9 @@ from .base import BaseOp
 from ...verifier.descriptors import parseMethodDescriptor
 from ..ssa_types import verifierToSSAType, SSA_OBJECT
 
-from .. import objtypes, constraints
+from .. import objtypes, constraints, excepttypes
 from ..constraints import ObjectConstraint
+from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 class Invoke(BaseOp):
     has_side_effects = True
@@ -35,14 +36,17 @@ class Invoke(BaseOp):
         # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
         self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [], nonnull=True)
+        self.eout_npe = ObjectConstraint.fromTops(env, [excepttypes.NullPtr], [], nonnull=True)
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
                 supers, exact = objtypes.declTypeToActual(env, dtype)
                 self.rout = ObjectConstraint.fromTops(env, supers, exact)
             else:
                 self.rout = constraints.fromVariable(env, self.rval)
+        else:
+            self.rout = None
 
     def propagateConstraints(self, *incons):
-        if self.rval is None:
-            return None, self.eout
-        return self.rout, self.eout
+        if self.instruction[0] != 'invokestatic' and incons[0].isConstNull():
+            return throw(self.eout_npe)
+        return returnOrThrow(self.rout, self.eout)

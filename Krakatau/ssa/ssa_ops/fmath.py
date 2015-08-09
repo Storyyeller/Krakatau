@@ -1,5 +1,6 @@
 from .base import BaseOp
 from ..constraints import IntConstraint
+from ..constraints import return_
 
 class FAdd(BaseOp):
     def __init__(self, parent, args):
@@ -36,5 +37,4 @@ class FCmp(BaseOp):
         self.NaN_val = NaN_val
 
     def propagateConstraints(self, x, y):
-        rvalcons = IntConstraint.range(32, -1, 1)
-        return rvalcons, None
+        return return_(IntConstraint.range(32, -1, 1))

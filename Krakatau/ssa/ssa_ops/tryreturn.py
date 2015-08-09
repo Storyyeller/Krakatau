@@ -1,6 +1,7 @@
 from .base import BaseOp
 from .. import excepttypes
 from ..constraints import ObjectConstraint
+from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 class TryReturn(BaseOp):
     def __init__(self, parent, canthrow=True):
@@ -9,4 +10,4 @@ class TryReturn(BaseOp):
         self.outExceptionCons = ObjectConstraint.fromTops(parent.env, [], (excepttypes.MonState,), nonnull=True) if canthrow else None
 
     def propagateConstraints(self):
-        return None, self.outExceptionCons
+        return maybeThrow(self.outExceptionCons)

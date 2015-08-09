@@ -330,14 +330,19 @@ def _ret(maker, input_, iNode):
     return ResultDict(jump=jump)
 
 def _return(maker, input_, iNode):
-    line = ssa_ops.TryReturn(maker.parent, canthrow=maker.hasmonenter)
-
     #Our special return block expects only the return values on the stack
     rtype = iNode.instruction[1]
     if rtype is None:
         newstack = []
     else:
         newstack = input_.stack[-getCategory(rtype):]
+
+    # TODO: enable once structuring is smarter
+    # if not maker.hasmonenter:
+    #     jump = ssa_jumps.Goto(maker.parent, maker.returnBlock)
+    #     return ResultDict(jump=jump, newstack=newstack)
+
+    line = ssa_ops.TryReturn(maker.parent)
     return ResultDict(line=line, newstack=newstack)
 
 def _store(maker, input_, iNode):

@@ -18,7 +18,7 @@ def decompileClass(path=[], targets=None):
 
     with e, Timer('warming up'):
         for i,target in enumerate(targets):
-            for _ in range(100):
+            for _ in range(1000):
                 c = e.getClass(target)
                 source = visitor.DefaultVisitor().visit(javaclass.generateAST(c, makeGraph, False))
 

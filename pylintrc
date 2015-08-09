@@ -51,7 +51,7 @@ load-plugins=
 # no Warning level messages displayed, use"--disable=all --enable=classes
 
 # --disable=W"
-disable=C0301,C0111,C0103,C0324,W0142,C0321
+disable=C0301,C0111,C0103,C0324,W0142,C0321,C0325,C0304,C0330
 
 
 [REPORTS]
@@ -229,7 +229,7 @@ additional-builtins=
 ignore-iface-methods=isImplementedBy,deferred,extends,names,namesAndDescriptions,queryDescriptionFor,getBases,getDescriptionFor,getDoc,getName,getTaggedValue,getTaggedValueTags,isEqualOrExtendedBy,setTaggedValue,isImplementedByInstancesOf,adaptWith,is_implemented_by
 
 # List of method names used to declare (i.e. assign) instance attributes.
-defining-attr-methods=__init__,__new__,setUp
+defining-attr-methods=__init__,__new__
 
 # List of valid names for the first argument in a class method.
 valid-classmethod-first-arg=cls
@@ -241,7 +241,7 @@ valid-metaclass-classmethod-first-arg=mcs
 [DESIGN]
 
 # Maximum number of arguments for function / method
-max-args=5
+max-args=10
 
 # Argument names that match this expression will be ignored. Default to name
 
@@ -249,28 +249,28 @@ max-args=5
 ignored-argument-names=_.*
 
 # Maximum number of locals for function / method body
-max-locals=15
+max-locals=915
 
 # Maximum number of return / yield for function / method body
-max-returns=6
+max-returns=96
 
 # Maximum number of branch for function / method body
-max-branchs=12
+max-branches=912
 
 # Maximum number of statements in function / method body
-max-statements=50
+max-statements=950
 
 # Maximum number of parents for a class (see R0901).
-max-parents=7
+max-parents=4
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=97
 
 # Minimum number of public methods for a class (see R0903).
-min-public-methods=2
+min-public-methods=0
 
 # Maximum number of public methods for a class (see R0904).
-max-public-methods=20
+max-public-methods=920
 
 
 [IMPORTS]
@@ -299,4 +299,4 @@ int-import-graph=
 # Exceptions that will emit a warning when being caught. Defaults to
 
 # "Exception"
-overgeneral-exceptions=Exception
+overgeneral-exceptions=BaseException

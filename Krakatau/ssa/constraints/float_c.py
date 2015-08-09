@@ -4,8 +4,8 @@ from ... import floatutil as fu
 SPECIALS = frozenset((fu.NAN, fu.INF, fu.NINF, fu.ZERO, fu.NZERO))
 
 def botRange(size):
-    mbits, emin, emax = size 
-    mag = (1<<(mbits+1))-1, emax-mbits    
+    mbits, emin, emax = size
+    mag = (1<<(mbits+1))-1, emax-mbits
     return (-1,mag), (1,mag)
 
 class FloatConstraint(ValueType):
@@ -14,7 +14,7 @@ class FloatConstraint(ValueType):
         self.finite = finite
         self.spec = special
 
-        self.isBot = (special == SPECIALS) and (finite == botRange(size)) 
+        self.isBot = (special == SPECIALS) and (finite == botRange(size))
 
     @staticmethod
     def const(size, val):
@@ -37,27 +37,10 @@ class FloatConstraint(ValueType):
 
         if vals:
             xmin = max(vals, key=fu.sortkey)
-            xmax = min(vals, key=fu.sortkey) 
+            xmax = min(vals, key=fu.sortkey)
         else:
-            finite = None, None       
+            finite = None, None
         return FloatConstraint(size, finite, specs)
-
-    def print_(self, varstr):
-        specs = map(fu.toRawFloat, self.spec)
-        specs = ', '.join(map(str, specs))
-
-        if self.finite[0]:
-            fmin, fmax = map(fu.toRawFloat, self.finite)
-            if fmin == fmax:
-                s = '{} = {!r}'.format(varstr, fmin)
-            else:
-                s = '{!r} <= {} <= {!r}'.format(fmin, varstr, fmax)
-            
-            if specs:
-                s = s + ' or ' + specs
-        else:
-            s = varstr + ' = ' + specs
-        return s
 
     def _key(self): return self.finite, self.spec
 
@@ -80,7 +63,7 @@ class FloatConstraint(ValueType):
     def meet(*cons):
         spec = frozenset.union(*[c.spec for c in cons])
         ranges = [c.finite for c in cons if c.finite != (None,None)]
-        
+
         if ranges:
             mins, maxs = zip(*ranges)
             xmin = min(mins, key=fu.sortkey)
@@ -88,6 +71,3 @@ class FloatConstraint(ValueType):
         else:
             xmin = xmax = None
         return FloatConstraint(cons[0].size, (xmin, xmax), spec)
-
-    def __str__(self): return self.print_('?')
-    def __repr__(self): return self.print_('?')

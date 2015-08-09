@@ -47,7 +47,7 @@ class PoolInfo(object):
     def getItem(self, type_, *args, **kwargs):
         if type_ == 'InvokeDynamic':
             self.bootstrap.append(args[:-1])
-            args = len(self.bootstrap)-1, args[-1]    
+            args = len(self.bootstrap)-1, args[-1]
         return self.pool.addItem((type_, tuple(args)), **kwargs)
 
     def Utf8(self, s):
@@ -58,7 +58,7 @@ class PoolInfo(object):
         for i,v in self.fixed.items():
             if v.args and v.args[0] in ('Double','Long'):
                 self.pool.reserved.add(i+1)
-                
+
         #TODO - order these in terms of dependencies?
         for index, value in self.fixed.items():
             used = value.toIndex(self, index=index)
@@ -71,9 +71,9 @@ _format_ops['>B'] = 'iload', 'lload', 'fload', 'dload', 'aload', 'istore', 'lsto
 _format_ops['>h'] = 'ifeq', 'ifne', 'iflt', 'ifge', 'ifgt', 'ifle', 'if_icmpeq', 'if_icmpne', 'if_icmplt', 'if_icmpge', 'if_icmpgt', 'if_icmple', 'if_acmpeq', 'if_acmpne', 'goto', 'jsr', 'ifnull', 'ifnonnull'
 _format_ops['>H'] = 'ldc_w', 'ldc2_w', 'getstatic', 'putstatic', 'getfield', 'putfield', 'invokevirtual', 'invokespecial', 'invokestatic', 'new', 'anewarray', 'checkcast', 'instanceof'
 
-_format_ops['>b'] += 'bipush', 
-_format_ops['>Bb'] += 'iinc', 
-_format_ops['>h'] += 'sipush', 
+_format_ops['>b'] += 'bipush',
+_format_ops['>Bb'] += 'iinc',
+_format_ops['>h'] += 'sipush',
 _format_ops['>HB'] += 'multianewarray',
 _format_ops['>HBB'] += 'invokeinterface',
 _format_ops['>HH'] += 'invokedynamic',
@@ -81,9 +81,9 @@ _format_ops['>B'] += 'ldc', 'newarray'
 _format_ops['>i'] += 'goto_w', 'jsr_w'
 
 op_structs = {}
-for fmt, ops in _format_ops.items():
-    _s = struct.Struct(fmt)
-    for _op in ops:
+for _fmt, _ops in _format_ops.items():
+    _s = struct.Struct(_fmt)
+    for _op in _ops:
         op_structs[_op] = _s
 
 def getPadding(pos):
@@ -101,7 +101,7 @@ def getInstrLen(instr, pos):
         if op == 'tableswitch':
             return 13 + padding + 4*count
         else:
-            return 9 + padding + 8*count 
+            return 9 + padding + 8*count
 
 def assembleInstruction(instr, labels, pos, pool):
     def lbl2Off(lbl):
@@ -153,7 +153,7 @@ def groupList(pairs):
 def splitList(pairs):
     d = groupList(pairs)
     return d[False], d[True]
-       
+
 def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     directives, lines = splitList(statements)
     dir_offsets = collections.defaultdict(list)
@@ -185,8 +185,8 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
     directive_dict = groupList(directives)
     limits = groupList(directive_dict['.limit'])
 
-    stack = min(limits['stack'] + [65535]) 
-    locals_ = min(limits['locals'] + [65535]) 
+    stack = min(limits['stack'] + [65535])
+    locals_ = min(limits['locals'] + [65535])
 
     excepts = []
     for name, start, end, target in directive_dict['.catch']:
@@ -195,14 +195,14 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
             name.index = 0
         vals = labels[start], labels[end], labels[target], name.toIndex(pool)
         excepts.append(struct.pack('>HHHH',*vals))
-    
+
     attributes = []
 
     #StackMapTable
     def pack_vt(vt):
         s = chr(codes.vt_codes[vt[0]])
         if vt[0] == 'Object':
-            s += struct.pack('>H', vt[1].toIndex(pool))        
+            s += struct.pack('>H', vt[1].toIndex(pool))
         elif vt[0] == 'Uninitialized':
             s += struct.pack('>H', labels[vt[1]])
         return s
@@ -220,13 +220,13 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
             if tag == 'same':
                 if offset >= 64:
                     error('Max offset on a same frame is 63.')
-                frames.append(chr(offset))            
+                frames.append(chr(offset))
             elif tag == 'same_locals_1_stack_item':
                 if offset >= 64:
                     error('Max offset on a same_locals_1_stack_item frame is 63.')
-                frames.append(chr(64 + offset) + pack_vt(info[2][0]))            
+                frames.append(chr(64 + offset) + pack_vt(info[2][0]))
             elif tag == 'same_locals_1_stack_item_extended':
-                frames.append(struct.pack('>BH', 247, offset) + pack_vt(info[2][0]))            
+                frames.append(struct.pack('>BH', 247, offset) + pack_vt(info[2][0]))
             elif tag == 'chop':
                 if not (1 <= info[1] <= 3):
                     error('Chop frame can only remove 1-3 locals')
@@ -255,7 +255,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
         dir_offsets['line'] = directive_dict['line'] = offsets
     if directive_dict['line']:
         lntable = [struct.pack('>HH',x,y) for x,y in zip(dir_offsets['line'], directive_dict['line'])]
-        ln_attr = struct.pack('>HIH', pool.Utf8("LineNumberTable"), 2+4*len(lntable), len(lntable)) + ''.join(lntable)        
+        ln_attr = struct.pack('>HIH', pool.Utf8("LineNumberTable"), 2+4*len(lntable), len(lntable)) + ''.join(lntable)
         attributes.append(ln_attr)
 
     if directive_dict['.var']:
@@ -265,7 +265,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
             start, end = labels[start], labels[end]
             name, desc = name.toIndex(pool), desc.toIndex(pool)
             vartable.append(sfunc(start, end-start, name, desc, index))
-        var_attr = struct.pack('>HIH', pool.Utf8("LocalVariableTable"), 2+10*len(vartable), len(vartable)) + ''.join(vartable)        
+        var_attr = struct.pack('>HIH', pool.Utf8("LocalVariableTable"), 2+10*len(vartable), len(vartable)) + ''.join(vartable)
         attributes.append(var_attr)
 
     if not code_len:
@@ -273,7 +273,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
 
     for attrname, data in directive_dict['.codeattribute']:
         attr = struct.pack('>HI', attrname.toIndex(pool), len(data)) + data
-        attributes.append(attr)        
+        attributes.append(attr)
 
 
     #Old versions use shorter fields for stack, locals, and code length
@@ -281,7 +281,7 @@ def assembleCodeAttr(statements, pool, version, addLineNumbers, jasmode):
 
     name_ind = pool.Utf8("Code")
     attr_len = struct.calcsize(header_fmt) + 4 + len(code_bytes) + 8*len(excepts) + sum(map(len, attributes))
-    
+
     assembled_bytes = struct.pack('>HI', name_ind, attr_len)
     assembled_bytes += struct.pack(header_fmt, stack, locals_, len(code_bytes))
     assembled_bytes += code_bytes
@@ -353,7 +353,7 @@ def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
     directive_dict = groupList(meth_statements)
     if directive_dict['.throws']:
         t_inds = [struct.pack('>H', x.toIndex(pool)) for x in directive_dict['.throws']]
-        throw_attr = struct.pack('>HIH', pool.Utf8("Exceptions"), 2+2*len(t_inds), len(t_inds)) + ''.join(t_inds)        
+        throw_attr = struct.pack('>HIH', pool.Utf8("Exceptions"), 2+2*len(t_inds), len(t_inds)) + ''.join(t_inds)
         method_attributes.append(throw_attr)
 
     #Runtime annotations
@@ -376,7 +376,7 @@ def assembleMethod(header, statements, pool, version, addLineNumbers, jasmode):
     if '.annotationdefault' in directive_dict:
         val = directive_dict['.annotationdefault'][0]
         data = assembleElementValue(val, pool)
-        attr = struct.pack('>HI', pool.Utf8("AnnotationDefault"), len(data)) + data        
+        attr = struct.pack('>HI', pool.Utf8("AnnotationDefault"), len(data)) + data
         method_attributes.append(attr)
 
     assembleClassFieldMethodAttributes(method_attributes.append, directive_dict, pool)
@@ -390,7 +390,7 @@ def getLdcRefs(statements):
         op = instr[0]
         if op == 'ldc':
             yield instr[1]
- 
+
 def addLdcRefs(methods, pool):
     def getRealRef(ref, forbidden=()):
         '''Get the root PoolRef associated with a given PoolRef, following labels'''
@@ -416,12 +416,12 @@ def addLdcRefs(methods, pool):
             type_ = ref.args[0]
             if type_ in ('Int','Float'):
                 key = ref.args[1]
-            elif type_ in ('String','Class','MethodType'): 
+            elif type_ in ('String','Class','MethodType'):
                 uref = getRealRef(ref.args[1])
                 key = uref.index, uref.args[1:]
             else: #for MethodHandles, don't even bother trying to estimate merging
-                key = ref.args[1:] 
-            ldc_refs[type_].add(key)    
+                key = ref.args[1:]
+            ldc_refs[type_].add(key)
 
     #TODO - make this a little cleaner so we don't have to mess with the ConstantPool internals
     num = sum(map(len, ldc_refs.values()))
@@ -457,7 +457,7 @@ def assembleClassFieldMethodAttributes(addcb, directive_dict, pool):
     #.innerlength directive overrides the normal attribute length calculation
     hasoverride = len(directive_dict['.innerlength']) > 0
 
-    for name, data in directive_dict['.attribute']:    
+    for name, data in directive_dict['.attribute']:
         name_ind = name.toIndex(pool)
 
         if hasoverride and pool.pool.getArgsCheck('Utf8', name_ind) == 'InnerClasses':
@@ -547,7 +547,7 @@ def assemble(tree, addLineNumbers, jasmode, filename):
         methods.append(assembleMethod(header, statements, pool, version, addLineNumbers, jasmode))
 
     if pool.bootstrap:
-        entries = [struct.pack('>H' + 'H'*len(bsargs), bsargs[0], len(bsargs)-1, *bsargs[1:]) for bsargs in pool.bootstrap]   
+        entries = [struct.pack('>H' + 'H'*len(bsargs), bsargs[0], len(bsargs)-1, *bsargs[1:]) for bsargs in pool.bootstrap]
         attrbody = ''.join(entries)
         attrhead = struct.pack('>HIH', pool.Utf8("BootstrapMethods"), 2+len(attrbody), len(entries))
         attributes.append(attrhead + attrbody)

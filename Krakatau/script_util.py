@@ -1,10 +1,12 @@
-import platform, os, os.path, zipfile
+from __future__ import print_function
+
+import platform, os, os.path, zipfile, errno
 import collections, hashlib
 from functools import partial
 
 #Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
 
-copyright = '''Krakatau  Copyright (C) 2012-14  Robert Grosse
+copyright = '''Krakatau  Copyright (C) 2012-15  Robert Grosse
 This program is provided as open source under the GNU General Public License.
 See LICENSE.TXT for more details.
 '''
@@ -66,7 +68,7 @@ def sanitizePart(s, suffix, prev):
     if isPartOk(s, prev) and suffix not in s:
         return s
     ok = ''.join(c for c in s if c in pref_disp_chars)
-    return ok[:8] + '__' + hashlib.md5(s).hexdigest()
+    return ok[:8] + '__' + hashlib.md5(s.encode('utf8')).hexdigest()
 
 def winSanitizePath(base, suffix, prevs, s):
     if isPathOk(s, prevs):
@@ -76,34 +78,70 @@ def winSanitizePath(base, suffix, prevs, s):
             prevs[i][sp.lower()] = sp
         path = '\\'.join(sparts)
     else:
-        path = '__' + hashlib.md5(s).hexdigest()
+        path = '__' + hashlib.md5(s.encode('utf8')).hexdigest()
         prevs[0][path.lower()] = path
     return '\\\\?\\{}\\{}{}'.format(base, path, suffix)
 
 def otherMakePath(base, suffix, s):
     return os.path.join(base, *s.split('/')) + suffix
 
-def fileDirOut(base_path, suffix):
-    if base_path is None:
-        base_path = os.getcwdu()
-    else:
-        base_path = base_path.decode('utf8')
-        base_path = os.path.abspath(base_path)
+class DirectoryWriter(object):
+    def __init__(self, base_path, suffix):
+        if base_path is None:
+            base_path = os.getcwdu()
+        else:
+            base_path = base_path.decode('utf8')
+            base_path = os.path.abspath(base_path)
 
-    osname = platform.system().lower()
-    if 'win' in osname and 'darwin' not in osname:
-        prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
-        makepath = partial(winSanitizePath, base_path, suffix, prevs)
-    else:
-        makepath = partial(otherMakePath, base_path, suffix)
+        osname = platform.system().lower()
+        if 'win' in osname and 'darwin' not in osname and 'cygwin' not in osname:
+            prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
+            self.makepath = partial(winSanitizePath, base_path, suffix, prevs)
+        else:
+            self.makepath = partial(otherMakePath, base_path, suffix)
 
-    def write(cname, data):
-        out = makepath(cname)
+    def write(self, cname, data):
+        out = self.makepath(cname)
         dirpath = os.path.dirname(out)
-        if dirpath and not os.path.exists(dirpath):
-            os.makedirs(dirpath)
+
+        try:
+            if dirpath:
+                os.makedirs(dirpath)
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                raise
 
         with open(out,'wb') as f:
             f.write(data)
         return out
-    return write
+
+    def __enter__(self): pass
+    def __exit__(self, *args): pass
+
+class JarWriter(object):
+    def __init__(self, base_path, suffix):
+        self.zip = zipfile.ZipFile(base_path, mode='w')
+        self.suffix = suffix
+
+    def write(self, cname, data):
+        self.zip.writestr(cname + self.suffix, data)
+        return 'zipfile'
+
+    def __enter__(self): self.zip.__enter__()
+    def __exit__(self, *args): self.zip.__exit__(*args)
+
+def makeWriter(base_path, suffix):
+    if base_path is not None:
+        if base_path.endswith('.zip') or base_path.endswith('.jar'):
+            return JarWriter(base_path, suffix)
+    return DirectoryWriter(base_path, suffix)
+
+###############################################################################
+def ignore(*args, **kwargs):
+    pass
+
+class Logger(object):
+    def __init__(self, level):
+        lvl = ['info','warning'].index(level)
+        self.info = print if lvl <= 0 else ignore
+        self.warn = print if lvl <= 1 else ignore

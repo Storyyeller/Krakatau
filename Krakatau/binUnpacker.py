@@ -1,16 +1,13 @@
 import struct
 
 class binUnpacker(object):
-    def __init__(self, data="", fileName=""):
-        if fileName:
-            self.bytes = open(fileName,'rb').read()
-        else:
-            self.bytes = data
+    def __init__(self, data=""):
+        self.bytes = data
         self.off = 0
 
-    def get(self, fmt, forceTuple=False, peek=False):       
+    def get(self, fmt, forceTuple=False, peek=False):
         val = struct.unpack_from(fmt, self.bytes, self.off)
-        
+
         if not peek:
             self.off += struct.calcsize(fmt)
         if not forceTuple and len(val) == 1:

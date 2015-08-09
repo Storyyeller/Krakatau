@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public class StaticInitializer {
 	public static final boolean b = true;
 
@@ -7,7 +8,7 @@ public class StaticInitializer {
 			System.out.println(c);
 		}
 	}
-	
+
 	public static void main(String[] a)
 	{
 		System.out.println(b & b);

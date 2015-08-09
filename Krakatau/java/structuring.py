@@ -4,7 +4,7 @@ ddict = collections.defaultdict
 from .. import graph_util
 from . import graphproxy
 
-from ..ssa import ssa_jumps
+from ..ssa import ssa_jumps, objtypes
 from ..ssa.exceptionset import ExceptionSet
 from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
 
@@ -55,6 +55,9 @@ class DominatorInfo(object):
     def dominators(self, node):
         return self._doms[node]
 
+    def ordered(self, node): #for debugging
+        return sorted(self._doms[node], key=lambda n:len(self._doms[n]))
+
     def dominator(self, *nodes):
         '''Get the common dominator of nodes'''
         doms = reduce(frozenset.intersection, map(self._doms.get, nodes))
@@ -62,10 +65,7 @@ class DominatorInfo(object):
 
     def set_extend(self, dom, nodes):
         nodes = list(nodes) + [dom]
-        if hasattr(dom, 'predecessors_nl'):
-            pred_nl_func = lambda x:x.predecessors_nl if x is not dom else []
-        else: #slower fallback for if we're called before the _noloop information is generated
-            pred_nl_func = lambda x:[y for y in x.predecessors if x is not dom and x not in self._doms[y]]
+        pred_nl_func = lambda x:x.predecessors_nl if x is not dom else []
         return frozenset(graph_util.topologicalSort(nodes, pred_nl_func))
 
     def area(self, node): return ClosedSet([k for k,v in self._doms.items() if node in v], node, self)
@@ -84,7 +84,7 @@ class ClosedSet(object):
         self.info = info
         if nodes:
             assert(head in nodes)
-            assert(info.dominator(*nodes) == head)
+            # assert(info.dominator(*nodes) == head)
 
     def touches(self, other): return not self.nodes.isdisjoint(other.nodes)
     def isdisjoint(self, other): return self.nodes.isdisjoint(other.nodes)
@@ -130,6 +130,10 @@ class ClosedSet(object):
     def union(*sets):
         return reduce(ClosedSet.__or__, sets, ClosedSet.EMPTY)
 
+    def __str__(self): # for debugging
+        return 'set{} ({} nodes)'.format(self.head, len(self.nodes))
+    __repr__ = __str__
+
     def __lt__(self, other): return self.nodes < other.nodes
     def __le__(self, other): return self.nodes <= other.nodes
     def __gt__(self, other): return self.nodes > other.nodes
@@ -147,6 +151,7 @@ _gcon_tags = 'while','try','switch','if','scope'
 class CompoundConstraint(object):
     def __init__(self, tag, head, scopes):
         assert(tag in _gcon_tags)
+        self.id = next(_count) #for debugging purposes
         self.tag = tag
         self.scopes = scopes
         self.head = head
@@ -158,10 +163,7 @@ class CompoundConstraint(object):
         self.ubound = ClosedSet.union(*[scope.ubound for scope in self.scopes])
         if head is not None:
             assert(head in self.lbound.nodes and head in self.ubound.nodes)
-            # self.lbound.add(head)
-            # self.ubound.add(head)
         assert(self.ubound >= self.lbound)
-        self.id = next(_count) #for debugging purposes
 
     def __str__(self): return self.tag+str(self.id)
     __repr__ = __str__
@@ -205,29 +207,8 @@ def structureLoops(nodes):
 
             scc_set = set(scc)
             entries = [n for n in scc if not scc_set.issuperset(n.predecessors)]
-
-            if len(entries) <= 1:
-                head = entries[0]
-            else:
-                #if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
-                print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
-                print '({} entry points, {} blocks)'.format(len(entries), len(scc))
-
-                def loopSuccessors(head, block):
-                    if block == head:
-                        return []
-                    return [x for x in block.successors if x in scc_set]
-
-                reaches = [(n, graph_util.topologicalSort(entries, functools.partial(loopSuccessors, n))) for n in scc]
-                for head, reachable in reaches:
-                    reachable.remove(head)
-
-                head, reachable = min(reaches, key=lambda t:(len(t[1]), -len(t[0].predecessors)))
-                assert(head not in reachable)
-                print 'Duplicating {} nodes'.format(len(reachable))
-                newnodes = graphproxy.duplicateNodes(reachable, scc_set)
-                newtodo += newnodes
-                nodes += newnodes
+            assert(len(entries) == 1)
+            head = entries[0]
 
             newtodo.extend(scc)
             newtodo.remove(head)
@@ -241,17 +222,12 @@ def structureExceptions(nodes):
     newinfos = []
     for n in thrownodes:
         manager = n.block.jump.cs
+        assert(len(n.block.jump.params) == 1)
         thrownvar = n.block.jump.params[0]
 
         mycsets = {}
         mytryinfos = []
         newinfos.append((n, manager.mask, mycsets, mytryinfos))
-
-        temp = ExceptionSet.EMPTY
-        for cset in manager.sets.values():
-            assert(not temp & cset)
-            temp |= cset
-        assert(temp == manager.mask)
 
         for handler, cset in manager.sets.items():
             en = n.blockdict[handler.key, True]
@@ -263,12 +239,13 @@ def structureExceptions(nodes):
             caughtvars = [v2 for (v1,v2) in zip(n.outvars[en], en.invars) if v1 == thrownvar]
             assert(len(caughtvars) <= 1)
             caughtvar = caughtvars.pop() if caughtvars else None
-
-            outvars = [(None if v == thrownvar else v) for v in n.outvars[en]]
-            del n.outvars[en]
+            outvars = n.outvars.pop(en)[:]
+            assert(outvars.count(thrownvar) <= 1)
+            if caughtvar is not None:
+                outvars[outvars.index(thrownvar)] = None
 
             for tt in cset.getTopTTs():
-                top = ExceptionSet.fromTops(cset.env, tt[0])
+                top = ExceptionSet.fromTops(cset.env, objtypes.className(tt))
                 new = en.indirectEdges([])
                 new.predecessors.append(n)
                 n.successors.append(new)
@@ -288,51 +265,73 @@ def structureConditionals(entryNode, nodes):
     for n in switchnodes:
         targets = n.successors
         #a proper switch block must be dominated by its entry point
-        bad = [x for x in targets if n not in dom.dominators(x)]
-        good = [x for x in targets if x not in bad]
-
-        domains = {x:dom.area(x).nodes for x in good}
+        #and all other nonloop predecessors must be dominated by a single other target
+        #keep track of remaining good targets, bad ones will be found later by elimination
+        target_set = frozenset(targets)
+        good = []
         parents = {}
-        for x in good:
-            #find all other switch blocks whose entry points dominate one of our predecessors
-            parents[x] = [k for k,v in domains.items() if not v.isdisjoint(x.predecessors)]
-            if x in parents[x]:
-                parents[x].remove(x)
+        for target in targets:
+            if n not in dom.dominators(target):
+                continue
 
-        #We need to make sure that the fallthrough graph consists of independent chains
-        #For targets with multiple parents, both parents must be removed
-        #For a target with multiple children, all but one of the children must be removed
-        depthfirst = graph_util.topologicalSort(good, parents.get)
-        chosenChild = {}
-        for target in depthfirst:
-            if parents[target]:
-                isOk = len(parents[target]) == 1 and parents[target][0] in parents
-                isOk = isOk and chosenChild.setdefault(parents[target][0], target) == target
-                if not isOk:
-                    bad.append(target)
+            preds = [x for x in target.predecessors if x != n and target not in dom.dominators(x)]
+            for pred in preds:
+                choices = dom.dominators(pred) & target_set
+                if len(choices) != 1:
+                    break
+                choice = min(choices)
+                if parents.setdefault(target, choice) != choice:
+                    break
+            else:
+                #passed all the tests for now, target appears valid
+                good.append(target)
+
+        while 1:
+            size = len(parents), len(good)
+            #prune bad parents and children from dict
+            for k,v in parents.items():
+                if k not in good:
+                    del parents[k]
+                elif v not in good:
+                    del parents[k]
+                    good.remove(k)
+
+            #make sure all parents are unique. In case they're not, choose one arbitrarily
+            chosen = {}
+            for target in good:
+                if target in parents and chosen.setdefault(parents[target], target) != target:
+                    del parents[target]
                     good.remove(target)
-                    del domains[target], parents[target]
+
+            if size == (len(parents), len(good)): #nothing changed this iteration
+                break
 
         #Now we need an ordering of the good blocks consistent with fallthrough
         #regular topoSort can't be used since we require chains to be immediately contiguous
         #which a topological sort doesn't garuentee
-        leaves = [x for x in good if x not in chosenChild]
+        children = {v:k for k,v in parents.items()}
+        leaves = [x for x in good if x not in children]
         ordered = []
         for leaf in leaves:
             cur = leaf
-            ordered.append(cur)
-            while parents[cur]:
-                assert(chosenChild[parents[cur][0]] == cur)
-                cur = parents[cur][0]
+            while cur is not None:
                 ordered.append(cur)
+                cur = parents.get(cur)
         ordered = ordered[::-1]
+        assert(len(ordered) == len(good))
 
-        for x in bad:
-            new = x.indirectEdges([n])
-            nodes.append(new)
-            ordered.append(new)
-        assert(len(ordered) == len(targets) == (len(good) + len(bad)))
+        #now handle the bad targets
+        for x in targets:
+            if x not in good:
+                new = x.indirectEdges([n])
+                nodes.append(new)
+                ordered.append(new)
+        assert(len(ordered) == len(targets))
         switchinfos.append((n, ordered))
+
+        #if we added new nodes, update dom info
+        if len(good) < len(targets):
+            dom = DominatorInfo(entryNode)
 
     #Now handle if statements. This is much simpler since we can just indirect everything
     ifinfos = []
@@ -340,7 +339,6 @@ def structureConditionals(entryNode, nodes):
         targets = [x.indirectEdges([n]) for x in n.successors[:]]
         nodes.extend(targets)
         ifinfos.append((n, targets))
-
     return switchinfos, ifinfos
 
 def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
@@ -389,7 +387,8 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
             #these must be included in the current switch block
             fallthroughs = [x for x in last if target in dom.dominators(x)]
             assert(n not in fallthroughs)
-            last = target.predecessors
+            assert(len(last) - len(fallthroughs) <= 1) #every predecessor should be accounted for except n itself
+            last = [x for x in target.predecessors if target not in dom.dominators(x)] #make sure not to include backedges
 
             lbound = dom.extend(target, fallthroughs)
             ubound = dom.area(target)
@@ -437,11 +436,15 @@ def orderConstraints(dom, constraints, nodes):
             if item in frozen:
                 parents.add(item)
                 continue
-
             items.append(item)
-            #list comprehension adds to iset as well to ensure uniqueness
-            queue += [i2 for i2 in item.forcedup if not i2 in iset and not iset.add(i2)]
-            queue += [i2 for i2 in item.forceddown if not i2 in iset and not iset.add(i2)]
+
+            # forcedup/down are sets so to maintain deterministic behavior we have to sort them
+            # use key of target for sorting, since that should be unique
+            temp = (item.forcedup | item.forceddown) - iset
+            iset |= temp
+            assert(all(fcon.tag == 'try' for fcon in temp))
+            assert(len(set(fcon.target._key for fcon in temp)) == len(temp))
+            queue += sorted(temp, key=lambda fcon:fcon.target._key)
 
             if not item.lbound.issubset(nset):
                 nset |= item.lbound
@@ -452,7 +455,7 @@ def orderConstraints(dom, constraints, nodes):
         #Find candidates for the new root of the connected component.
         #It must have a big enough ubound and also can't have nonfrozen forced parents
         candidates = [i for i in items if i.ubound.issuperset(nset)]
-        candidates = [i for i in items if i.forcedup.issubset(frozen)]
+        candidates = [i for i in candidates if i.forcedup.issubset(frozen)]
 
         #make sure for each candidate that all of the nested items fall within a single scope
         cscope_assigns = []
@@ -824,7 +827,6 @@ def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
     seen = set((n,True) for n in startnodes)
     while queue:
         pos, lastfw, path = queue.popleft()
-
         canfwd = not lastfw or pos not in used
         canback = pos in used and pos not in startset
 
@@ -841,8 +843,8 @@ def _augmentingPath(startnodes, startset, endset, used, backedge, bound):
             if (pos2, False) not in seen:
                 seen.add((pos2, False))
                 queue.append((pos2, False, path+(pos2,)))
-    else: #queue is empty but we didn't find anything
-        return None, set(x for x,front in seen if front)
+    #queue is empty but we didn't find anything
+    return None, set(x for x,front in seen if front)
 
 def _mincut(startnodes, endnodes, bound):
     startset = frozenset(startnodes)

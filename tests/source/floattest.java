@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 abstract public class floattest {
 	static final float e = 2.7182818459f;
 	static double d = 2.7182818459;
@@ -52,4 +53,6 @@ abstract public class floattest {
 	    System.out.println((float)(null==self?1.00000017881393421514957253748434595763683319091796875001f:.0f));
 	    System.out.println((float)(null==self?1.00000017881393421514957253748434595763683319091796875001d:.0d));
 	}
+
+	abstract void classIsAbstract();
 }

@@ -10,11 +10,11 @@ class Code(object):
     def __init__(self, method, bytestream, keepRaw):
         self.method = method
         self.class_ = method.class_
-        
+
         #Old versions use shorter fields for stack, locals, and code length
         field_fmt = ">HHL" if self.class_.version > (45,2) else ">BBH"
         self.stack, self.locals, codelen = bytestream.get(field_fmt)
-        assert(codelen > 0 and codelen < 65536)
+        # assert(codelen > 0 and codelen < 65536)
         self.bytecode_raw = bytestream.getRaw(codelen)
         self.codelen = codelen
 
@@ -28,7 +28,7 @@ class Code(object):
             assert(self.stack >= 1)
 
         # print 'Parsing code for', method.name, method.descriptor, method.flags
-        codestream = binUnpacker.binUnpacker(data = self.bytecode_raw)
+        codestream = binUnpacker.binUnpacker(data=self.bytecode_raw)
         self.bytecode = bytecode.parseInstructions(codestream, self.isIdConstructor)
         self.attributes = fixAttributeNames(attributes_raw, self.class_.cpool)
 
@@ -39,15 +39,15 @@ class Code(object):
         if keepRaw:
             self.attributes_raw = attributes_raw
 
-    #This is a callback passed to the bytecode parser to determine if a given method id represents a constructor                        
+    #This is a callback passed to the bytecode parser to determine if a given method id represents a constructor
     def isIdConstructor(self, methId):
-        args = self.class_.cpool.getArgsCheck('Method', methId) 
+        args = self.class_.cpool.getArgsCheck('Method', methId)
         return args[1] == '<init>'
 
 
     def __str__(self):
         lines = ['Stack: {}, Locals {}'.format(self.stack, self.locals)]
-        
+
         instructions = self.bytecode
         lines += ['{}: {}'.format(i, bytecode.printInstruction(instructions[i])) for i in sorted(instructions)]
         if self.except_raw:
@@ -67,13 +67,13 @@ class Method(object):
                 'NATIVE':0x0100,
                 'ABSTRACT':0x0400,
                 'STRICTFP':0x0800,
-                'SYNTHETIC':0x1000, 
+                'SYNTHETIC':0x1000,
                 }
 
     def __init__(self, data, classFile, keepRaw):
         self.class_ = classFile
         cpool = self.class_.cpool
-        
+
         flags, name_id, desc_id, attributes_raw = data
 
         self.name = cpool.getArgsCheck('Utf8', name_id)
@@ -87,28 +87,27 @@ class Method(object):
         self.native = 'NATIVE' in self.flags
         self.abstract = 'ABSTRACT' in self.flags
         self.isConstructor = (self.name == '<init>')
-        
+
         #Prior to version 51.0, <clinit> is still valid even if it isn't marked static
         if self.class_.version < (51,0) and self.name == '<clinit>' and self.descriptor == '()V':
             self.static = True
-        self._loadCode(keepRaw)
+
+        self.code = self._loadCode(keepRaw)
         if keepRaw:
             self.attributes_raw = attributes_raw
             self.name_id, self.desc_id = name_id, desc_id
 
     def _checkFlags(self):
         assert(len(self.flags & set(('PRIVATE','PROTECTED','PUBLIC'))) <= 1)
-        if 'ABSTRACT' in self.flags: 
+        if 'ABSTRACT' in self.flags:
             assert(not self.flags & set(['SYNCHRONIZED', 'PRIVATE', 'FINAL', 'STRICT', 'STATIC', 'NATIVE']))
 
     def _loadCode(self, keepRaw):
-        cpool = self.class_.cpool
         code_attrs = [a for a in self.attributes if a[0] == 'Code']
-        if self.native or self.abstract:
-            assert(not code_attrs)
-            self.code = None
-        else:
+        if not (self.native or self.abstract):
             assert(len(code_attrs) == 1)
             code_raw = code_attrs[0][1]
             bytestream = binUnpacker.binUnpacker(code_raw)
-            self.code = Code(self, bytestream, keepRaw)
+            return Code(self, bytestream, keepRaw)
+        assert(not code_attrs)
+        return None

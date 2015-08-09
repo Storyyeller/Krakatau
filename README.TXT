@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012-13 Robert Grosse
+Copyright (C) 2012-14 Robert Grosse
 
 === Introduction ===
 
@@ -17,17 +17,25 @@ testing the resulting classes.
 === Decompilation ===
 
 Usage:
-python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] target
+python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] [-skip]
+    target
 
 PATH : An optional list of directories, jars, or zipfiles to search for
     classes in. Krakatau will attempt to automatically detect and add the
     jar containing core language classes, but you can disable this with
-    the -nauto option.
+    the -nauto option. For multiple jars, you can either pass a semicolon
+    seperated list of jars or pass the -path option multiple times.
 
 OUT : Directory name where source files are to be written. Defaults to the
-    current directory
+    current directory. If the name ends in .zip or .jar, the output will be a
+    zipfile instead.
 
 -r : Decompiles all .class files found in the directory target (recursively)
+
+-skip : Continue upon errors. If an error occurs while decompiling a specific
+    method, the traceback will be printed as comments in the source file. If the
+    error occurs while decompiling at the class level, no source file will be
+    emitted and an error message will be printed to the console.
 
 target : Class name or jar name to decompile. If a jar is specified, all
     classes in the jar will be decompiled. If -r is specified, this should
@@ -46,11 +54,6 @@ that are difficult or impossible to decompile at all thanks to the limitations
 of the Java language. In most cases, Krakatau will try to at least produce
 readable pseudocode, but sometimes it may just throw an exception.
 
-Note: decompilation produces a file called "cache.txt" in the current
-    directory. This stores information about the standard library so it
-    doesn't have to be loaded every time. However, if you change the library,
-    you should delete the cache.
-
 Warning: Output on Windows uses UNC-style paths, which means that depending on
     the input class name, it may create files which are difficult or impossible
     to access through Windows Explorer or other non-UNC aware tools.
@@ -58,10 +61,11 @@ Warning: Output on Windows uses UNC-style paths, which means that depending on
 === Assembly ===
 
 Usage:
-python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] target
+python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] [-q] target
 
 OUT : Directory name where class files are to be written. Defaults to the
-    current directory
+    current directory. If the name ends in .zip or .jar, the output will be a
+    zipfile instead.
 
 -g : If specified, SourceFile and LineNumberTable attributes giving the
     offset of every instruction will be added. This is useful for debugging
@@ -78,6 +82,8 @@ OUT : Directory name where class files are to be written. Defaults to the
 
 -r : Assembles all .j files found in the directory target (recursively)
 
+-q : Quiet mode (only display warnings and errors)
+
 target : Name of file to assemble. If -r is specified, this should be a
     directory.
 
@@ -90,8 +96,8 @@ importantly the ability to directly specify constant pool references.
 A tutorial on writing Java Bytecode Assembly with Krakatau is available at
 https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
 
-The assembler uses PLY, which will generate a file called "parsetab.py" in
-the current directory.
+The assembler uses PLY, which will generate files called lextab.py and
+parsetab.py in the current directory.
 
 === Disassembly ===
 
@@ -99,9 +105,13 @@ Usage:
 python Krakatau\disassemble.py [-out OUT] [-r] target
 
 OUT : File or directory name where source files are to be written. Defaults
-    to the current directory
+    to the current directory. If the name ends in .zip or .jar, the output will
+    be a zipfile instead.
 
 -r : Disassembles all .class files found in the directory target (recursively)
+
+-cpool : Print out all constant pool entries at the end of the class. Default is
+    to only print them when necessary.
 
 target : Filename or jar name to disassemble. If a jar is specified, all
     classes in the jar will be disassembled. If -r is specified, this should

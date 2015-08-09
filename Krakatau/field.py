@@ -8,14 +8,14 @@ class Field(object):
                 'FINAL':0x0010,
                 'VOLATILE':0x0040,
                 'TRANSIENT':0x0080,
-                'SYNTHETIC':0x1000, 
+                'SYNTHETIC':0x1000,
                 'ENUM':0x4000,
                 }
 
     def __init__(self, data, classFile, keepRaw):
         self.class_ = classFile
         cpool = self.class_.cpool
-        
+
         flags, name_id, desc_id, attributes_raw = data
 
         self.name = cpool.getArgsCheck('Utf8', name_id)

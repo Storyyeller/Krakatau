@@ -13,4 +13,4 @@ from .throw import Throw
 from .truncate import Truncate
 from .tryreturn import TryReturn
 
-from .phi import Phi
+from .phi import Phi, ExceptionPhi

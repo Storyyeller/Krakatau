@@ -1,3 +1,4 @@
+; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 .version 48 0
 .class public BadInnerTest
 .super java/lang/Object

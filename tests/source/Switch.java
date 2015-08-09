@@ -1,16 +1,26 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public class Switch {
     strictfp public static void main(String args[]){
     	int x = -1;
 
-    	switch(args.length % -5){
+    	x:switch(args.length % -5){
 			case 3:
 				x += 3;
 			case 1:
 				x--;
-				if (x == -2){
-					break;
+
+				switch(x) {
+					case -2:
+					if (x == -2){
+						break x;
+					}
 				}
 			case 0:
+				switch((x == -1) ? 1 : 0) {
+					default: break;
+					case 1: System.out.println("Came from 0");
+				}
+
 				x += (x << x);
 				break;
 			case 2:

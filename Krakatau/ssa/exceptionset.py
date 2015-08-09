@@ -34,13 +34,25 @@ class CatchSetManager(object):
     def copy(self):
         return CatchSetManager(0,0,(self.env, self.sets.copy(), self.mask))
 
-    def replaceKey(self, old, new):
-        assert(old in self.sets and new not in self.sets)
-        self.sets[new] = self.sets[old]
-        del self.sets[old]
-
     def replaceKeys(self, replace):
         self.sets = collections.OrderedDict((replace.get(key,key), val) for key, val in self.sets.items())
+
+    def mergeable(self, other):
+        if self.sets == other.sets:
+            return True
+        mask = self.mask & other.mask
+        sets1 = {k:v & mask for k,v in self.sets.items() if not v.isdisjoint(mask)}
+        sets2 = {k:v & mask for k,v in other.sets.items() if not v.isdisjoint(mask)}
+        return sets1 == sets2
+
+    def merge(self, other):
+        self.mask |= other.mask
+        for k, v in other.sets.items():
+            if k not in self.sets:
+                self.sets[k] = v
+            else:
+                self.sets[k] |= v
+        assert(not self._conscheck())
 
     def _conscheck(self):
         temp = ExceptionSet.EMPTY
@@ -48,13 +60,14 @@ class CatchSetManager(object):
             assert(not v & temp)
             temp |= v
         assert(temp == self.mask)
+        assert(isinstance(self.sets, collections.OrderedDict))
 
 class ExceptionSet(ValueType):
     __slots__ = "env pairs".split()
     def __init__(self, env, pairs): #assumes arguments are in reduced form
         self.env = env
         self.pairs = frozenset([(x,frozenset(y)) for x,y in pairs])
-        assert(not pairs or '.null' not in zip(*pairs)[0])
+
         #We allow env to be None for the empty set so we can construct empty sets easily
         #Any operation resulting in a nonempty set will get its env from the nonempty argument
         assert(self.empty() or self.env is not None)
@@ -76,9 +89,9 @@ class ExceptionSet(ValueType):
 
     def getSingleTType(self): #todo - update SSA printer
         #comSuper doesn't care about order so we can freely pass in nondeterministic order
-        return objtypes.commonSupertype(self.env, [(top,0) for (top,holes) in self.pairs])
+        return objtypes.commonSupertype(self.env, [objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
-    def getTopTTs(self): return sorted([(top,0) for (top,holes) in self.pairs])
+    def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
     def __sub__(self, other):
         assert(type(self) == type(other))

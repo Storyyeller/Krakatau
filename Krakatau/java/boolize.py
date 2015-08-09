@@ -1,8 +1,9 @@
 import collections
 
-from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT
-from . import ast
 from .. import graph_util
+from ..ssa import objtypes
+from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
+from . import ast
 
 #Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
 #Also, booleans are forced to be seperate roots
@@ -29,105 +30,79 @@ class UnionFind(object):
         if root2 in FORCED_ROOTS:
             root1, root2 = root2, root1
         if root1 != root2 and root2 not in FORCED_ROOTS:
-        # if root1 != root2:
-        #     assert(root2 not in FORCED_ROOTS)
             self.d[root2] = root1
 
 ##############################################################
-def visitExprs(scope, callback):
+def visitStatementTree(scope, callback, catchcb=None):
     for item in scope.statements:
         for sub in item.getScopes():
-            visitExprs(sub, callback)
+            visitStatementTree(sub, callback=callback)
         if item.expr is not None:
             callback(item, item.expr)
+        if catchcb is not None and isinstance(item, ast.TryStatement):
+            for pair in item.pairs:
+                catchcb(pair[0])
 
-int_tts = IntTT, ShortTT, CharTT, ByteTT, BoolTT
-def fixArrays(root, arg_vars):
+int_tags = frozenset(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
+array_tags = frozenset(map(objtypes.baset, [ByteTT, BoolTT]) + [objtypes.BExpr])
+
+# Fix int/bool and byte[]/bool[] vars
+def boolizeVars(root, arg_vars):
     varlist = []
     sets = UnionFind()
 
-    for expr in arg_vars:
-        forced_val = (expr.dtype[0] == BoolTT[0])
-        sets.union(forced_val, expr)
-
-    def visitExprArray(expr):
-        #see if we have to merge
-        if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!='):
-            subs = [visitExprArray(param) for param in expr.params]
-            sets.union(*subs)
-
-        if isinstance(expr, ast.Local):
-            if expr.dtype[1] == 0:
-                return None
-            if expr.dtype[0] == '.bexpr' and expr.dtype[1] > 0:
-                varlist.append(expr)
-            return sets.find(expr)
-        elif isinstance(expr, ast.Literal):
-            return None
-        elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
-            return visitExprArray(expr.params[0])
-        elif expr.dtype is not None and expr.dtype[0] != '.bexpr':
-            return expr.dtype[0] == BoolTT[0]
-        return None
-
-    def addSourceArray(item, expr):
-        root = visitExprArray(expr)
-        if isinstance(item, ast.ReturnStatement):
-            forced_val = (item.tt[0] == BoolTT[0])
-            sets.union(forced_val, root)
-
-    visitExprs(root, addSourceArray)
-    bases = {True:BoolTT[0], False:ByteTT[0]}
-    for var in set(varlist):
-        assert(var.dtype[0] == '.bexpr' and var.dtype[1] > 0)
-        var.dtype = bases[sets.find(var)], var.dtype[1]
-
-def fixScalars(root, arg_vars):
-    varlist = []
-    sets = UnionFind()
-
-    for expr in arg_vars:
-        forced_val = (expr.dtype[0] == BoolTT[0])
-        sets.union(forced_val, expr)
-
-    def visitExprScalar(expr):
+    def visitExpr(expr, forceExact=False):
         #see if we have to merge
         if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!=','&','|','^'):
-            subs = [visitExprScalar(param) for param in expr.params]
-            sets.union(*subs)
-            if isinstance(expr, ast.Assignment) or expr.opstr in ('&','|','^'):
-                return subs[0]
+            subs = [visitExpr(param) for param in expr.params]
+            sets.union(*subs) # these operators can work on either type but need the same type on each side
+        elif isinstance(expr, ast.ArrayAccess):
+            sets.union(False, visitExpr(expr.params[1])) # array index is int only
         elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('* / % + - << >> >>>'):
-            sets.union(False, visitExprScalar(expr.params[0]))
-            sets.union(False, visitExprScalar(expr.params[1]))
+            sets.union(False, visitExpr(expr.params[0])) # these operators are int only
+            sets.union(False, visitExpr(expr.params[1]))
 
         if isinstance(expr, ast.Local):
-            if expr.dtype in int_tts:
+            tag, dim = objtypes.baset(expr.dtype), objtypes.dim(expr.dtype)
+            if (dim == 0 and tag in int_tags) or (dim > 0 and tag in array_tags):
+                # the only "unknown" vars are bexpr[] and ints. All else have fixed types
+                if forceExact or (tag != BExpr and tag != objtypes.baset(IntTT)):
+                    sets.union(tag == objtypes.baset(BoolTT), expr)
                 varlist.append(expr)
-            return sets.find(expr)
+                return sets.find(expr)
         elif isinstance(expr, ast.Literal):
             if expr.dtype == IntTT and expr.val not in (0,1):
                 return False
-            return None
+            return None #if val is 0 or 1, or the literal is a null, it is freely convertable
+        elif isinstance(expr, ast.Assignment) or (isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&','|','^')):
+            return subs[0]
         elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
-            return visitExprScalar(expr.params[0])
-        elif expr.dtype is not None and expr.dtype[0] != '.bexpr':
-            return expr.dtype[0] == BoolTT[0]
+            return visitExpr(expr.params[0])
+        elif expr.dtype is not None and objtypes.baset(expr.dtype) != BExpr:
+            return expr.dtype[0] == objtypes.baset(BoolTT)
         return None
 
-    def addSourceScalar(item, expr):
-        root = visitExprScalar(expr)
+    def visitStatement(item, expr):
+        root = visitExpr(expr)
         if isinstance(item, ast.ReturnStatement):
-            forced_val = (item.tt[0] == BoolTT[0])
+            forced_val = (objtypes.baset(item.tt) == objtypes.baset(BoolTT))
             sets.union(forced_val, root)
+        elif isinstance(item, ast.SwitchStatement):
+            sets.union(False, root) # Switch must take an int, not a bool
 
-    visitExprs(root, addSourceScalar)
+    for expr in arg_vars:
+        visitExpr(expr, forceExact=True)
+    visitStatementTree(root, callback=visitStatement)
 
     #Fix the propagated types
     for var in set(varlist):
-        assert(var.dtype in int_tts)
+        tag, dim = objtypes.baset(var.dtype), objtypes.dim(var.dtype)
+        assert(tag in int_tags or (dim>0 and tag == BExpr))
+        #make everything bool which is not forced to int
         if sets.find(var) != False:
-            var.dtype = BoolTT
+            var.dtype = objtypes.withDimInc(BoolTT, dim)
+        elif dim > 0:
+            var.dtype = objtypes.withDimInc(ByteTT, dim)
 
     #Fix everything else back up
     def fixExpr(item, expr):
@@ -136,17 +111,68 @@ def fixScalars(root, arg_vars):
 
         if isinstance(expr, ast.Assignment):
             left, right = expr.params
-            if left.dtype in int_tts:
+            if objtypes.baset(left.dtype) in int_tags and objtypes.dim(left.dtype) == 0:
                 if not ast.isPrimativeAssignable(right.dtype, left.dtype):
-                    expr.params = left, ast.makeCastExpr(left.dtype, right)
+                    expr.params = [left, ast.makeCastExpr(left.dtype, right)]
         elif isinstance(expr, ast.BinaryInfix):
-            a,b = expr.params
+            a, b = expr.params
+            #shouldn't need to do anything here for arrays
             if expr.opstr in '== != & | ^' and a.dtype == BoolTT or b.dtype == BoolTT:
-                # assert(expr.opstr in '== != & | ^')
                 expr.params = [ast.makeCastExpr(BoolTT, v) for v in expr.params]
-    visitExprs(root, fixExpr)
+    visitStatementTree(root, callback=fixExpr)
 
-def boolizeVars(root, arg_vars):
-    arg_vars = frozenset(arg_vars)
-    fixArrays(root, arg_vars)
-    fixScalars(root, arg_vars)
+# Fix vars of interface/object type
+# TODO: do this properly
+def interfaceVars(env, root, arg_vars):
+    varlist = []
+    consts = {}
+    assigns = collections.defaultdict(list)
+
+    def isInterfaceVar(expr):
+        if not isinstance(expr, ast.Local) or not objtypes.isBaseTClass(expr.dtype):
+            return False
+        if objtypes.className(expr.dtype) == objtypes.className(objtypes.ObjectTT):
+            return True
+        return 'INTERFACE' in env.getFlags(objtypes.className(expr.dtype))
+
+    def updateConst(var, tt):
+        varlist.append(var)
+        if var not in consts:
+            consts[var] = tt
+        else:
+            consts[var] = objtypes.commonSupertype(env, [consts[var], tt])
+
+    def visitStatement(item, expr):
+        if isinstance(expr, ast.Assignment) and objtypes.isBaseTClass(expr.dtype):
+            left, right = expr.params
+            if isInterfaceVar(left):
+                if isInterfaceVar(right):
+                    assigns[left].append(right)
+                    varlist.append(right)
+                    varlist.append(left)
+                else:
+                    updateConst(left, right.dtype)
+
+    def visitCatchDecl(decl):
+        updateConst(decl.local, decl.typename.dtype)
+
+    for expr in arg_vars:
+        if objtypes.isBaseTClass(expr.dtype):
+            updateConst(expr, expr.dtype)
+    visitStatementTree(root, callback=visitStatement, catchcb=visitCatchDecl)
+
+    # Now calculate actual types and fix
+    newtypes = {}
+
+    # visit variables in topological order. Doesn't handle case of loops, but this is a temporary hack anyway
+    order = graph_util.topologicalSort(varlist, lambda v:assigns[v])
+    for var in order:
+        assert(var not in newtypes)
+
+        tts = [newtypes.get(right, objtypes.ObjectTT) for right in assigns[var]]
+        if var in consts:
+            tts.append(consts[var])
+        newtypes[var] = newtype = objtypes.commonSupertype(env, tts)
+        if newtype != objtypes.ObjectTT and newtype != var.dtype and newtype != objtypes.NullTT:
+            # assert(objtypes.baset(var.dtype) == objtypes.baset(objtypes.ObjectTT))
+            var.dtype = newtype

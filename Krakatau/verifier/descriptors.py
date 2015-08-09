@@ -1,4 +1,7 @@
-from .verifier_types import *
+from .verifier_types import T_BYTE, T_CHAR, T_DOUBLE, T_FLOAT, T_INT, T_LONG, T_SHORT, T_BOOL, T_OBJECT, T_ARRAY, T_INVALID
+from .verifier_types import unSynthesizeType
+
+_cat2tops = T_LONG, T_DOUBLE
 
 def parseFieldDescriptors(desc_str, unsynthesize=True):
     baseTypes = {'B':T_BYTE, 'C':T_CHAR, 'D':T_DOUBLE, 'F':T_FLOAT,
@@ -37,17 +40,17 @@ def parseFieldDescriptors(desc_str, unsynthesize=True):
             #synthetics are only meaningful as basetype of an array
             #if they are by themselves, convert to int.
             baset = unSynthesizeType(baset)
-        
+
         fields.append(baset)
-        if baset in cat2tops:
-            fields.append(cat2tops[baset])
+        if baset in _cat2tops:
+            fields.append(T_INVALID)
     return fields
 
 #get a single descriptor
 def parseFieldDescriptor(desc_str, unsynthesize=True):
     rval = parseFieldDescriptors(desc_str, unsynthesize)
-    
-    cat = 2 if (rval and rval[0] in cat2tops) else 1
+
+    cat = 2 if (rval and rval[0] in _cat2tops) else 1
     if len(rval) != cat:
         raise ValueError('Incorrect number of fields in descriptor, expected {} but found {}'.format(cat, len(rval)))
     return rval
@@ -68,7 +71,7 @@ def parseMethodDescriptor(desc_str, unsynthesize=True):
     if lp_pos < 0 or desc_str[lp_pos] != ')':
         raise ValueError('Unable to split method descriptor into arguments and return type')
 
-    arg_str = desc_str[1:lp_pos]    
+    arg_str = desc_str[1:lp_pos]
     rval_str = desc_str[lp_pos+1:]
 
     args = parseFieldDescriptors(arg_str, unsynthesize)

@@ -1,3 +1,4 @@
+// Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 public class WhileLoops {
 	static int x;
 
@@ -32,6 +33,8 @@ public class WhileLoops {
 		try{
 			main(a[0]);
 		} catch (IllegalArgumentException x) {}
+
+		viod();
 	}
 
 	static int i,i2;
@@ -71,5 +74,24 @@ public class WhileLoops {
 		}
 
 		System.out.println(i);
+	}
+
+	protected static void viod() {
+		int x = 1337;
+		int y = 0;
+
+		while(x >= 0) {
+			if(x == 0) {
+				y = 1;
+				x = 0;
+			}
+			if (y != 0) {
+				if (x == 0) {x = 0;} else {y = 0;}
+				System.out.println(y + ',' + y);
+				x = -40;
+			}
+
+			x--;
+		}
 	}
 }

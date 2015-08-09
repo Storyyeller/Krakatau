@@ -6,7 +6,7 @@ class Goto(BaseJump):
         self.successors = [target]
 
     def replaceBlocks(self, blockDict):
-        self.successors = [blockDict[key] for key in self.successors]
+        self.successors = [blockDict.get(key,key) for key in self.successors]
 
     def getNormalSuccessors(self):
         return self.successors

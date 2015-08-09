@@ -2,16 +2,20 @@ from .base import BaseOp
 from ...verifier.descriptors import parseMethodDescriptor
 from ..ssa_types import verifierToSSAType, SSA_OBJECT
 
-from .. import objtypes, constraints
+from .. import objtypes, constraints, excepttypes
 from ..constraints import ObjectConstraint
+from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 class Invoke(BaseOp):
-    def __init__(self, parent, instr, info, args, monad, isThisCtor):
-        super(Invoke, self).__init__(parent, [monad]+args, makeException=True, makeMonad=True)
+    has_side_effects = True
+
+    def __init__(self, parent, instr, info, args, isThisCtor, target_tt):
+        super(Invoke, self).__init__(parent, args, makeException=True)
 
         self.instruction = instr
         self.target, self.name, self.desc = info
         self.isThisCtor = isThisCtor #whether this is a ctor call for the current class
+        self.target_tt = target_tt
         vtypes = parseMethodDescriptor(self.desc)[1]
 
         dtype = None
@@ -19,6 +23,9 @@ class Invoke(BaseOp):
             stype = verifierToSSAType(vtypes[0])
             dtype = objtypes.verifierToSynthetic(vtypes[0])
             cat = len(vtypes)
+            # clone() on an array type is known to always return that type, rather than any Object
+            if self.name == "clone" and target_tt[1] > 0:
+                dtype = target_tt
 
             self.rval = parent.makeVariable(stype, origin=self)
             self.returned = [self.rval] + [None]*(cat-1)
@@ -26,19 +33,20 @@ class Invoke(BaseOp):
             self.rval, self.returned = None, []
 
         # just use a fixed constraint until we can do interprocedural analysis
-        # output order is rval, exception, monad, defined by BaseOp.getOutputs
+        # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
-
-        self.mout = constraints.DUMMY
-        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [])
+        self.eout = ObjectConstraint.fromTops(env, [objtypes.ThrowableTT], [], nonnull=True)
+        self.eout_npe = ObjectConstraint.fromTops(env, [excepttypes.NullPtr], [], nonnull=True)
         if self.rval is not None:
             if self.rval.type == SSA_OBJECT:
                 supers, exact = objtypes.declTypeToActual(env, dtype)
                 self.rout = ObjectConstraint.fromTops(env, supers, exact)
             else:
                 self.rout = constraints.fromVariable(env, self.rval)
+        else:
+            self.rout = None
 
     def propagateConstraints(self, *incons):
-        if self.rval is None:
-            return None, self.eout, self.mout
-        return self.rout, self.eout, self.mout
+        if self.instruction[0] != 'invokestatic' and incons[0].isConstNull():
+            return throw(self.eout_npe)
+        return returnOrThrow(self.rout, self.eout)

@@ -24,7 +24,7 @@ def addRule(func, name, *rhs_rules):
 def list_sub(p):p[0] = p[1] + p[2:]
 def listRule(name): #returns a list
     name2 = name + 's'
-    addRule(list_sub, name2, '{} {}'.format(name2, name), 'empty')    
+    addRule(list_sub, name2, '{} {}'.format(name2, name), 'empty')
 
 def nothing(p):pass
 def assign1(p):p[0] = p[1]
@@ -73,7 +73,7 @@ def p_doublel(p):
 #which would be ambiguous. We don't allow directives to simplfy the grammar
 #rules, since they wouldn't be valid identifiers anyway.
 badwords = frozenset(map(str.lower, flags))
-badwords |= frozenset(k for k in wordget if '.' in k) 
+badwords |= frozenset(k for k in wordget if '.' in k)
 oktokens = frozenset(v for k,v in wordget.items() if k not in badwords)
 addRule(assign1, 'notflag', 'WORD', 'STRING_LITERAL', *oktokens)
 
@@ -85,7 +85,7 @@ def p_ref(p):
         if 0 <= i <= 0xFFFF:
             p[0] = PoolRef(index=i)
         else:
-            p[0] = PoolRef(lbl=s)    
+            p[0] = PoolRef(lbl=s)
     except ValueError:
         p[0] = PoolRef(lbl=s)
 
@@ -148,7 +148,7 @@ for c, type_ in zip('cmf', (ClassFile, Method, Field)):
     listRule(_name)
 
 def p_classdec(p):
-    '''classdec : D_CLASS cflags classref sep 
+    '''classdec : D_CLASS cflags classref sep
                 | D_INTERFACE cflags classref sep'''
     #if interface, add interface to flags
     p[0] = (p[1] == '.interface'), p[2], p[3]
@@ -187,7 +187,7 @@ def p_methodhandle_notref(p):
 
 def p_methodtype_notref(p):
     '''methodtype_notref : utf8_notref'''
-    p[0] = PoolRef('Methodtype', p[1])
+    p[0] = PoolRef('MethodType', p[1])
 
 addRule(assign1, 'bootstrap_arg', 'ref') #TODO - allow inline constants and strings?
 listRule('bootstrap_arg')
@@ -227,8 +227,8 @@ def p_field_spec(p):
     p[0] = p[2:7]
 
 addRule(nothing, 'field_constval', 'empty')
-addRule(assign2, 'field_constval', 'EQUALS ref', 
-                                    'EQUALS ldc1_notref', 
+addRule(assign2, 'field_constval', 'EQUALS ref',
+                                    'EQUALS ldc1_notref',
                                     'EQUALS ldc2_notref')
 
 #Sadly, we must only allow .end field when at least one attribute is specified
@@ -250,10 +250,10 @@ def p_method_spec(p):
 
 def p_defmethod_0(p):
     '''defmethod : D_METHOD mflags jas_meth_namedesc sep'''
-    p[0] = p[2],p[3] 
+    p[0] = p[2],p[3]
 def p_defmethod_1(p):
     '''defmethod : D_METHOD mflags utf8ref COLON utf8ref sep'''
-    p[0] = p[2],(p[3], p[5]) 
+    p[0] = p[2],(p[3], p[5])
 
 def p_jas_meth_namedesc(p):
     '''jas_meth_namedesc : WORD'''
@@ -270,7 +270,7 @@ def p_statement_1(p):
     '''statement : code_directive sep'''
     p[0] = True, (False, p[1])
 def p_statement_2(p):
-    '''statement : empty instruction sep 
+    '''statement : empty instruction sep
                 | lbldec instruction sep
                 | lbldec sep'''
     p[0] = True, (True, ((p[1] or None), p[2]))
@@ -281,7 +281,7 @@ addRule(assign1, 'method_directive', 'methodattribute')
 addRule(assign1, 'code_directive', 'limit_dir', 'except_dir','localvar_dir','linenumber_dir','stack_dir', 'generic_codeattribute_dir')
 
 def p_limit_dir(p):
-    '''limit_dir : D_LIMIT LOCALS intl 
+    '''limit_dir : D_LIMIT LOCALS intl
                 | D_LIMIT STACK intl'''
     p[0] = p[1], (p[2], p[3])
 
@@ -335,7 +335,7 @@ def p_jas_fieldref(p):
     nt = PoolRef('NameAndType', name, desc)
     p[0] = PoolRef('Field', class_, nt)
 
-#This is an ugly hack to work around the fact that Jasmin syntax would otherwise be impossible to 
+#This is an ugly hack to work around the fact that Jasmin syntax would otherwise be impossible to
 #handle with a LALR(1) parser
 def p_inline_fieldref_1(p):
     '''inline_fieldref : WORD nameandtyperef
@@ -440,17 +440,17 @@ def p_sourcefile_dir(p):
     '''sourcefile_dir : D_SOURCE utf8ref'''
     p[0] = p[1], p[2]
 
-def p_inner_dir(p): 
+def p_inner_dir(p):
     '''inner_dir : D_INNER cflags utf8ref classref classref'''
     p[0] = p[1], (p[4],p[5],p[3],p[2]) #use JasminXT's (flags, name, inner, outer) order but switch internally to correct order
 
-def p_enclosing_dir(p): 
+def p_enclosing_dir(p):
     '''enclosing_dir : D_ENCLOSING METHOD classref nameandtyperef'''
     p[0] = p[1], (p[3], p[4])
 
 #This is included here even though strictly speaking, it's not an attribute. Rather it's a directive that affects the assembly
 #of the InnerClasses attribute
-def p_innerlength_dir(p): 
+def p_innerlength_dir(p):
     '''innerlength_dir : D_INNERLENGTH intl'''
     p[0] = p[1], p[2]
 
@@ -469,11 +469,11 @@ def p_annotation_def_dir(p):
     p[0] = p[1], p[2]
 
 #Generic
-def p_generic_attribute_dir(p): 
+def p_generic_attribute_dir(p):
     '''generic_attribute_dir : D_ATTRIBUTE utf8ref STRING_LITERAL'''
     p[0] = p[1], (p[2], p[3])
 
-def p_generic_codeattribute_dir(p): 
+def p_generic_codeattribute_dir(p):
     '''generic_codeattribute_dir : D_CODEATTRIBUTE utf8ref STRING_LITERAL'''
     p[0] = p[1], (p[2], p[3])
 
@@ -489,9 +489,9 @@ addRule(assign2, 'locals_vtlist', 'LOCALS verification_types sep')
 addRule(assign2, 'stack_vtlist', 'STACK verification_types sep')
 
 def p_stack_dir(p):
-    '''stack_dir_rest : SAME 
+    '''stack_dir_rest : SAME
                     | SAME_EXTENDED
-                    | CHOP intl 
+                    | CHOP intl
                     | SAME_LOCALS_1_STACK_ITEM sep stack_vtlist endstack
                     | SAME_LOCALS_1_STACK_ITEM_EXTENDED sep stack_vtlist endstack
                     | APPEND sep locals_vtlist endstack
@@ -534,7 +534,7 @@ def p_error(p):
         print "Syntax error: unexpected EOF"
     else: #remember to subtract 1 from line number since we had a newline at the start of the file
         print "Syntax error at line {}: unexpected token {!r}".format(p.lineno-1, p.value)
-    
+
     #Ugly hack since Ply doesn't provide any useful error information
     import inspect
     frame = inspect.currentframe()

@@ -12,6 +12,7 @@ class If(BaseJump):
         self.cmp = cmp
         self.successors = successors
         self.isObj = (arguments[0].type == ssa_types.SSA_OBJECT)
+        assert(None not in successors)
 
     def replaceBlocks(self, blockDict):
         self.successors = [blockDict.get(key,key) for key in self.successors]
@@ -57,7 +58,7 @@ class If(BaseJump):
                     x2, y2 = x, y
                     if x.isConstNull():
                         yt = y.types
-                        y2 = ObjectConstraint.fromTops(yt.env, yt.supers, yt.exact, nonnull=True)                   
+                        y2 = ObjectConstraint.fromTops(yt.env, yt.supers, yt.exact, nonnull=True)
                     if y.isConstNull():
                         xt = x.types
                         x2 = ObjectConstraint.fromTops(xt.env, xt.supers, xt.exact, nonnull=True)
@@ -69,7 +70,7 @@ class If(BaseJump):
                     return None, None
                 x1, x2, y1, y2 = x.min, x.max, y.min, y.max
                 if cmp_t == 'ge' or cmp_t == 'gt':
-                    x1, x2, y1, y2 = y1, y2, x1, x2 
+                    x1, x2, y1, y2 = y1, y2, x1, x2
 
                 #treat greater like less than swap before and afterwards
                 if cmp_t == 'lt' or cmp_t == 'gt':
@@ -86,14 +87,14 @@ class If(BaseJump):
                         return None, None
                     if x1 == x2:
                         y1 = y1 if y1 != x1 else y1+1
-                        y2 = y2 if y2 != x2 else y2-1               
+                        y2 = y2 if y2 != x2 else y2-1
                     if y1 == y2:
                         x1 = x1 if x1 != y1 else x1+1
                         x2 = x2 if x2 != y2 else x2-1
 
                 if cmp_t == 'ge' or cmp_t == 'gt':
-                    x1, x2, y1, y2 = y1, y2, x1, x2 
-                con1 = IntConstraint.range(x.width, x1, x2) if x1 <= x2 else None   
-                con2 = IntConstraint.range(y.width, y1, y2) if y1 <= y2 else None   
+                    x1, x2, y1, y2 = y1, y2, x1, x2
+                con1 = IntConstraint.range(x.width, x1, x2) if x1 <= x2 else None
+                con2 = IntConstraint.range(y.width, y1, y2) if y1 <= y2 else None
                 return con1, con2
             return propagateConstraints_int

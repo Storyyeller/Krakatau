@@ -69,12 +69,12 @@ def fromRawFloat(size, x):
         return NAN
     sign = int(math.copysign(1, x))
     x = math.copysign(x, 1)
-    
+
     if math.isinf(x):
         return sign, INF_MAG
     elif x == 0.0:
         return sign, ZERO_MAG
-    else: 
+    else:
         m, e = math.frexp(x)
         m = int(m * (1<<(size[0]+1)))
         return sign, roundMag(size, (m, e))

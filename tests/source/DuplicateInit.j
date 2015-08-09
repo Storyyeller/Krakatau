@@ -1,3 +1,4 @@
+; Originally created as a test for Krakatau (https://github.com/Storyyeller/Krakatau)
 .class abstract super public DuplicateInit
 .super java/lang/Object
 .implements java/lang/CharSequence
@@ -37,7 +38,7 @@ LINT:
 	invokespecial java/lang/Integer <init> (I)V
 
 LFINAL:
-	
+
 	getstatic java/lang/System out Ljava/io/PrintStream;
 	dup_x1
 	aload_1

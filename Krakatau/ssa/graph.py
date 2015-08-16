@@ -118,7 +118,7 @@ class SSA_Graph(object):
         for block in self.blocks:
             if block in removed:
                 continue
-            while isinstance(block.jump, (ssa_jumps.Goto, ssa_jumps.OnException)):
+            while isinstance(block.jump, ssa_jumps.Goto):
                 jump = block.jump
                 if len(jump.getNormalSuccessors()) != 1:
                     break
@@ -128,40 +128,12 @@ class SSA_Graph(object):
                     break
 
                 jump2 = block2.jump
-                if isinstance(jump, ssa_jumps.OnException):
-                    # If this is an exception block, only merge with another exception block.
-                    # Ignore except -> goto case for simplicity
-                    if not isinstance(jump2, ssa_jumps.OnException):
-                        break
-                    # Also don't merge if last instruction is a cast due to issues with the cast hack
-                    if isinstance(block.lines[-2], ssa_ops.CheckCast):
-                        break
-                    # Make sure catch types and handlers are compatible
-                    if not jump2.cs.mergeable(jump.cs):
-                        break
-                    # For simplicity, don't allow block to have any successors which aren't already
-                    # successors of block2
-                    if not set(jump.getExceptSuccessors()).issubset(jump2.getExceptSuccessors()):
-                        break
-                    jump2.cs.merge(jump.cs)
-
                 ucs = block.unaryConstraints
                 ucs2 = block2.unaryConstraints
                 replace = {phi.rval: phi.get(fromkey) for phi in block2.phis}
                 for var2, var in replace.items():
                     ucs[var] = constraints.join(ucs[var], ucs2.pop(var2))
                 ucs.update(ucs2)
-
-                if isinstance(jump, ssa_jumps.OnException):
-                    last = block.lines.pop()
-                    last2 = block2.lines[-1]
-                    assert(type(last) == type(last2) == ssa_ops.ExceptionPhi)
-                    last2.params += last.params
-                    # We'll use exvar2 as the new one
-                    exvar, exvar2 = last.outException, last2.outException
-                    ucs[exvar2] = constraints.meet(ucs[exvar], ucs[exvar2])
-                    for successor in jump.getExceptSuccessors():
-                        successor.removePredPair((block, True))
 
                 for op in block2.lines:
                     op.replaceVars(replace)

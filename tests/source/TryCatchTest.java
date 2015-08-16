@@ -34,6 +34,7 @@ public class TryCatchTest {
 
         test2(54); test2(0);
         test3(args);
+        test3b(args);
         System.out.println(i);
         test4(args);
     }
@@ -65,6 +66,25 @@ public class TryCatchTest {
             i = (int)(123456L/j);
         }
         catch (Throwable e) {}
+    }
+
+    public static void test3b(Object[] x) {
+        int i = 0;
+        try {
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+            x[i] = x[i++];
+        }
+        catch (Throwable e) {}
+        System.out.println(i);
     }
 
     public static void test4(Object x) {

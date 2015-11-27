@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 import os.path
-import time, random
+import time, random, subprocess
 
 import Krakatau
 import Krakatau.ssa
@@ -12,13 +12,21 @@ from Krakatau import script_util
 
 def findJRE():
     try:
-        home = os.environ['JAVA_HOME']
-        path = os.path.join(home, 'jre', 'lib', 'rt.jar')
-        if os.path.isfile(path):
-            return path
+        home = os.environ.get('JAVA_HOME')
+        if home:
+            path = os.path.join(home, 'jre', 'lib', 'rt.jar')
+            if os.path.isfile(path):
+                return path
 
-        #For macs
-        path = os.path.join(home, 'bundle', 'Classes', 'classes.jar')
+            #For macs
+            path = os.path.join(home, 'bundle', 'Classes', 'classes.jar')
+            if os.path.isfile(path):
+                return path
+
+        # Ubuntu and co
+        out = subprocess.Popen(['update-java-alternatives', '-l'], stdout=subprocess.PIPE).communicate()[0]
+        basedir = out.split('\n')[0].rpartition(' ')[-1]
+        path = os.path.join(basedir, 'jre', 'lib', 'rt.jar')
         if os.path.isfile(path):
             return path
     except Exception as e:

@@ -40,7 +40,7 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     temppath = os.path.join(tempbase, target)
 
     cpath = [decompile.findJRE(), class_location]
-    if None in cpath:
+    if cpath[0] is None:
         raise RuntimeError('Unable to locate rt.jar')
 
     # Clear any pre-existing files and create directory if necessary

@@ -2,7 +2,6 @@
 registry = {
     'ArgumentTypes': (['42', 'false'], ['43', 'true'], ['1', '1', '1']),
     'ArrayTest': ([], ['x']),
-    'BadInnerTest': ([],),
     'BoolizeTest': ([],),
     'ConditionalTest': ([],),
     'ControlFlow': ([], ['.Na', 'q'], ['ddKK', '-2'], ['hB7X', '-1'],
@@ -16,7 +15,6 @@ registry = {
     'LClassLiteralTest': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),
     'OddsAndEnds': ([], ['x'], ['42'], ['4'], ['-2'], ['-0x567'], ['-5678']),
-    'OldVersionTest': ([],),
     'splitnew': ([], ['-0'], ['-0', ''], ['-0', '', '', ''],
                  ['-0', '', '', '', '', '', '', '', '', '', '', '', '', '']),
     'StaticInitializer': ([],),

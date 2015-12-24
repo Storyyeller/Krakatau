@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012-14 Robert Grosse
+Copyright (C) 2012-15 Robert Grosse
 
 === Introduction ===
 
@@ -8,8 +8,7 @@ Java classfiles and an assembler to create classfiles.
 
 === Requirements ===
 
-Krakatau requires Python 2.7. The assembler additionally requires a free
-Python library called PLY. Note that if you want to do decompilation, you'll
+Krakatau requires Python 2.7. Note that if you want to do decompilation, you'll
 probably want an installation of the JDK as well. For assembly and disassembly,
 a Java installation is not strictly necessary, but it is still useful for
 testing the resulting classes.
@@ -58,27 +57,17 @@ Warning: Output on Windows uses UNC-style paths, which means that depending on
     the input class name, it may create files which are difficult or impossible
     to access through Windows Explorer or other non-UNC aware tools.
 
+Note that the decompiler does not currently support Java 8 or invokedynamic,
+although the assembler and disassembler do.
+
 === Assembly ===
 
 Usage:
-python Krakatau\assemble.py [-out OUT] [-g] [-jas] [-r] [-q] target
+python Krakatau\assemble.py [-out OUT] [-r] [-q] target
 
 OUT : Directory name where class files are to be written. Defaults to the
     current directory. If the name ends in .zip or .jar, the output will be a
     zipfile instead.
-
--g : If specified, SourceFile and LineNumberTable attributes giving the
-    offset of every instruction will be added. This is useful for debugging
-    exceptions, as it will let the JVM print the origin of the exception
-    in the traceback. If these attributes are already specified manually,
-    they will not be overridden.
-
--jas : Enables incompatible Jasmin quirks. Specifying 'all' as the exception
-    handler type will implicitly catch all exceptions rather than catching a
-    class named all. The ACC_SUPER flag is added to classes even if not
-    specified. A SourceFile attribute based on the filename is added if no
-    SourceFile attribute is specified. The classfile version defaults to
-    45.3 instead of 49.0.
 
 -r : Assembles all .j files found in the directory target (recursively)
 
@@ -87,22 +76,15 @@ OUT : Directory name where class files are to be written. Defaults to the
 target : Name of file to assemble. If -r is specified, this should be a
     directory.
 
-The Krakatau assembler is intended as a replacement for Jasmin, and was
-originally written due to the limitations of Jasmin. It is mostly backwards
-compatible with Jasmin's syntax, though not necessarily with the extensions
-introduced in JasminXT. However, Krakatau offers many new features, most
-importantly the ability to directly specify constant pool references.
-
-A tutorial on writing Java Bytecode Assembly with Krakatau is available at
-https://greyhat.gatech.edu/wiki/index.php?title=Java_Assembly_Tutorial.
-
-The assembler uses PLY, which will generate files called lextab.py and
-parsetab.py in the current directory.
+The Krakatau assembler uses a syntax similar to Jasmin, but with many new
+features, most importantly the ability to directly specify constant pool
+references. For more information about the syntax look in the Documentation
+folder.
 
 === Disassembly ===
 
 Usage:
-python Krakatau\disassemble.py [-out OUT] [-r] target
+python Krakatau\disassemble.py [-out OUT] [-r] [-roundtrip] target
 
 OUT : File or directory name where source files are to be written. Defaults
     to the current directory. If the name ends in .zip or .jar, the output will
@@ -110,8 +92,9 @@ OUT : File or directory name where source files are to be written. Defaults
 
 -r : Disassembles all .class files found in the directory target (recursively)
 
--cpool : Print out all constant pool entries at the end of the class. Default is
-    to only print them when necessary.
+-roundtrip : Creates an assembly file that will assemble back to the exact
+    binary file that was disassembled. This is not the default because it
+    results in an assembly file which is harder for humans to read and edit.
 
 target : Filename or jar name to disassemble. If a jar is specified, all
     classes in the jar will be disassembled. If -r is specified, this should
@@ -119,24 +102,15 @@ target : Filename or jar name to disassemble. If a jar is specified, all
 
 This takes a classfile and converts it into a human readable assembly format.
 Unlike Javap, this can handle even pathological classes, and the output can
-be reassembled. Together with the Krakatau assembler, this tool should be
-able to roundtrip any class through assembly and back into an equivalent
-class with the following caveats:
+be reassembled. Together with the Krakatau assembler, this tool can roundtrip
+any class through assembly and back into an equivalent class. If the -roundtrip
+option is passed, then it can roundtrip any valid class through assembly and
+exactly reproduce the original binary classfile.
 
-* The exact format and ordering of attributes may not be preserved. The
-    disassembler does not attempt to disassemble LineNumberTable,
-    LocalVariableTable, or LocalVariableTypeTable attributes.
-
-* Identical constant pool entries with distinct indexes aren't preserved.
-    Normally this doesn't matter, but it can affect verification of
-    InnerClasses attributes in obscure cases
+Note: If you find a valid class which Krakatau cannot disassemble, please file
+an issue at https://github.com/Storyyeller/Krakatau/issues.
 
 === Performance ===
 
 You can disable the internal debugging checks by passing -O to Python. This
 will make Krakatau slightly faster, so it is recommended for normal usage.
-
-=== Java 8 ===
-
-Java 8 is not fully supported yet. In particular, decompilation of lambdas
-is not currently supported.

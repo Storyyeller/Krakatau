@@ -1,140 +1,110 @@
-import ast
+from __future__ import print_function
+import collections
+import re, sys
 
-from ..classfile import ClassFile
-from ..method import Method
-from ..field import Field
-from .. import constant_pool
-from . import instructions as ins
-from . import codes
+from . import token_regexes as res
 
-directives = 'CLASS','INTERFACE','SUPER','IMPLEMENTS','CONST','FIELD','METHOD','END','LIMIT','CATCH','SOURCE','LINE','VAR','THROWS',
-directives += 'VERSION', 'STACK', 'RUNTIMEVISIBLE', 'RUNTIMEINVISIBLE', 'ANNOTATIONDEFAULT', 'INNER', 'ENCLOSING', 'SIGNATURE', 
-directives += 'ATTRIBUTE', 'CODEATTRIBUTE', 'INNERLENGTH'
-keywords = ['CLASS','METHOD','FIELD','LOCALS','STACK','FROM','TO','USING','DEFAULT','IS']
-keywords += ['SAME','SAME_LOCALS_1_STACK_ITEM','SAME_LOCALS_1_STACK_ITEM_EXTENDED','CHOP','SAME_EXTENDED','APPEND','FULL']
-keywords += ['ANNOTATION','ARRAY','PARAMETER']
-flags = ClassFile.flagVals.keys() + Method.flagVals.keys() + Field.flagVals.keys()
+class AsssemblerError(Exception):
+    pass
 
-lowwords = set().union(keywords, flags)
-casewords = set().union(codes.vt_keywords, constant_pool.name2Type.keys())
+Token = collections.namedtuple('Token', 'type val pos')
 
-wordget = {}
-wordget.update({w.lower():w.upper() for w in lowwords})
-wordget.update({w:w.upper() for w in casewords})
-wordget.update({'.'+w.lower():'D_'+w for w in directives})
+TOKENS = [
+    ('WHITESPACE', r'[ \t]+'),
+    ('WORD', res.WORD + res.FOLLOWED_BY_WHITESPACE),
+    ('DIRECTIVE', res.DIRECTIVE),
+    ('LABEL_DEF', res.LABEL_DEF),
+    ('NEWLINES', res.NEWLINES),
+    ('REF', res.REF),
+    ('COLON', r':'),
+    ('EQUALS', r'='),
+    ('INT_LITERAL', res.INT_LITERAL + res.FOLLOWED_BY_WHITESPACE),
+    ('DOUBLE_LITERAL', res.FLOAT_LITERAL),
+    ('STRING_LITERAL', res.STRING_LITERAL),
+    ('LEGACY_COLON_HACK', r'[0-9a-z]\w*:'),
+]
+REGEX = re.compile('|'.join('(?P<{}>{})'.format(*pair) for pair in TOKENS), re.VERBOSE)
+STRING_START_REGEX = re.compile(res.STRING_START)
+MAXLINELEN = 80
 
-assert(set(wordget).isdisjoint(ins.allinstructions))
-for op in ins.instrs_noarg:
-    wordget[op] = 'OP_NONE'
-for op in ins.instrs_int:
-    wordget[op] = 'OP_INT'
-for op in ins.instrs_lbl:
-    wordget[op] = 'OP_LBL'
-for op in ('getstatic', 'putstatic', 'getfield', 'putfield'):
-    wordget[op] = 'OP_FIELD'
-#support invokenonvirtual for backwards compatibility with Jasmin
-for op in ('invokevirtual', 'invokespecial', 'invokestatic', 'invokenonvirtual'): 
-    wordget[op] = 'OP_METHOD'
-for op in ('new', 'anewarray', 'checkcast', 'instanceof'):
-    wordget[op] = 'OP_CLASS'
-for op in ('wide','lookupswitch','tableswitch'):
-    wordget[op] = 'OP_' + op.upper()
+class Tokenizer(object):
+    def __init__(self, source, filename):
+        self.s = source
+        self.pos = 0
+        self.atlineend = True
+        self.filename = filename.rpartition('/')[-1]
 
-wordget['ldc'] = 'OP_LDC1'
-wordget['ldc_w'] = 'OP_LDC1'
-wordget['ldc2_w'] = 'OP_LDC2'
-wordget['iinc'] = 'OP_INT_INT'
-wordget['newarray'] = 'OP_NEWARR'
-wordget['multianewarray'] = 'OP_CLASS_INT'
-wordget['invokeinterface'] = 'OP_METHOD_INT'
-wordget['invokedynamic'] = 'OP_DYNAMIC'
+    def error(self, message, point, point2=None):
+        if point2 is None:
+            point2 = point + 1
 
-for op in ins.allinstructions:
-    wordget.setdefault(op,op.upper())
+        try:
+            start = self.s.rindex('\n', 0, point) + 1
+        except ValueError:
+            start = 0
+        line_start = start
 
-#special PLY value
-tokens = ('NEWLINE', 'COLON', 'EQUALS', 'WORD', 'CPINDEX', 
-    'STRING_LITERAL', 'INT_LITERAL', 'LONG_LITERAL', 'FLOAT_LITERAL', 'DOUBLE_LITERAL') + tuple(set(wordget.values()))
+        try:
+            end = self.s.index('\n', start) + 1
+        except ValueError:
+            end = len(self.s) + 1
 
-def t_ignore_COMMENT(t):
-    r';.*'
+        # Find an 80 char section of the line around the point of interest to display
+        temp = min(point2, point + MAXLINELEN//2)
+        if temp < start + MAXLINELEN:
+            end = min(end, start + MAXLINELEN)
+        elif point >= end - MAXLINELEN:
+            start = max(start, end - MAXLINELEN)
+        else:
+            mid = (point + temp) // 2
+            start = max(start, mid - MAXLINELEN//2)
+            end = min(end, start + MAXLINELEN)
+        point2 = min(point2, end)
 
-# Define a rule so we can track line numbers
-def t_NEWLINE(t):
-    r'\n+'
-    t.lexer.lineno += len(t.value)
-    return t
+        pchars = [' '] * (end - start)
+        for i in range(point - start, point2 - start):
+            pchars[i] = '~'
+        pchars[point - start] = '^'
 
-def t_STRING_LITERAL(t):
-    # See http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705#5455705
-    r'''[uUbB]?[rR]?(?:
-        """[^"\\]*              # any number of unescaped characters
-            (?:\\.[^"\\]*       # escaped followed by 0 or more unescaped
-                |"[^"\\]+       # single quote followed by at least one unescaped
-                |""[^"\\]+      # two quotes followed by at least one unescaped
-            )*"""
-        |"[^"\n\\]*              # any number of unescaped characters
-            (?:\\.[^"\n\\]*      # escaped followed by 0 or more unescaped
-            )*"
-    '''r"""                     # concatenated string literals
-        |'''[^'\\]*              # any number of unescaped characters
-            (?:\\.[^'\\]*       # escaped followed by 0 or more unescaped
-                |'[^'\\]+       # single quote followed by at least one unescaped
-                |''[^'\\]+      # two quotes followed by at least one unescaped
-            )*'''
-        |'[^'\n\\]*              # any number of unescaped characters
-            (?:\\.[^'\n\\]*      # escaped followed by 0 or more unescaped
-            )*'
-        )"""
+        lineno = self.s[:line_start].count('\n') + 1
+        colno = point - line_start + 1
+        text = '{}:{}:{}: error: {}\n{}\n{}'.format(self.filename, lineno, colno,
+            message, self.s[start:end].rstrip('\n'), ''.join(pchars))
+        print(text, file=sys.stderr)
+        raise AsssemblerError()
 
-    t.value = ast.literal_eval(t.value)
-    return t
+    def _nextsub(self):
+        match = REGEX.match(self.s, self.pos)
+        if match is None:
+            if self.atend():
+                return Token('EOF', '', self.pos)
+            else:
+                str_match = STRING_START_REGEX.match(self.s, self.pos)
+                if str_match is not None:
+                    self.error('Invalid escape sequence or character in string literal', str_match.end())
+                self.error('Unexpected token', self.pos)
+        assert match.start() == match.pos == self.pos
 
-#careful here: | is not greedy so hex must come first
-int_base = r'[+-]?(?:0[xX][0-9a-fA-F]+|[0-9]+)'
-float_base = r'''(?:
-    [Nn][Aa][Nn]|                                       #Nan
-    [-+]?(?:                                            #Inf and normal both use sign
-        [Ii][Nn][Ff]|                                   #Inf
-        \d+\.\d*(?:[eE][+-]?\d+)?|                         #decimal float
-        \d+[eE][+-]?\d+|                                   #decimal float with no fraction (exponent mandatory)
-        0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP][+-]?\d+        #hexidecimal float
-        )
-    )
-'''
+        # Hack to support invalid syntax
+        if match.lastgroup == 'LEGACY_COLON_HACK':
+            self.pos = match.end() - 1
+            val = match.group()[:-1]
+            type_ = 'INT_LITERAL' if re.match(res.INT_LITERAL, val) else 'WORD'
+            return Token(type_, val, match.start())
 
-#Sadly there's no nice way to define these even with reflection hacks
-#Hopefully we can get Ply patched some day or fork it or something so 
-#it's not so much of a pain
+        self.pos = match.end()
+        return Token(match.lastgroup, match.group(), match.start())
 
-#These are matched in order of appearence (specifically, f.func_code.co_firstlineno)
-#So anything that can be a prefix of another must go last
-def t_FLOAT_LITERAL(t): return t
-t_FLOAT_LITERAL.__doc__ = float_base + r'[fF]'
-def t_DOUBLE_LITERAL(t): return t
-t_DOUBLE_LITERAL.__doc__ = float_base
-def t_LONG_LITERAL(t): return t
-t_LONG_LITERAL.__doc__ = int_base + r'[lL]'
-def t_INT_LITERAL(t): return t
-t_INT_LITERAL.__doc__ = int_base
+    def next(self):
+        tok = self._nextsub()
+        while tok.type == 'WHITESPACE' or self.atlineend and tok.type == 'NEWLINES':
+            tok = self._nextsub()
+        self.atlineend = tok.type == 'NEWLINES'
 
-def t_CPINDEX(t): return t
-t_CPINDEX.__doc__ = r'\[[0-9a-z_]+\]'
+        if tok.type == 'INT_LITERAL' and tok.val.lower().endswith('l'):
+            return tok._replace(type='LONG_LITERAL')
+        elif tok.type == 'DOUBLE_LITERAL' and tok.val.lower().endswith('f'):
+            return tok._replace(type='FLOAT_LITERAL')
+        return tok
 
-
-def t_WORD(t):
-    r'''[^\s:="']+'''
-    t.type = wordget.get(t.value, 'WORD')
-    return t
-
-t_COLON = r':'
-t_EQUALS = r'='
-t_ignore = ' \t\r'
-
-def t_error(t):
-    print 'Parser error on line {} at {}'.format(t.lexer.lineno, t.lexer.lexpos)
-    print t.value[:79]
-
-def makeLexer(**kwargs):
-    from ply import lex
-    return lex.lex(**kwargs)
+    def atend(self): return self.pos == len(self.s)

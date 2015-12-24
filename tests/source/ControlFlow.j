@@ -91,6 +91,8 @@ LEX2:
 .end method
 
 .method static switchtest2 : (I)I
+    .limit locals 65535
+    .limit stack 65535
 	iload_0
 	iload_0
 	iload_0

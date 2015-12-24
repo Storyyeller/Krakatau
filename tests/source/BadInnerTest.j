@@ -3,8 +3,7 @@
 .class public BadInnerTest
 .super java/lang/Object
 
-.innerlength 0xFFFFFFFF
-.attribute InnerClasses '\0\0'
+.attribute InnerClasses length 0xFFFFFFFF b'\0\0'
 
 .method public static main : ([Ljava/lang/String;)V
     .limit stack 10

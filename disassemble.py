@@ -1,35 +1,34 @@
 #!/usr/bin/env python2
 import os.path
-import time, zipfile
+import time, zipfile, sys
+import StringIO
 
 import Krakatau
-import Krakatau.binUnpacker
-from Krakatau.classfile import ClassFile
-import Krakatau.assembler.disassembler
-
 from Krakatau import script_util
+from Krakatau.classfileformat.reader import Reader
+from Krakatau.classfileformat.classdata import ClassData
+from Krakatau.assembler.disassembly import Disassembler
 
 def readFile(filename):
     with open(filename, 'rb') as f:
         return f.read()
 
-def disassembleClass(readTarget, targets=None, outpath=None, printCPool=False):
+def disassembleClass(readTarget, targets=None, outpath=None, roundtrip=False):
     out = script_util.makeWriter(outpath, '.j')
-    # targets = targets[::-1]
     start_time = time.time()
-    # __import__('random').shuffle(targets)
-
     with out:
-        for i,target in enumerate(targets):
+        for i, target in enumerate(targets):
             print 'processing target {}, {}/{} remaining'.format(target.encode('utf8'), len(targets)-i, len(targets))
 
             data = readTarget(target)
-            stream = Krakatau.binUnpacker.binUnpacker(data=data)
-            class_ = ClassFile(stream)
-            class_.loadElements(keepRaw=True)
+            clsdata = ClassData(Reader(data))
+            name = clsdata.pool.getclsutf(clsdata.this)
 
-            source = Krakatau.assembler.disassembler.disassemble(class_, printCPool=printCPool)
-            filename = out.write(class_.name, source)
+            output = StringIO.StringIO()
+            # output = sys.stdout
+            Disassembler(clsdata, output.write, roundtrip=roundtrip).disassemble()
+
+            filename = out.write(name, output.getvalue())
             print 'Class written to', filename.encode('utf8')
             print time.time() - start_time, ' seconds elapsed'
 
@@ -41,7 +40,7 @@ if __name__== "__main__":
     parser.add_argument('-out', help='Path to generate files in')
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('-path', help='Jar to look for class in')
-    parser.add_argument('-cpool', action='store_true', help='Print constant pool')
+    parser.add_argument('-roundtrip', action='store_true', help='Create assembly file that can roundtrip to original binary.')
     parser.add_argument('target', help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -55,9 +54,10 @@ if __name__== "__main__":
     if jar:
         def readArchive(name):
             with zipfile.ZipFile(jar, 'r') as archive:
-                return archive.open(name).read()
+                with archive.open(name) as f:
+                    return f.read()
         readTarget = readArchive
     else:
         readTarget = readFile
 
-    disassembleClass(readTarget, targets, args.out, args.cpool)
+    disassembleClass(readTarget, targets, args.out, args.roundtrip)

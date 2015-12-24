@@ -1,7 +1,7 @@
 import zipfile
 import os.path
 
-from . import binUnpacker
+from .classfileformat.reader import Reader
 from .classfile import ClassFile
 from .error import ClassLoaderError
 
@@ -66,7 +66,7 @@ class Environment(object):
         if data is None:
             raise ClassLoaderError('ClassNotFoundException', name)
 
-        stream = binUnpacker.binUnpacker(data=data)
+        stream = Reader(data=data)
         new = ClassFile(stream)
         new.loadSupers(self, name, subclasses)
         self.classes[new.name] = new

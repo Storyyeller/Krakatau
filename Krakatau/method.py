@@ -1,7 +1,8 @@
 import collections
 
-from . import binUnpacker, bytecode
+from . import bytecode
 from .attributes_raw import get_attributes_raw, fixAttributeNames
+from .classfileformat.reader import Reader
 
 exceptionHandlerRaw = collections.namedtuple("exceptionHandlerRaw",
                                              ["start","end","handler","type_ind"])
@@ -28,7 +29,7 @@ class Code(object):
             assert(self.stack >= 1)
 
         # print 'Parsing code for', method.name, method.descriptor, method.flags
-        codestream = binUnpacker.binUnpacker(data=self.bytecode_raw)
+        codestream = Reader(data=self.bytecode_raw)
         self.bytecode = bytecode.parseInstructions(codestream, self.isIdConstructor)
         self.attributes = fixAttributeNames(attributes_raw, self.class_.cpool)
 
@@ -107,7 +108,7 @@ class Method(object):
         if not (self.native or self.abstract):
             assert(len(code_attrs) == 1)
             code_raw = code_attrs[0][1]
-            bytestream = binUnpacker.binUnpacker(code_raw)
+            bytestream = Reader(code_raw)
             return Code(self, bytestream, keepRaw)
         assert(not code_attrs)
         return None

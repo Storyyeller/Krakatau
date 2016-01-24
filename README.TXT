@@ -16,7 +16,7 @@ testing the resulting classes.
 === Decompilation ===
 
 Usage:
-python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-r] [-skip]
+python Krakatau\decompile.py [-nauto] [-path PATH] [-out OUT] [-rename-classes N] [-r] [-skip]
     target
 
 PATH : An optional list of directories, jars, or zipfiles to search for
@@ -28,6 +28,12 @@ PATH : An optional list of directories, jars, or zipfiles to search for
 OUT : Directory name where source files are to be written. Defaults to the
     current directory. If the name ends in .zip or .jar, the output will be a
     zipfile instead.
+
+N   : (Optional). Rename all classes with a name length that is less than N.
+    Use 0 in order to rename all classes regardless of name length.
+    Renaming a class will prefix it with 'Class_'. It is useful with certain
+    obfuscation scheme that rename classes and packages with similar names
+    in order to confuse editors.
 
 -r : Decompiles all .class files found in the directory target (recursively)
 

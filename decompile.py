@@ -80,7 +80,7 @@ def deleteUnusued(cls):
     del cls.interfaces_raw, cls.cpool
     del cls.attributes
 
-def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_throws=False):
+def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, rename_classes=None, add_throws=False):
     out = script_util.makeWriter(outpath, '.java')
 
     e = Environment()
@@ -90,7 +90,12 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
     start_time = time.time()
     # random.shuffle(targets)
     with e, out:
-        printer = visitor.DefaultVisitor()
+        print rename_classes
+        if rename_classes is None:
+            printer = visitor.DefaultVisitor()
+        else:
+            printer = visitor.RenameClassesVisitor(targets, rename_classes)
+
         for i,target in enumerate(targets):
             print 'processing target {}, {} remaining'.format(target.encode('utf8'), len(targets)-i)
 
@@ -112,7 +117,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
                 package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
                 source = package + source
 
-            filename = out.write(c.name, source)
+            filename = out.write(printer.className(c.name), source)
             print 'Class written to', filename.encode('utf8')
             print time.time() - start_time, ' seconds elapsed'
             deleteUnusued(c)
@@ -124,6 +129,7 @@ if __name__== "__main__":
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
     parser.add_argument('-path',action='append',help='Semicolon seperated paths or jars to search when loading classes')
     parser.add_argument('-out',help='Path to generate source files in')
+    parser.add_argument('-rename-classes', type=int, metavar='N', help='Rename classes with name of less than N characters (0 for all classes)')
     parser.add_argument('-nauto', action='store_true', help="Don't attempt to automatically locate the Java standard library. If enabled, you must specify the path explicitly.")
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
@@ -149,4 +155,4 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
-    decompileClass(path, targets, args.out, args.skip)
+    decompileClass(path, targets, args.out, args.skip, args.rename_classes)

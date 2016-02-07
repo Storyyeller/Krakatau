@@ -26,7 +26,25 @@ class Environment(object):
         return result
 
     def isSubclass(self, name1, name2):
-        return name1 == name2 or (name2 in self.getClass(name1).getSuperclassHierarchy())
+        if name2 == 'java/lang/Object':
+            return True
+
+        while name1 != 'java/lang/Object':
+            if name1 == name2:
+                return True
+            name1 = self.getClass(name1).supername
+        return False
+
+    def commonSuperclass(self, name1, name2):
+        a, b = name1, name2
+        supers = {a}
+        while a != b and a != 'java/lang/Object':
+            a = self.getClass(a).supername
+            supers.add(a)
+
+        while b not in supers:
+            b = self.getClass(b).supername
+        return b
 
     def getData(self, name, suppressErrors):
         try:

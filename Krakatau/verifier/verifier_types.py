@@ -126,12 +126,8 @@ def mergeTypes(env, t1, t2):
     else: #neither is array
         if 'INTERFACE' in env.getFlags(t2.extra):
             return OBJECT_INFO
+        return T_OBJECT(env.commonSuperclass(t1.extra, t2.extra))
 
-        hierarchy1 = env.getSupers(t1.extra)
-        hierarchy2 = env.getSupers(t2.extra)
-        matches = [x for x,y in zip(hierarchy1, hierarchy2) if x==y]
-        assert(matches[0] == 'java/lang/Object') #internal assertion
-        return T_OBJECT(matches[-1])
 
 #Make verifier types printable for easy debugging
 def vt_toStr(self):

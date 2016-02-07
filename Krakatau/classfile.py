@@ -91,6 +91,8 @@ class ClassFile(object):
 
         self.env = self.supername = self.hierarchy = None
         self.fields = self.methods = self.attributes = None
+        if self.super:
+            self.supername = self.cpool.getArgsCheck('Class', self.super)
 
     def loadSupers(self, env, name, subclasses):
         self.env = env

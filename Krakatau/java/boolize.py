@@ -133,7 +133,9 @@ def interfaceVars(env, root, arg_vars):
             return False
         if objtypes.className(expr.dtype) == objtypes.className(objtypes.ObjectTT):
             return True
-        return 'INTERFACE' in env.getFlags(objtypes.className(expr.dtype))
+        flags = env.getFlags(objtypes.className(expr.dtype), suppressErrors=True)
+        # If class is not found (returned None) assume worst case, that is a interface
+        return flags is None or 'INTERFACE' in flags
 
     def updateConst(var, tt):
         varlist.append(var)

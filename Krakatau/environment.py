@@ -14,13 +14,11 @@ class Environment(object):
     def addToPath(self, path):
         self.path.append(path)
 
-    def getClass(self, name, subclasses=tuple(), partial=False):
+    def getClass(self, name, partial=False):
         try:
             result = self.classes[name]
         except KeyError:
-            if name in subclasses:
-                raise ClassLoaderError('ClassCircularityError', (name, subclasses))
-            result = self._loadClass(name, subclasses)
+            result = self._loadClass(name)
         if not partial:
             result.loadElements()
         return result
@@ -46,17 +44,14 @@ class Environment(object):
             b = self.getClass(b).supername
         return b
 
-    def getData(self, name, suppressErrors):
+    def getFlags(self, name, suppressErrors=False):
         try:
             class_ = self.getClass(name, partial=True)
-            return class_.getSuperclassHierarchy(), class_.flags
+            return class_.flags
         except ClassLoaderError as e:
             if not suppressErrors:
                 raise e
-            return [None]*2
-
-    def getSupers(self, name, suppressErrors=False): return self.getData(name, suppressErrors)[0]
-    def getFlags(self, name, suppressErrors=False): return self.getData(name, suppressErrors)[1]
+            return None
 
     def _searchForFile(self, name):
         name += '.class'
@@ -76,7 +71,7 @@ class Environment(object):
                 except KeyError:
                     pass
 
-    def _loadClass(self, name, subclasses):
+    def _loadClass(self, name):
         print "Loading", name.encode('utf8')[:70]
         data = self._searchForFile(name)
 
@@ -85,7 +80,7 @@ class Environment(object):
 
         stream = Reader(data=data)
         new = ClassFile(stream)
-        new.loadSupers(self, name, subclasses)
+        new.env = self
         self.classes[new.name] = new
         return new
 

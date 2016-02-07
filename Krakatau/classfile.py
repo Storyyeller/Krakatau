@@ -89,23 +89,10 @@ class ClassFile(object):
         self.name = self.cpool.getArgsCheck('Class', self.this)
         self.elementsLoaded = False
 
-        self.env = self.supername = self.hierarchy = None
+        self.env = self.supername = None
         self.fields = self.methods = self.attributes = None
         if self.super:
             self.supername = self.cpool.getArgsCheck('Class', self.super)
-
-    def loadSupers(self, env, name, subclasses):
-        self.env = env
-        assert(self.name == name)
-
-        if self.super:
-            self.supername = self.cpool.getArgsCheck('Class', self.super)
-            superclass = self.env.getClass(self.supername, subclasses + (name,), partial=True)
-            self.hierarchy = superclass.hierarchy + (self.name,)
-        else:
-            assert(name == 'java/lang/Object')
-            self.supername = None
-            self.hierarchy = (self.name,)
 
     def loadElements(self, keepRaw=False):
         if self.elementsLoaded:

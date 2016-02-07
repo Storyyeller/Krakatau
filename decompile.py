@@ -116,6 +116,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
             print 'Class written to', filename.encode('utf8')
             print time.time() - start_time, ' seconds elapsed'
             deleteUnusued(c)
+        print len(e.classes) - len(targets), 'extra classes loaded'
 
 if __name__== "__main__":
     print script_util.copyright

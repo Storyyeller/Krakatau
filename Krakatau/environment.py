@@ -31,15 +31,14 @@ class Environment(object):
     def getData(self, name, suppressErrors):
         try:
             class_ = self.getClass(name, partial=True)
-            return class_.getSuperclassHierarchy(), class_.flags, class_.all_interfaces
+            return class_.getSuperclassHierarchy(), class_.flags
         except ClassLoaderError as e:
             if not suppressErrors:
                 raise e
-            return [None]*3
+            return [None]*2
 
     def getSupers(self, name, suppressErrors=False): return self.getData(name, suppressErrors)[0]
     def getFlags(self, name, suppressErrors=False): return self.getData(name, suppressErrors)[1]
-    def getInterfaces(self, name, suppressErrors=False): return self.getData(name, suppressErrors)[2]
 
     def _searchForFile(self, name):
         name += '.class'

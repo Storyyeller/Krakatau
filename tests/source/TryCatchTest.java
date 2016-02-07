@@ -37,6 +37,7 @@ public class TryCatchTest {
         test3b(args);
         System.out.println(i);
         test4(args);
+        try{ test5(); }catch(ClassCastException e) {}
     }
 
     static String x; static int i;
@@ -98,6 +99,13 @@ public class TryCatchTest {
         }
         }
         System.out.println("fail!");
+    }
+
+    public static void test5() {
+        Number n = new Long(-1);
+        if (n != null) {
+            System.out.println((Integer)n);
+        }
     }
 
     // This function was added because it breaks Procyon 0.5.25

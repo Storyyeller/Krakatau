@@ -110,15 +110,11 @@ def declTypeToActual(env, decltype):
     elif not isBaseTClass(decltype): #primative types can't be subclassed anyway
         return [], [decltype]
 
-    flags = env.getFlags(name, suppressErrors=True)
-    # If class is not found (returned None) assume worst case, that is a interface
-    isinterface = flags is None or 'INTERFACE' in flags
-
     #Verifier doesn't fully verify interfaces so they could be anything
-    if isinterface:
+    if env.isInterface(name):
         return [withDimInc(ObjectTT, newdim)], []
     # If class is final, return it as exact, not super
-    elif 'FINAL' in flags:
+    elif env.isFinal(name):
         return [], [decltype]
     else:
         return [decltype], []

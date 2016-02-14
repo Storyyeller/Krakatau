@@ -124,7 +124,7 @@ def mergeTypes(env, t1, t2):
         else: #t1.dim < t2.dim
             return t1 if _arrbase(t1) in (CLONE_INFO,SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
     else: #neither is array
-        if 'INTERFACE' in env.getFlags(t2.extra):
+        if env.isInterface(t2.extra, forceCheck=True):
             return OBJECT_INFO
         return T_OBJECT(env.commonSuperclass(t1.extra, t2.extra))
 

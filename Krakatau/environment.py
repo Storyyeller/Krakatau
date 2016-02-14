@@ -14,6 +14,9 @@ class Environment(object):
     def addToPath(self, path):
         self.path.append(path)
 
+    def _getSuper(self, name):
+        return self.getClass(name).supername
+
     def getClass(self, name, partial=False):
         try:
             result = self.classes[name]
@@ -30,28 +33,36 @@ class Environment(object):
         while name1 != 'java/lang/Object':
             if name1 == name2:
                 return True
-            name1 = self.getClass(name1).supername
+            name1 = self._getSuper(name1)
         return False
 
     def commonSuperclass(self, name1, name2):
         a, b = name1, name2
         supers = {a}
         while a != b and a != 'java/lang/Object':
-            a = self.getClass(a).supername
+            a = self._getSuper(a)
             supers.add(a)
 
         while b not in supers:
-            b = self.getClass(b).supername
+            b = self._getSuper(b)
         return b
 
-    def getFlags(self, name, suppressErrors=False):
+    def isInterface(self, name, forceCheck=False):
         try:
             class_ = self.getClass(name, partial=True)
-            return class_.flags
+            return 'INTERFACE' in class_.flags
         except ClassLoaderError as e:
-            if not suppressErrors:
+            if forceCheck:
                 raise e
-            return None
+            # If class is not found, assume worst case, that it is a interface
+            return True
+
+    def isFinal(self, name):
+        try:
+            class_ = self.getClass(name, partial=True)
+            return 'FINAL' in class_.flags
+        except ClassLoaderError as e:
+            return False
 
     def _searchForFile(self, name):
         name += '.class'

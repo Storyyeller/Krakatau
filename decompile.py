@@ -91,32 +91,27 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
     # random.shuffle(targets)
     with e, out:
         printer = visitor.DefaultVisitor()
-        for i,target in enumerate(targets):
-            print 'processing target {}, {} remaining'.format(target.encode('utf8'), len(targets)-i)
+        for _ in range(220):
+            for i,target in enumerate(targets):
+                print 'processing target {}, {} remaining'.format(target.encode('utf8'), len(targets)-i)
 
-            try:
-                c = e.getClass(target)
-                source = printer.visit(javaclass.generateAST(c, makeGraph, skip_errors, add_throws=add_throws))
-            except Exception as err:
-                if not skip_errors:
-                    raise
-                if isinstance(err, ClassLoaderError):
-                    print 'Failed to decompile {} due to missing or invalid class {}'.format(target.encode('utf8'), err.data.encode('utf8'))
-                else:
-                    import traceback
-                    print traceback.format_exc()
-                continue
+                try:
+                    c = e.getClass(target)
+                    source = printer.visit(javaclass.generateAST(c, makeGraph, skip_errors, add_throws=add_throws))
+                except Exception as err:
+                    if not skip_errors:
+                        raise
+                    if isinstance(err, ClassLoaderError):
+                        print 'Failed to decompile {} due to missing or invalid class {}'.format(target.encode('utf8'), err.data.encode('utf8'))
+                    else:
+                        import traceback
+                        print traceback.format_exc()
+                    continue
 
-            #The single class decompiler doesn't add package declaration currently so we add it here
-            if '/' in target:
-                package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
-                source = package + source
-
-            filename = out.write(c.name, source)
-            print 'Class written to', filename.encode('utf8')
-            print time.time() - start_time, ' seconds elapsed'
-            deleteUnusued(c)
-        print len(e.classes) - len(targets), 'extra classes loaded'
+                #The single class decompiler doesn't add package declaration currently so we add it here
+                if '/' in target:
+                    package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
+                    source = package + source
 
 if __name__== "__main__":
     print script_util.copyright
@@ -150,4 +145,5 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
+    targets = [n.rpartition('/')[-1] for n in targets]
     decompileClass(path, targets, args.out, args.skip)

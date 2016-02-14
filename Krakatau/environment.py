@@ -15,6 +15,8 @@ class Environment(object):
         self.path.append(path)
 
     def _getSuper(self, name):
+        if name in HARDCODED:
+            return HARDCODED[name][0]
         return self.getClass(name).supername
 
     def getClass(self, name, partial=False):
@@ -48,6 +50,8 @@ class Environment(object):
         return b
 
     def isInterface(self, name, forceCheck=False):
+        if name in HARDCODED:
+            return HARDCODED[name][1]
         try:
             class_ = self.getClass(name, partial=True)
             return 'INTERFACE' in class_.flags
@@ -58,6 +62,8 @@ class Environment(object):
             return True
 
     def isFinal(self, name):
+        if name in HARDCODED:
+            return HARDCODED[name][2]
         try:
             class_ = self.getClass(name, partial=True)
             return 'FINAL' in class_.flags
@@ -108,3 +114,6 @@ class Environment(object):
             if place in self._open:
                 self._open[place].__exit__(type_, value, traceback)
                 del self._open[place]
+
+# Hardcode required java classes to avoid depending on rt.jar
+HARDCODED = {u'java/io/IOException': (u'java/lang/Exception', False, False), u'java/io/PrintStream': (u'java/io/FilterOutputStream', False, False), u'java/io/Serializable': (u'java/lang/Object', True, False), u'java/lang/AbstractStringBuilder': (u'java/lang/Object', False, False), u'java/lang/ArithmeticException': (u'java/lang/RuntimeException', False, False), u'java/lang/ArrayIndexOutOfBoundsException': (u'java/lang/IndexOutOfBoundsException', False, False), u'java/lang/ArrayStoreException': (u'java/lang/RuntimeException', False, False), u'java/lang/Boolean': (u'java/lang/Object', False, True), u'java/lang/CharSequence': (u'java/lang/Object', True, False), u'java/lang/Class': (u'java/lang/Object', False, True), u'java/lang/ClassCastException': (u'java/lang/RuntimeException', False, False), u'java/lang/Cloneable': (u'java/lang/Object', True, False), u'java/lang/Error': (u'java/lang/Throwable', False, False), u'java/lang/Exception': (u'java/lang/Throwable', False, False), u'java/lang/IllegalArgumentException': (u'java/lang/RuntimeException', False, False), u'java/lang/IllegalMonitorStateException': (u'java/lang/RuntimeException', False, False), u'java/lang/IndexOutOfBoundsException': (u'java/lang/RuntimeException', False, False), u'java/lang/Integer': (u'java/lang/Number', False, True), u'java/lang/Long': (u'java/lang/Number', False, True), u'java/lang/NegativeArraySizeException': (u'java/lang/RuntimeException', False, False), u'java/lang/NullPointerException': (u'java/lang/RuntimeException', False, False), u'java/lang/Number': (u'java/lang/Object', False, False), u'java/lang/NumberFormatException': (u'java/lang/IllegalArgumentException', False, False), u'java/lang/Object': (None, False, False), u'java/lang/OutOfMemoryError': (u'java/lang/VirtualMachineError', False, False), u'java/lang/RuntimeException': (u'java/lang/Exception', False, False), u'java/lang/String': (u'java/lang/Object', False, True), u'java/lang/StringBuffer': (u'java/lang/AbstractStringBuilder', False, True), u'java/lang/StringBuilder': (u'java/lang/AbstractStringBuilder', False, True), u'java/lang/Throwable': (u'java/lang/Object', False, False), u'java/lang/VirtualMachineError': (u'java/lang/Error', False, False), u'java/net/MalformedURLException': (u'java/io/IOException', False, False), u'java/nio/channels/FileLockInterruptionException': (u'java/io/IOException', False, False), u'java/nio/charset/UnsupportedCharsetException': (u'java/lang/IllegalArgumentException', False, False), u'java/util/ArrayList': (u'java/util/AbstractList', False, False), u'java/util/DuplicateFormatFlagsException': (u'java/util/IllegalFormatException', False, False), u'java/util/IllegalFormatException': (u'java/lang/IllegalArgumentException', False, False), u'java/util/UnknownFormatFlagsException': (u'java/util/IllegalFormatException', False, False)}

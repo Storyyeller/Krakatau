@@ -7,6 +7,7 @@ To generate a test's result file, run with `--create-only`.
 To add a new test, add the relevant classfile and an entry in registry.
 '''
 import os, shutil, tempfile, time
+import hashlib
 import subprocess
 import cPickle as pickle
 import optparse
@@ -16,6 +17,7 @@ from tests.decompiler import registry
 
 # Note: If this script is moved, be sure to update this path.
 krakatau_root = os.path.dirname(os.path.abspath(__file__))
+cache_location = os.path.join(krakatau_root, 'tests', '.cache')
 test_location = os.path.join(krakatau_root, 'tests', 'decompiler')
 class_location = os.path.join(test_location, 'classes')
 
@@ -26,51 +28,63 @@ def execute(args, cwd):
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     return process.communicate()
 
-def createTest(target):
-    print 'Generating {}.test'.format(target)
-    results = [execute(['java', target] + arg_list, cwd=class_location)
-               for arg_list in registry[target]]
-    testfile = os.path.join(test_location, target) + '.test'
-    with open(testfile, 'wb') as f:
-        pickle.dump(results, f, -1)
+def read(filename):
+    with open(filename, 'rb') as f:
+        return f.read()
+
+def shash(data): return hashlib.sha256(data).hexdigest()
+
+def createDir(path):
+    try:
+        os.mkdir(path)
+    except OSError:
+        pass
+    assert(os.path.isdir(path))
+
+def runJava(target, cases, path):
+    digest = shash(read(os.path.join(path, target + '.class')))
+    cache = os.path.join(cache_location, digest)
+    try:
+        results = pickle.loads(read(cache))
+    except IOError:
+        print 'failed to load cache', digest
+        results = {}
+
+    modified = False
+    for args in cases:
+        if args not in results:
+            print 'Executing {} w/ args {}'.format(target, args)
+            results[args] = execute(['java', target] + list(args), cwd=path)
+            modified = True
+
+    if modified:
+        with open(cache, 'wb') as f:
+            pickle.dump(results, f, -1)
+        print 'updated cache', digest
     return results
 
-def loadTest(name):
-    with open(os.path.join(test_location, name) + '.test', 'rb') as f:
-        return pickle.load(f)
-
-def runJava(target, testcases, temppath):
-    for args, expected in testcases:
-        print 'Executing {} w/ args {}'.format(target, args)
-        result = execute(['java', target] + list(args), cwd=temppath)
-        if result != expected:
+def runJavaAndCompare(target, testcases, temppath):
+    expected = runJava(target, testcases, class_location)
+    actual = runJava(target, testcases, temppath)
+    for args in testcases:
+        if expected[args] != actual[args]:
             message = ['Failed test {} w/ args {}:'.format(target, args)]
-            if result[0] != expected[0]:
-                message.append('  expected stdout: ' + repr(expected[0]))
-                message.append('  actual stdout  : ' + repr(result[0]))
-            if result[1] != expected[1]:
-                message.append('  expected stderr: ' + repr(expected[1]))
-                message.append('  actual stderr  : ' + repr(result[1]))
+            if actual[args][0] != expected[args][0]:
+                message.append('  expected stdout: ' + repr(expected[args][0]))
+                message.append('  actual stdout  : ' + repr(actual[args][0]))
+            if actual[args][1] != expected[args][1]:
+                message.append('  expected stderr: ' + repr(expected[args][1]))
+                message.append('  actual stderr  : ' + repr(actual[args][1]))
             raise TestFailed('\n'.join(message))
 
-def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
+def performTest(target, tempbase=tempfile.gettempdir()):
     temppath = os.path.join(tempbase, target)
 
     cpath = [decompile.findJRE(), class_location]
     if cpath[0] is None:
         raise RuntimeError('Unable to locate rt.jar')
 
-    # Clear any pre-existing files and create directory if necessary
-    # try:
-    #     shutil.rmtree(temppath)
-    # except OSError as e:
-    #     print e
-    try:
-        os.mkdir(temppath)
-    except OSError as e:
-        print e
-    assert(os.path.isdir(temppath))
-
+    createDir(temppath)
     decompile.decompileClass(cpath, targets=[target], outpath=temppath, add_throws=True)
     # out, err = execute(['java',  '-jar', 'procyon-decompiler-0.5.25.jar', os.path.join(class_location, target+'.class')], '.')
     # if err:
@@ -83,38 +97,31 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=temppath)
     if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
         raise TestFailed('Compile failed: ' + stderr)
-    runJava(target, zip(registry[target], expected_results), temppath)
+    runJavaAndCompare(target, map(tuple, registry[target]), temppath)
 
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
                                description=__doc__)
-    op.add_option('-c', '--create-only', action='store_true',
-                  help='Generate cache of expected results')
     opts, args = op.parse_args()
 
     # Set up the tests list.
     targets = args if args else sorted(registry)
 
+    createDir(cache_location)
     results = {}
     start_time = time.time()
     for test in targets:
         print 'Doing test {}...'.format(test)
+        results[test] = False
         try:
-            expected_results = loadTest(test)
-        except IOError:
-            expected_results = createTest(test)
-
-        if not opts.create_only:
-            results[test] = False
-            try:
-                performTest(test, expected_results)
-            except TestFailed as e:
-                print e
-            except Exception:
-                import traceback
-                traceback.print_exc()
-            else:
-                results[test] = True
+            performTest(test)
+        except TestFailed as e:
+            print e
+        except Exception:
+            import traceback
+            traceback.print_exc()
+        else:
+            results[test] = True
 
     print '\nTest results:'
     for test in targets:

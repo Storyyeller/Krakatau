@@ -174,8 +174,8 @@ class ConstPool(object):
         return t.recoverArgs(self, *val)
 
     def getArgsCheck(self, typen, index):
-        if (self.pool[index][0] != typen):
-            raise KeyError('Constant pool index {} has incorrect type {}'.format(index, typen))
+        # if (self.pool[index][0] != typen):
+        #     raise KeyError('Constant pool index {} has incorrect type {}'.format(index, typen))
         val = self.getArgs(index)
         return val if len(val) > 1 else val[0]
 

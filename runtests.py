@@ -19,6 +19,9 @@ krakatau_root = os.path.dirname(os.path.abspath(__file__))
 test_location = os.path.join(krakatau_root, 'tests')
 class_location = os.path.join(test_location, 'classes')
 
+class TestFailed(Exception):
+    pass
+
 def execute(args, cwd):
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     return process.communicate()
@@ -35,6 +38,20 @@ def createTest(target):
 def loadTest(name):
     with open(os.path.join(test_location, name) + '.test', 'rb') as f:
         return pickle.load(f)
+
+def runJava(target, testcases, temppath):
+    for args, expected in testcases:
+        print 'Executing {} w/ args {}'.format(target, args)
+        result = execute(['java', target] + list(args), cwd=temppath)
+        if result != expected:
+            message = ['Failed test {} w/ args {}:'.format(target, args)]
+            if result[0] != expected[0]:
+                message.append('  expected stdout: ' + repr(expected[0]))
+                message.append('  actual stdout  : ' + repr(result[0]))
+            if result[1] != expected[1]:
+                message.append('  expected stderr: ' + repr(expected[1]))
+                message.append('  actual stderr  : ' + repr(result[1]))
+            raise TestFailed('\n'.join(message))
 
 def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     temppath = os.path.join(tempbase, target)
@@ -65,24 +82,8 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     print 'Attempting to compile'
     _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=temppath)
     if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
-        print 'Compile failed:'
-        print stderr
-        return False
-
-    cases = tests.registry[target]
-    for args, expected in zip(cases, expected_results):
-        print 'Executing {} w/ args {}'.format(target, args)
-        result = execute(['java', target] + list(args), cwd=temppath)
-        if result != expected:
-            print 'Failed test {} w/ args {}:'.format(target, args)
-            if result[0] != expected[0]:
-                print '  expected stdout:', repr(expected[0])
-                print '  actual stdout  :', repr(result[0])
-            if result[1] != expected[1]:
-                print '  expected stderr:', repr(expected[1])
-                print '  actual stderr  :', repr(result[1])
-            return False
-    return True
+        raise TestFailed('Compile failed: ' + stderr)
+    runJava(target, zip(tests.registry[target], expected_results), temppath)
 
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
@@ -104,7 +105,16 @@ if __name__ == '__main__':
             expected_results = createTest(test)
 
         if not opts.create_only:
-            results[test] = performTest(test, expected_results)
+            results[test] = False
+            try:
+                performTest(test, expected_results)
+            except TestFailed as e:
+                print e
+            except Exception:
+                import traceback
+                traceback.print_exc()
+            else:
+                results[test] = True
 
     print '\nTest results:'
     for test in targets:

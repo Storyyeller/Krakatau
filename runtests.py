@@ -4,7 +4,7 @@
 On the first run tests/*.test files will be created with expected results for each test.
 
 To generate a test's result file, run with `--create-only`.
-To add a new test, add the relevant classfile and an entry in tests.registry.
+To add a new test, add the relevant classfile and an entry in registry.
 '''
 import os, shutil, tempfile, time
 import subprocess
@@ -12,11 +12,11 @@ import cPickle as pickle
 import optparse
 
 import decompile
-import tests
+from tests.decompiler import registry
 
 # Note: If this script is moved, be sure to update this path.
 krakatau_root = os.path.dirname(os.path.abspath(__file__))
-test_location = os.path.join(krakatau_root, 'tests')
+test_location = os.path.join(krakatau_root, 'tests', 'decompiler')
 class_location = os.path.join(test_location, 'classes')
 
 class TestFailed(Exception):
@@ -29,7 +29,7 @@ def execute(args, cwd):
 def createTest(target):
     print 'Generating {}.test'.format(target)
     results = [execute(['java', target] + arg_list, cwd=class_location)
-               for arg_list in tests.registry[target]]
+               for arg_list in registry[target]]
     testfile = os.path.join(test_location, target) + '.test'
     with open(testfile, 'wb') as f:
         pickle.dump(results, f, -1)
@@ -83,7 +83,7 @@ def performTest(target, expected_results, tempbase=tempfile.gettempdir()):
     _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=temppath)
     if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
         raise TestFailed('Compile failed: ' + stderr)
-    runJava(target, zip(tests.registry[target], expected_results), temppath)
+    runJava(target, zip(registry[target], expected_results), temppath)
 
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     opts, args = op.parse_args()
 
     # Set up the tests list.
-    targets = args if args else sorted(tests.registry)
+    targets = args if args else sorted(registry)
 
     results = {}
     start_time = time.time()

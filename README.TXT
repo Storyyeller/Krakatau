@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012-15 Robert Grosse
+Copyright (C) 2012-16 Robert Grosse
 
 === Introduction ===
 
@@ -114,3 +114,9 @@ an issue at https://github.com/Storyyeller/Krakatau/issues.
 
 You can disable the internal debugging checks by passing -O to Python. This
 will make Krakatau slightly faster, so it is recommended for normal usage.
+
+=== Pypy ===
+
+If you want to use Pypy, you'll need a build from 15 Feb 2016 or later.
+Previous versions of Pypy have a bug that causes a segfault when running
+Krakatau.

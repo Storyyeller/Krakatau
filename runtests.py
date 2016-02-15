@@ -63,6 +63,20 @@ def runJava(target, cases, path):
         print 'updated cache', digest
     return results
 
+def compileJava(target, path):
+    digest = shash(read(os.path.join(path, target + '.java')))
+    cache = os.path.join(cache_location, digest)
+    out_location = os.path.join(path, target + '.class')
+
+    try:
+        shutil.copy2(cache, out_location)
+    except IOError:
+        print 'Attempting to compile'
+        _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=path)
+        if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
+            raise TestFailed('Compile failed: ' + stderr)
+        shutil.copy2(out_location, cache)
+
 def runJavaAndCompare(target, testcases, temppath):
     expected = runJava(target, testcases, class_location)
     actual = runJava(target, testcases, temppath)
@@ -93,10 +107,7 @@ def performTest(target, tempbase=tempfile.gettempdir()):
     # with open(os.path.join(temppath, target+'.java'), 'wb') as f:
     #     f.write(out)
 
-    print 'Attempting to compile'
-    _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=temppath)
-    if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
-        raise TestFailed('Compile failed: ' + stderr)
+    compileJava(target, temppath)
     runJavaAndCompare(target, map(tuple, registry[target]), temppath)
 
 if __name__ == '__main__':

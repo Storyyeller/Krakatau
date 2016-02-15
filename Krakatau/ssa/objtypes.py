@@ -75,8 +75,9 @@ def commonSupertype(env, tts):
         return TypeTT('java/lang/Object', newdim-1)
 
     # find common superclass of base types
-    common = reduce(env.commonSuperclass, [baset(tt) for tt in tts])
-    return TypeTT(common, newdim)
+    bases = sorted(map(baset, tts))
+    superclass = reduce(env.commonSuperclass, bases)
+    return TypeTT(superclass, newdim)
 
 ######################################################################################################
 _verifierConvert = {vtypes.T_INT:IntTT, vtypes.T_FLOAT:FloatTT, vtypes.T_LONG:LongTT,

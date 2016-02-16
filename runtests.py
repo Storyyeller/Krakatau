@@ -12,14 +12,18 @@ import subprocess
 import cPickle as pickle
 import optparse
 
+from Krakatau import script_util
 import decompile
-from tests.decompiler import registry
+import disassemble
+import assemble
+import tests
 
 # Note: If this script is moved, be sure to update this path.
 krakatau_root = os.path.dirname(os.path.abspath(__file__))
 cache_location = os.path.join(krakatau_root, 'tests', '.cache')
-test_location = os.path.join(krakatau_root, 'tests', 'decompiler')
-class_location = os.path.join(test_location, 'classes')
+dec_class_location = os.path.join(krakatau_root, 'tests', 'decompiler', 'classes')
+dis_class_location = os.path.join(krakatau_root, 'tests', 'disassembler', 'classes')
+tempbase = tempfile.gettempdir()
 
 class TestFailed(Exception):
     pass
@@ -77,7 +81,7 @@ def compileJava(target, path):
             raise TestFailed('Compile failed: ' + stderr)
         shutil.copy2(out_location, cache)
 
-def runJavaAndCompare(target, testcases, temppath):
+def runJavaAndCompare(target, testcases, temppath, class_location):
     expected = runJava(target, testcases, class_location)
     actual = runJava(target, testcases, temppath)
     for args in testcases:
@@ -91,51 +95,45 @@ def runJavaAndCompare(target, testcases, temppath):
                 message.append('  actual stderr  : ' + repr(actual[args][1]))
             raise TestFailed('\n'.join(message))
 
-def performTest(target, tempbase=tempfile.gettempdir()):
+def runDecompilerTest(target):
+    print 'Running decompiler test {}...'.format(test)
     temppath = os.path.join(tempbase, target)
 
-    cpath = [decompile.findJRE(), class_location]
+    cpath = [decompile.findJRE(), dec_class_location]
     if cpath[0] is None:
         raise RuntimeError('Unable to locate rt.jar')
 
     createDir(temppath)
     decompile.decompileClass(cpath, targets=[target], outpath=temppath, add_throws=True)
-    # out, err = execute(['java',  '-jar', 'procyon-decompiler-0.5.25.jar', os.path.join(class_location, target+'.class')], '.')
-    # if err:
-    #     print 'Decompile errors:', err
-    #     return False
-    # with open(os.path.join(temppath, target+'.java'), 'wb') as f:
-    #     f.write(out)
-
     compileJava(target, temppath)
-    runJavaAndCompare(target, map(tuple, registry[target]), temppath)
+    runJavaAndCompare(target, map(tuple, tests.decompiler.registry[target]), temppath, dec_class_location)
+
+def runDisassemblerTest(target):
+    print 'Running disassembler test {}...'.format(test)
+    temppath = os.path.join(tempbase, target)
+    classloc = os.path.join(dis_class_location, target + '.class')
+    jloc = os.path.join(temppath, target + '.j')
+
+    createDir(temppath)
+    disassemble.disassembleClass(disassemble.readFile, targets=[classloc], outpath=temppath)
+    pairs = assemble.assembleClass(script_util.Logger('warning'), jloc)
+    for name, data in pairs:
+        with open(os.path.join(temppath, name + '.class'), 'wb') as f:
+            f.write(data)
+        assert name == target
+
+    runJavaAndCompare(target, map(tuple, tests.disassembler.registry[target]), temppath, dis_class_location)
 
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
                                description=__doc__)
     opts, args = op.parse_args()
-
-    # Set up the tests list.
-    targets = args if args else sorted(registry)
-
     createDir(cache_location)
-    results = {}
-    start_time = time.time()
-    for test in targets:
-        print 'Doing test {}...'.format(test)
-        results[test] = False
-        try:
-            performTest(test)
-        except TestFailed as e:
-            print e
-        except Exception:
-            import traceback
-            traceback.print_exc()
-        else:
-            results[test] = True
 
-    print '\nTest results:'
-    for test in targets:
-        print '  {}: {}'.format(test, 'Pass' if results[test] else 'Fail')
-    print '{}/{} tests passed'.format(sum(results.itervalues()), len(results))
+    start_time = time.time()
+    for test in sorted(tests.decompiler.registry):
+        runDecompilerTest(test)
+    for test in sorted(tests.disassembler.registry):
+        runDisassemblerTest(test)
+    print 'All tests passed!'
     print 'elapsed time:', time.time()-start_time

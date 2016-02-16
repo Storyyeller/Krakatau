@@ -10,7 +10,7 @@ class Comments(object):
         self.lines.extend(s.strip('\n').split('\n'))
 
     def print_(self, printer, print_):
-        return ''.join(map('//{}\n'.format, self.lines))
+        return ''.join(map('// {}\n'.format, self.lines))
 
 class MethodDef(object):
     def __init__(self, class_, flags, name, desc, retType, paramDecls, body):
@@ -45,6 +45,9 @@ class MethodDef(object):
             header += ' throws ' + print_(self.throws)
 
         if self.body is None:
+            if 'abstract' not in self.flagstr and 'native' not in self.flagstr:
+                # Create dummy body for decompiler error
+                return header + ' {/*error*/throw null;}\n'
             return header + ';\n'
         else:
             return header + '\n' + print_(self.body)

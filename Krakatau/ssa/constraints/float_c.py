@@ -27,21 +27,6 @@ class FloatConstraint(ValueType):
         finite = botRange(size)
         return FloatConstraint(size, finite, SPECIALS)
 
-    @staticmethod
-    def fromValues(size, vals):
-        vals = set(vals)
-        specs = vals & SPECIALS
-        vals -= SPECIALS
-        if not specs and not vals:
-            return None
-
-        if vals:
-            xmin = max(vals, key=fu.sortkey)
-            xmax = min(vals, key=fu.sortkey)
-        else:
-            finite = None, None
-        return FloatConstraint(size, finite, specs)
-
     def _key(self): return self.finite, self.spec
 
     def join(*cons): #more precise (intersection)

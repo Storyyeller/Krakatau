@@ -54,10 +54,6 @@ class StackMapReader(object):
                 delta = r.u16()
             self.pos += delta + 1
 
-class Reference(object):
-    def __init__(self):
-        pass
-
 class ReferencePrinter(object):
     def __init__(self, clsdata, roundtrip):
         self.roundtrip = roundtrip

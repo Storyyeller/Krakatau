@@ -474,7 +474,6 @@ class Parser(object):
         return m
 
     def legacy_method_body(a):
-        print 'legacy_method_body'
         a.code = c = assembly.Code(a.tok, a.cls.useshortcodeattrs)
         limitfunc = a.u8 if c.short else a.u16
         while a.tryv('.limit'):
@@ -918,15 +917,18 @@ class Parser(object):
             w.ref(a.utfref()), a.val('='), (yield a._element_value(w)), a.eol()
         w.setph16(pos, count)
 
-def assemble(source, filename):
+def assemble(source, filename, fatal=False):
     tokenizer = Tokenizer(source, filename)
     try:
         while not tokenizer.atend():
             name, data = Parser(tokenizer).parseClass()
             yield name, data
     except AsssemblerError:
-        pass
+        if fatal:
+            raise
     except Exception:
+        if fatal:
+            raise
         import traceback
         traceback.print_exc()
         print 'If you see this message, please file an issue at https://github.com/Storyyeller/Krakatau/issues, including the error message and the assembly file that caused the error.\n'

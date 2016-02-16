@@ -13,6 +13,7 @@ import cPickle as pickle
 import optparse
 
 from Krakatau import script_util
+from Krakatau.assembler.tokenize import AsssemblerError
 import decompile
 import disassemble
 import assemble
@@ -116,13 +117,27 @@ def runDisassemblerTest(target):
 
     createDir(temppath)
     disassemble.disassembleClass(disassemble.readFile, targets=[classloc], outpath=temppath)
-    pairs = assemble.assembleClass(script_util.Logger('warning'), jloc)
+    pairs = assemble.assembleClass(jloc)
     for name, data in pairs:
         with open(os.path.join(temppath, name + '.class'), 'wb') as f:
             f.write(data)
         assert name == target
 
     runJavaAndCompare(target, map(tuple, tests.disassembler.registry[target]), temppath, dis_class_location)
+
+def runAssemblerTest(fname, exceptFailure):
+    print 'Running assembler test', os.path.basename(fname)
+    error = False
+    try:
+        assemble.assembleClass(fname, fatal=True)
+    except AsssemblerError:
+        error = True
+    assert error == exceptFailure
+
+def runAssemblerTests(basedir, exceptFailure):
+    for fname in os.listdir(basedir):
+        if fname.endswith('.j'):
+            runAssemblerTest(os.path.join(basedir, fname), exceptFailure)
 
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
@@ -135,5 +150,11 @@ if __name__ == '__main__':
         runDecompilerTest(test)
     for test in sorted(tests.disassembler.registry):
         runDisassemblerTest(test)
+
+    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'assembler', 'bad'), True)
+    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'assembler', 'good'), False)
+    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'decompiler', 'source'), False)
+    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'disassembler', 'source'), False)
+
     print 'All tests passed!'
     print 'elapsed time:', time.time()-start_time

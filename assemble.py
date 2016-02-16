@@ -5,12 +5,12 @@ import Krakatau
 from Krakatau.assembler import parse
 from Krakatau import script_util
 
-def assembleClass(log, filename):
+def assembleClass(filename, fatal=False):
     basename = os.path.basename(filename)
     with open(filename, 'rU') as f:
         source = f.read()
     source = source.replace('\t', '  ') + '\n'
-    return list(parse.assemble(source, basename))
+    return list(parse.assemble(source, basename, fatal=fatal))
 
 if __name__== "__main__":
     import argparse
@@ -32,7 +32,7 @@ if __name__== "__main__":
         for i, target in enumerate(targets):
             log.info('Processing file {}, {}/{} remaining'.format(target, len(targets)-i, len(targets)))
 
-            pairs = assembleClass(log, target)
+            pairs = assembleClass(target)
             for name, data in pairs:
                 filename = out.write(name, data)
                 log.info('Class written to', filename)

@@ -121,7 +121,7 @@ class ClassDef(object):
                 header += ' implements ' + ', '.join(print_(x) for x in self.interfaces)
 
         lines = [header + ' {'] + indented + ['}']
-        return '\n'.join(lines)
+        return '\n'.join(lines) + '\n'
 
     # Experimental - don't use!
     def tree(self, printer, tree):

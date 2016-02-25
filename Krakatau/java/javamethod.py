@@ -142,7 +142,6 @@ def _preorder(scope, func):
 
 def _fixObjectCreations(scope, item):
     '''Combines new/invokeinit pairs into Java constructor calls'''
-
     #Thanks to the uninitialized variable merging prior to AST generation,
     #we can safely assume there are no copies to worry about
     expr = item.expr

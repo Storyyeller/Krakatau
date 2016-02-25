@@ -8,6 +8,9 @@
 	.limit stack 19
 	.limit locals 2
 
+	iconst_0
+	invokestatic Method DuplicateInit withCast (Z)V
+
 	new java/lang/Integer
 	dup
 LFOO:
@@ -47,3 +50,28 @@ LFINAL:
 
 	return
 .end method
+
+.method static public withCast : (Z)V
+	.code stack 3 locals 1
+		new java/lang/Integer
+		iload_0
+		ifeq LLL
+        dup
+        ldc 2
+        invokespecial Method java/lang/Integer <init> (I)V
+        checkcast java/lang/System
+        return
+
+	LLL:
+        dup
+        ldc -1
+        invokespecial Method java/lang/Integer <init> (I)V
+		getstatic java/lang/System out Ljava/io/PrintStream;
+		swap
+		invokevirtual java/io/PrintStream println (Ljava/lang/Object;)V
+        return
+
+	.end code
+.end method
+
+.end class

@@ -57,7 +57,7 @@ class VarInfo(object):
 
         result = ast.Local(tt, namefunc)
         # merge all variables of uninitialized type to simplify fixObjectCreations in javamethod.py
-        if var.uninit_orig_num is not None:
+        if var.uninit_orig_num is not None and not isCast:
             result = self._uninit_vars.setdefault(var.uninit_orig_num, result)
         return result
 
@@ -196,7 +196,9 @@ def _createASTBlock(info, endk, node):
             assert(isinstance(lines_after[-1].expr, ast.Cast))
             var = temp_op.params[0]
             cexpr = lines_after[-1].expr
-            lines_after[-1].expr = ast.Assignment(info.var(node, var, True), cexpr)
+            lhs = info.var(node, var, True)
+            assert(lhs != cexpr.params[1])
+            lines_after[-1].expr = ast.Assignment(lhs, cexpr)
             nvar = outreplace[var] = lines_after[-1].expr.params[0]
             nvar.dtype = cexpr.dtype
 

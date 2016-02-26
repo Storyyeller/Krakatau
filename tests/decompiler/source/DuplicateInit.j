@@ -10,6 +10,7 @@
 
 	iconst_0
 	invokestatic Method DuplicateInit withCast (Z)V
+	invokestatic Method DuplicateInit ifnonnull ()V
 
 	; Test dead code
 	goto LREALSTART
@@ -80,6 +81,32 @@ LFINAL:
         return
 
 	.end code
+.end method
+
+.method public static ifnonnull : ()V
+    .code stack 10 locals 1
+
+        new java/lang/Integer
+Ltemp:
+        iconst_0
+        ifeq Lrest
+        goto Ltemp
+
+Lrest:
+        ifnonnull Lbranch
+        ldc 'bad'
+        astore_0
+        goto Lend
+Lbranch:
+        ldc 'good'
+        astore_0
+Lend:
+        getstatic Field java/lang/System out Ljava/io/PrintStream;
+        aload_0
+        invokevirtual Method java/io/PrintStream println (Ljava/lang/Object;)V
+        return
+
+    .end code
 .end method
 
 .end class

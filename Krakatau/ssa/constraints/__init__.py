@@ -56,7 +56,8 @@ def fromVariable(env, var):
                 return ObjectConstraint.constNull(env)
             return ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, var.decltype))
         else:
-            return ObjectConstraint.fromTops(env, [objtypes.ObjectTT], [])
+            isnew = var.uninit_orig_num is not None
+            return ObjectConstraint.fromTops(env, [objtypes.ObjectTT], [], nonnull=isnew)
 
 OpReturnInfo = collections.namedtuple('OpReturnInfo', ['rval', 'eval', 'must_throw'])
 def returnOrThrow(rval, eval): return OpReturnInfo(rval, eval, False)

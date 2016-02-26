@@ -728,7 +728,7 @@ def ssaFromVerified(code, iNodes):
 
     # Intern constraints to save a bit of memory for long methods
     def makeConstraint(var, _cache={}):
-        key = var.type, var.const, var.decltype
+        key = var.type, var.const, var.decltype, var.uninit_orig_num is None
         try:
             return _cache[key]
         except KeyError:

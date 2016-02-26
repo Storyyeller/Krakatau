@@ -51,12 +51,12 @@ def fromVariable(env, var):
         return _bots[ssa_type]
     except KeyError:
         assert(ssa_type == SSA_OBJECT)
+        isnew = var.uninit_orig_num is not None
         if var.decltype is not None:
             if var.decltype == objtypes.NullTT:
                 return ObjectConstraint.constNull(env)
-            return ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, var.decltype))
+            return ObjectConstraint.fromTops(env, *objtypes.declTypeToActual(env, var.decltype), nonnull=isnew)
         else:
-            isnew = var.uninit_orig_num is not None
             return ObjectConstraint.fromTops(env, [objtypes.ObjectTT], [], nonnull=isnew)
 
 OpReturnInfo = collections.namedtuple('OpReturnInfo', ['rval', 'eval', 'must_throw'])

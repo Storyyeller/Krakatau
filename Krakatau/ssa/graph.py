@@ -113,6 +113,7 @@ class SSA_Graph(object):
 
     def mergeSingleSuccessorBlocks(self):
         assert(not self.procs) # Make sure that all single jsr procs are inlined first
+        self._conscheck()
 
         removed = set()
         for block in self.blocks:
@@ -120,8 +121,6 @@ class SSA_Graph(object):
                 continue
             while isinstance(block.jump, ssa_jumps.Goto):
                 jump = block.jump
-                if len(jump.getNormalSuccessors()) != 1:
-                    break
                 block2 = jump.getNormalSuccessors()[0]
                 fromkey = block, False
                 if block2.predecessors != [fromkey]:
@@ -149,6 +148,7 @@ class SSA_Graph(object):
                         phi.replaceVars(replace)
                 removed.add(block2)
         self.blocks = [b for b in self.blocks if b not in removed]
+        self._conscheck()
 
     def disconnectConstantVariables(self):
         for block in self.blocks:

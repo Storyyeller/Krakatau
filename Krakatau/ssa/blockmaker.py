@@ -487,7 +487,7 @@ class BlockMaker(object):
 
         #We need to create stub blocks for every jump target so we can add them as successors during creation
         jump_targets = [eh.handler for eh in except_raw]
-        for node in iNodes:
+        for node in self.iNodes:
             if node.instruction[0] in _jump_instrs:
                 jump_targets += node.successors
             if node.instruction[0] == vops.JSR: #add jsr fallthroughs too
@@ -495,7 +495,7 @@ class BlockMaker(object):
 
         #for simplicity, keep jsr stuff in individual instruction blocks.
         #Note that subproc.py will need to be modified if this is changed
-        for node in iNodes:
+        for node in self.iNodes:
             if node.instruction[0] in (vops.JSR, vops.RET):
                 jump_targets.append(node.key)
         for key in jump_targets:

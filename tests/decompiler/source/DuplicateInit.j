@@ -11,6 +11,14 @@
 	iconst_0
 	invokestatic Method DuplicateInit withCast (Z)V
 
+	; Test dead code
+	goto LREALSTART
+	nop
+	ifnull LREALSTART
+	nop
+
+LREALSTART:
+
 	new java/lang/Integer
 	dup
 LFOO:

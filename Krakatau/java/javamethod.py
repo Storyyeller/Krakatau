@@ -708,8 +708,8 @@ def _createTernaries(scope, item):
 
 def _fixExprStatements(scope, item, namegen):
     if isinstance(item, ast.ExpressionStatement):
-        if not isinstance(item.expr, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation, ast.Dummy)):
-            right = item.expr
+        right = item.expr
+        if not isinstance(right, (ast.Assignment, ast.ClassInstanceCreation, ast.MethodInvocation)) and right.dtype is not None:
             left = ast.Local(right.dtype, lambda expr:namegen.getPrefix('dummy'))
             decl = ast.VariableDeclarator(ast.TypeName(left.dtype), left)
             item = ast.LocalDeclarationStatement(decl, right)

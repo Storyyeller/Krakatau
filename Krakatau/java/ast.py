@@ -241,13 +241,6 @@ class StatementBlock(LazyLabelBase):
 
     def tree(self, printer, tree): return ['BlockStatement', self.label, map(tree, self.statements)]
 
-#Temporary hack
-class StringStatement(JavaStatement):
-    def __init__(self, s):
-        self.s = s
-    def print_(self, printer, print_): return self.s
-    def tree(self, printer, tree): return ['stringS', self.s]
-
 #############################################################################################################################################
 # Careful, order is important here!
 _assignable_sprims = objtypes.ByteTT, objtypes.ShortTT, objtypes.CharTT
@@ -724,8 +717,8 @@ class UnaryPrefix(JavaExpression):
     def tree(self, printer, tree): return ['Unary', map(tree, self.params), self.opstr, False]
 
 class Dummy(JavaExpression):
-    def __init__(self, fmt, params, isNew=False):
+    def __init__(self, fmt, params, isNew=False, dtype=None):
         self.params = params
         self.fmt = fmt
         self.isNew = isNew
-        self.dtype = None
+        self.dtype = dtype

@@ -147,12 +147,12 @@ def _convertJExpr(op, getExpr, clsname):
         else:
             expr = ast.MethodInvocation(params[0], op.name, [target_tt]+tt_types, params[1:], op, ret_type)
     elif isinstance(op, ssa_ops.Monitor):
-        fmt = '//monexit({})' if op.exit else '//monenter({})'
+        fmt = '/*monexit({})*/' if op.exit else '/*monenter({})*/'
         expr = ast.Dummy(fmt, params)
     elif isinstance(op, ssa_ops.MultiNewArray):
         expr = ast.ArrayCreation(op.tt, *params)
     elif isinstance(op, ssa_ops.New):
-        expr = ast.Dummy('//<unmerged new> {}', [ast.TypeName(op.tt)], isNew=True)
+        expr = ast.Dummy('/*<unmerged new> {}*/', [ast.TypeName(op.tt)], isNew=True)
     elif isinstance(op, ssa_ops.NewArray):
         expr = ast.ArrayCreation(op.tt, params[0])
     elif isinstance(op, ssa_ops.Truncate):
@@ -161,11 +161,9 @@ def _convertJExpr(op, getExpr, clsname):
     if op.rval is not None and expr:
         expr = ast.Assignment(getExpr(op.rval), expr)
 
-    if expr is None: #Temporary hack to show what's missing
+    if expr is None: # Temporary hack
         if isinstance(op, (ssa_ops.TryReturn, ssa_ops.ExceptionPhi)):
-            return None #Don't print out anything
-        else:
-            return ast.StringStatement('//' + type(op).__name__)
+            return None # Don't print out anything
     return ast.ExpressionStatement(expr)
 
 #########################################################################################

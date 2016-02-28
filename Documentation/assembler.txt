@@ -70,7 +70,7 @@ clsref: CPREF | ident
 natref: CPREF | ident utfref
 fmimref: CPREF | fmim_tagged_const
 bsref: BSREF | bsnotref
-invdynref: CPREF | invdyn_ tagged_const
+invdynref: CPREF | invdyn_tagged_const
 
 handlecode: "getField" | "getStatic" | "putField" | "putStatic" | "invokeVirtual" | "invokeStatic" | "invokeSpecial" | "newInvokeSpecial" | "invokeInterface"
 mhandlenotref: handlecode (CPREF | fmim_tagged_const)
@@ -80,10 +80,10 @@ cmhmt_tagged_const: "Class" utfref | "MethodHandle" mhandlenotref | "MethodType"
 ilfds_tagged_const: "Integer" INT_LITERAL | "Float" FLOAT_LITERAL | "Long" LONG_LITERAL | "Double" DOUBLE_LITERAL | "String" STRING_LITERAL
 simple_tagged_const: "Utf8" ident |  "NameAndType" utfref utfref
 fmim_tagged_const: ("Field" | "Method" | "InterfaceMethod") clsref natref
-invdyn_ tagged_const: "InvokeDynamic" bsref natref
+invdyn_tagged_const: "InvokeDynamic" bsref natref
 
 ref_or_tagged_const_ldc: CPREF | cmhmt_tagged_const | ilfds_tagged_const
-ref_or_tagged_const_all: ref_or_tagged_ldconst | simple_tagged_const | fmim_tagged_const | invdyn_ tagged_const
+ref_or_tagged_const_all: ref_or_tagged_ldconst | simple_tagged_const | fmim_tagged_const | invdyn_tagged_const
 
 bsnotref: mhandlenotref ref_or_tagged_const_ldc* ":"
 ref_or_tagged_bootstrap: BSREF | "Bootstrap" bsnotref

@@ -146,6 +146,11 @@ def _convertJExpr(op, getExpr, clsname):
             expr = ast.MethodInvocation(ast.TypeName(target_tt), op.name, [None]+tt_types, params, op, ret_type)
         else:
             expr = ast.MethodInvocation(params[0], op.name, [target_tt]+tt_types, params[1:], op, ret_type)
+    elif isinstance(op, ssa_ops.InvokeDynamic):
+        vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
+        ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
+        fmt = '/*invokedynamic({})*/'.format(', '.join('{}' for _ in params))
+        expr = ast.Dummy(fmt, params, dtype=ret_type)
     elif isinstance(op, ssa_ops.Monitor):
         fmt = '/*monexit({})*/' if op.exit else '/*monenter({})*/'
         expr = ast.Dummy(fmt, params)

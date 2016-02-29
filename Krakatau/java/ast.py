@@ -33,6 +33,7 @@ class JavaStatement(object):
 class ExpressionStatement(JavaStatement):
     def __init__(self, expr):
         self.expr = expr
+        assert(expr is not None)
 
     def print_(self, printer, print_): return print_(self.expr) + ';'
     def tree(self, printer, tree): return [self.__class__.__name__, tree(self.expr)]

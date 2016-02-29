@@ -222,6 +222,17 @@ def _invoke(maker, input_, iNode):
     newstack = input_.stack[:splitInd] + line.returned
     return ResultDict(line=line, newstack=newstack)
 
+def _invoke_dynamic(maker, input_, iNode):
+    index = iNode.instruction[1]
+    desc = maker.parent.getConstPoolArgs(index)[2]
+    argcnt = len(parseMethodDescriptor(desc)[0])
+    splitInd = len(input_.stack) - argcnt
+
+    args = [x for x in input_.stack[splitInd:] if x is not None]
+    line = ssa_ops.InvokeDynamic(maker.parent, desc, args)
+    newstack = input_.stack[:splitInd] + line.returned
+    return ResultDict(line=line, newstack=newstack)
+
 def _jsr(maker, input_, iNode):
     newstack = input_.stack + [None]
     if iNode.returnedFrom is None:
@@ -414,6 +425,7 @@ _instructionHandlers = {
                         vops.INVOKESPECIAL: _invoke,
                         vops.INVOKESTATIC: _invoke,
                         vops.INVOKEVIRTUAL: _invoke,
+                        vops.INVOKEDYNAMIC: _invoke_dynamic,
                         vops.JSR: _jsr,
                         vops.LCMP: _lcmp,
                         vops.LDC: _ldc,

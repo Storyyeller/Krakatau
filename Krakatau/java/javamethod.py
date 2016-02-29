@@ -638,19 +638,14 @@ def _createDeclarations(root, predeclared):
     newvars = [var for var in info if isinstance(var, ast.Local) and info[var].declScope is None]
     remaining = set(newvars)
 
-    #The compiler treats statements as if they can throw any exception at any time, so
-    #it may think variables are not definitely assigned even when they really are.
-    #Therefore, we give an unused initial value to every variable declaration
-    #TODO - find a better way to handle this
-    _init_d = {objtypes.BoolTT: ast.Literal.FALSE,
-            objtypes.IntTT: ast.Literal.ZERO,
-            objtypes.LongTT: ast.Literal.LZERO,
-            objtypes.FloatTT: ast.Literal.FZERO,
-            objtypes.DoubleTT: ast.Literal.DZERO}
     def mdVisitVarUse(var):
         decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
-        right = _init_d.get(var.dtype, ast.Literal.NULL)
-        localdefs[info[var].scope].append( ast.LocalDeclarationStatement(decl, right) )
+        #The compiler treats statements as if they can throw any exception at any time, so
+        #it may think variables are not definitely assigned even when they really are.
+        #Therefore, we give an unused initial value to every variable declaration
+        #TODO - find a better way to handle this
+        right = ast.dummyLiteral(var.dtype)
+        localdefs[info[var].scope].append(ast.LocalDeclarationStatement(decl, right))
         remaining.remove(var)
 
     def mdVisitScope(scope):

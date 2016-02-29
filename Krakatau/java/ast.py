@@ -585,6 +585,14 @@ Literal.FZERO = Literal(objtypes.FloatTT, 0.0)
 Literal.DZERO = Literal(objtypes.DoubleTT, 0.0)
 Literal.NULL = Literal(objtypes.NullTT, None)
 
+_init_d = {objtypes.BoolTT: Literal.FALSE,
+        objtypes.IntTT: Literal.ZERO,
+        objtypes.LongTT: Literal.LZERO,
+        objtypes.FloatTT: Literal.FZERO,
+        objtypes.DoubleTT: Literal.DZERO}
+def dummyLiteral(tt):
+    return _init_d.get(tt, Literal.NULL)
+
 class Local(JavaExpression):
     def __init__(self, vartype, namefunc):
         self.dtype = vartype

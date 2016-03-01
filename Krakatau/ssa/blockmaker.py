@@ -497,16 +497,17 @@ class BlockMaker(object):
         self.inputArgs = slotsRvals(self.entryBlock.inslots).locals #for ssagraph to copy
         self.entryBlock.phis = []
 
-        #We need to create stub blocks for every jump target so we can add them as successors during creation
+        # We need to create stub blocks for every jump target so we can add them as successors during creation
         jump_targets = [eh.handler for eh in except_raw]
         for node in self.iNodes:
             if node.instruction[0] in _jump_instrs:
                 jump_targets += node.successors
-            if node.instruction[0] == vops.JSR: #add jsr fallthroughs too
+            # add jsr fallthroughs too
+            if node.instruction[0] == vops.JSR and node.returnedFrom is not None:
                 jump_targets.append(node.next_instruction)
 
-        #for simplicity, keep jsr stuff in individual instruction blocks.
-        #Note that subproc.py will need to be modified if this is changed
+        # for simplicity, keep jsr stuff in individual instruction blocks.
+        # Note that subproc.py will need to be modified if this is changed
         for node in self.iNodes:
             if node.instruction[0] in (vops.JSR, vops.RET):
                 jump_targets.append(node.key)

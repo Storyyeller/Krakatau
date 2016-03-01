@@ -86,6 +86,7 @@ def runJavaAndCompare(target, testcases, temppath, class_location):
     expected = runJava(target, testcases, class_location)
     actual = runJava(target, testcases, temppath)
     for args in testcases:
+        assert 'VerifyError' not in expected[args][1]
         if expected[args] != actual[args]:
             message = ['Failed test {} w/ args {}:'.format(target, args)]
             if actual[args][0] != expected[args][0]:

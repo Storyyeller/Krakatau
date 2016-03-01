@@ -11,6 +11,7 @@
     dup
     invokestatic JSRTests skipJSR ([Ljava/lang/String;)V
     invokestatic JSRTests nestedJSRs ([Ljava/lang/String;)V
+    invokestatic JSRTests doubleJumpRet ()V
     return
 .end method
 
@@ -196,4 +197,22 @@ LBRANCH2:
     aload_0
     invokevirtual java/io/PrintStream println (Ljava/lang/Object;)V
     return
+.end method
+
+.method public static doubleJumpRet : ()V
+    .attribute "Code" .code stack 2 locals 1
+        jsr Lproc1
+        ldc 'Pass'
+        invokestatic JSRTests print (Ljava/lang/String;)V
+        return
+Lproc2:
+        pop
+        astore_0
+        ret 0
+Lproc1:
+        jsr Lproc2
+        ldc 'Fail'
+        invokestatic JSRTests print (Ljava/lang/String;)V
+        return
+    .end code
 .end method

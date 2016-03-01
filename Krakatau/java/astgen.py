@@ -149,9 +149,9 @@ def _convertJExpr(op, getExpr, clsname):
     elif isinstance(op, ssa_ops.InvokeDynamic):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
-        fmt = '/*invokedynamic({})*/'.format(', '.join('{}' for _ in params))
+        fmt = '/*invokedynamic*/'
         if ret_type is not None:
-            fmt += '{}'
+            fmt += '{{{}}}'.format(len(params))
             params.append(ast.dummyLiteral(ret_type))
         expr = ast.Dummy(fmt, params, dtype=ret_type)
     elif isinstance(op, ssa_ops.Monitor):

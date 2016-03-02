@@ -36,7 +36,7 @@ class UnionFind(object):
 def visitStatementTree(scope, callback, catchcb=None):
     for item in scope.statements:
         for sub in item.getScopes():
-            visitStatementTree(sub, callback=callback)
+            visitStatementTree(sub, callback, catchcb)
         if item.expr is not None:
             callback(item, item.expr)
         if catchcb is not None and isinstance(item, ast.TryStatement):

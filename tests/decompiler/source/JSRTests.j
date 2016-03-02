@@ -200,13 +200,18 @@ LBRANCH2:
 .end method
 
 .method public static doubleJumpRet : ()V
-    .attribute "Code" .code stack 2 locals 1
+    .attribute "Code" .code stack 2 locals 3
+        iconst_2
+        istore_2
+Lproc0:
         jsr Lproc1
         ldc 'Pass'
         invokestatic JSRTests print (Ljava/lang/String;)V
         return
 Lproc2:
         pop
+        iload_2
+        ifeq Lproc1
         astore_0
         ret 0
 Lproc1:

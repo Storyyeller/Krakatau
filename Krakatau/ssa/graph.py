@@ -539,11 +539,10 @@ class SSA_Graph(object):
             block.phis.append(phi)
             block.unaryConstraints[rval] = jsrblock.unaryConstraints[var]
 
-            if block == target:
-                assert(block.predecessors == [(jsrblock, False)])
-                phi.add(block.predecessors[0], var)
-            else:
-                for key in block.predecessors:
+            for key in block.predecessors:
+                if key == (jsrblock, False):
+                    phi.add(key, var)
+                else:
                     phi.add(key, svarcopy[var, key[0]])
 
         outreplace = {jv:rv for jv, rv in zip(jsrblock.jump.output, retblock.jump.input) if jv is not None}
@@ -574,6 +573,8 @@ class SSA_Graph(object):
         self.procs = graph_util.topologicalSort(self.procs, parents.get)
         if any(parents.values()):
             print 'Warning, nesting subprocedures detected! This method may take a long time to decompile.'
+
+        print 'Subprocedures for', self.code.method.name + ':', self.procs
 
         #now inline the procs
         while self.procs:

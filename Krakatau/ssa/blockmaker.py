@@ -479,6 +479,7 @@ class BlockMaker(object):
 
         self.iNodes = [n for n in iNodes if n.visited]
         self.iNodeD = {n.key:n for n in self.iNodes}
+        exceptions = [eh for eh in except_raw if eh.handler in self.iNodeD]
 
         #create map of uninitialized -> initialized types so we can convert them
         self.initMap = {}
@@ -498,7 +499,7 @@ class BlockMaker(object):
         self.entryBlock.phis = []
 
         # We need to create stub blocks for every jump target so we can add them as successors during creation
-        jump_targets = [eh.handler for eh in except_raw]
+        jump_targets = [eh.handler for eh in exceptions]
         for node in self.iNodes:
             if node.instruction[0] in _jump_instrs:
                 jump_targets += node.successors
@@ -516,7 +517,7 @@ class BlockMaker(object):
                 self.makeBlock(key)
 
         self.exceptionhandlers = []
-        for (start, end, handler, index) in except_raw:
+        for (start, end, handler, index) in exceptions:
             catchtype = parent.getConstPoolArgs(index)[0] if index else 'java/lang/Throwable'
             self.exceptionhandlers.append((start, end, self.blockd[handler], catchtype))
         self.exceptionhandlers.append((0, 65536, self.rethrowBlock, 'java/lang/Throwable'))

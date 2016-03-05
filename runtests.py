@@ -8,9 +8,9 @@ To add a new test, add the relevant classfile and an entry in registry.
 '''
 import os, shutil, tempfile, time
 import hashlib
-import subprocess
-import cPickle as pickle
+import json
 import optparse
+import subprocess
 
 from Krakatau import script_util
 from Krakatau.assembler.tokenize import AsssemblerError
@@ -30,6 +30,7 @@ class TestFailed(Exception):
     pass
 
 def execute(args, cwd):
+    print 'executing command', args, 'in directory', cwd
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     return process.communicate()
 
@@ -46,55 +47,65 @@ def createDir(path):
         pass
     assert(os.path.isdir(path))
 
-def runJava(target, cases, path):
-    digest = shash(read(os.path.join(path, target + '.class')))
+###############################################################################
+def _runJava(target, in_fname, argslist):
+    tdir = tempfile.mkdtemp()
+    shutil.copy2(in_fname, os.path.join(tdir, target + '.class'))
+
+    for args in argslist:
+        results = execute(['java', target] + list(args), cwd=tdir)
+        assert 'VerifyError' not in results[1]
+        assert 'ClassFormatError' not in results[1]
+        yield results
+
+    shutil.rmtree(tdir)
+
+def runJava(target, in_fname, argslist):
+    digest = shash(read(in_fname) + json.dumps(argslist).encode())
     cache = os.path.join(cache_location, digest)
     try:
-        results = pickle.loads(read(cache))
+        with open(cache, 'r') as f:
+            return json.load(f)
     except IOError:
         print 'failed to load cache', digest
-        results = {}
 
-    modified = False
-    for args in cases:
-        if args not in results:
-            print 'Executing {} w/ args {}'.format(target, args)
-            results[args] = execute(['java', target] + list(args), cwd=path)
-            modified = True
+    results = list(_runJava(target, in_fname, argslist))
+    with open(cache, 'w') as f:
+        json.dump(results, f)
+    # reparse json to ensure consistent results in 1st time vs cache hit
+    with open(cache, 'r') as f:
+        return json.load(f)
 
-    if modified:
-        with open(cache, 'wb') as f:
-            pickle.dump(results, f, -1)
-        print 'updated cache', digest
-    return results
-
-def compileJava(target, path):
-    digest = shash(read(os.path.join(path, target + '.java')))
+def compileJava(target, in_fname):
+    assert not in_fname.endswith('.class')
+    digest = shash(read(in_fname))
     cache = os.path.join(cache_location, digest)
-    out_location = os.path.join(path, target + '.class')
 
-    try:
-        shutil.copy2(cache, out_location)
-    except IOError:
-        print 'Attempting to compile'
-        _, stderr = execute(['javac', target+'.java', '-g:none'], cwd=path)
+    if not os.path.exists(cache):
+        tdir = tempfile.mkdtemp()
+        shutil.copy2(in_fname, os.path.join(tdir, target + '.java'))
+
+        _, stderr = execute(['javac', target + '.java', '-g:none'], cwd=tdir)
         if 'error:' in stderr: # Ignore compiler unchecked warnings by looking for 'error:'
             raise TestFailed('Compile failed: ' + stderr)
-        shutil.copy2(out_location, cache)
+        shutil.copy2(os.path.join(tdir, target + '.class'), cache)
 
-def runJavaAndCompare(target, testcases, temppath, class_location):
-    expected = runJava(target, testcases, class_location)
-    actual = runJava(target, testcases, temppath)
-    for args in testcases:
-        assert 'VerifyError' not in expected[args][1]
-        if expected[args] != actual[args]:
+        shutil.rmtree(tdir)
+    return cache
+
+def runJavaAndCompare(target, testcases, good_fname, new_fname):
+    expected_results = runJava(target, good_fname, testcases)
+    actual_results = runJava(target, new_fname, testcases)
+
+    for args, expected, actual in zip(testcases, expected_results, actual_results):
+        if expected != actual:
             message = ['Failed test {} w/ args {}:'.format(target, args)]
-            if actual[args][0] != expected[args][0]:
-                message.append('  expected stdout: ' + repr(expected[args][0]))
-                message.append('  actual stdout  : ' + repr(actual[args][0]))
-            if actual[args][1] != expected[args][1]:
-                message.append('  expected stderr: ' + repr(expected[args][1]))
-                message.append('  actual stderr  : ' + repr(actual[args][1]))
+            if actual[0] != expected[0]:
+                message.append('  expected stdout: ' + repr(expected[0]))
+                message.append('  actual stdout  : ' + repr(actual[0]))
+            if actual[1] != expected[1]:
+                message.append('  expected stderr: ' + repr(expected[1]))
+                message.append('  actual stderr  : ' + repr(actual[1]))
             raise TestFailed('\n'.join(message))
 
 def runDecompilerTest(target):
@@ -107,8 +118,11 @@ def runDecompilerTest(target):
 
     createDir(temppath)
     decompile.decompileClass(cpath, targets=[target], outpath=temppath, add_throws=True)
-    compileJava(target, temppath)
-    runJavaAndCompare(target, map(tuple, tests.decompiler.registry[target]), temppath, dec_class_location)
+    new_fname = compileJava(target, os.path.join(temppath, target + '.java'))
+
+    testcases = map(tuple, tests.decompiler.registry[target])
+    good_fname = os.path.join(dec_class_location, target + '.class')
+    runJavaAndCompare(target, testcases, good_fname, new_fname)
 
 def runDisassemblerTest(target):
     print 'Running disassembler test {}...'.format(test)
@@ -124,7 +138,10 @@ def runDisassemblerTest(target):
             f.write(data)
         assert name == target
 
-    runJavaAndCompare(target, map(tuple, tests.disassembler.registry[target]), temppath, dis_class_location)
+    new_fname = os.path.join(temppath, target + '.class')
+    testcases = map(tuple, tests.disassembler.registry[target])
+    good_fname = os.path.join(dis_class_location, target + '.class')
+    runJavaAndCompare(target, testcases, good_fname, new_fname)
 
 def runAssemblerTest(fname, exceptFailure):
     print 'Running assembler test', os.path.basename(fname)
@@ -140,11 +157,14 @@ def runAssemblerTests(basedir, exceptFailure):
         if fname.endswith('.j'):
             runAssemblerTest(os.path.join(basedir, fname), exceptFailure)
 
+
+
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
                                description=__doc__)
     opts, args = op.parse_args()
     createDir(cache_location)
+
 
     start_time = time.time()
     for test in sorted(tests.decompiler.registry):

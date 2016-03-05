@@ -147,11 +147,15 @@ def runAssemblerTest(fname, exceptFailure):
     assert error == exceptFailure
 
 def runTest(data):
-    {
-        'decompiler': runDecompilerTest,
-        'disassembler': runDisassemblerTest,
-        'assembler': runAssemblerTest,
-    }[data[0]](*data[1:])
+    try:
+        {
+            'decompiler': runDecompilerTest,
+            'disassembler': runDisassemblerTest,
+            'assembler': runAssemblerTest,
+        }[data[0]](*data[1:])
+    except Exception:
+        import traceback
+        return 'Test {} failed:\n'.format(data) + traceback.format_exc()
 
 def addAssemblerTests(testlist, basedir, exceptFailure):
     for fname in os.listdir(basedir):
@@ -182,7 +186,10 @@ if __name__ == '__main__':
     addAssemblerTests(testlist, os.path.join(test_base, 'disassembler', 'source'), False)
 
     print len(testlist), 'test cases found'
-    multiprocessing.Pool(processes=5).map(runTest, testlist)
-
-    print 'All tests passed!'
-    print 'elapsed time:', time.time()-start_time
+    for error in multiprocessing.Pool(processes=5).map(runTest, testlist):
+        if error:
+            print error
+            break
+    else:
+        print 'All tests passed!'
+        print 'elapsed time:', time.time()-start_time

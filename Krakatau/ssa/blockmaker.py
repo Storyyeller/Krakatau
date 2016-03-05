@@ -472,7 +472,8 @@ def slotsRvals(inslots):
 
 _jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
 class BlockMaker(object):
-    def __init__(self, parent, iNodes, inputTypes, returnTypes, except_raw):
+    def __init__(self, parent, iNodes, inputTypes, returnTypes, except_raw, opts):
+        print 'opts', opts
         self.parent = parent
         self.blocks = []
         self.blockd = {}
@@ -529,8 +530,17 @@ class BlockMaker(object):
             # First do a quick check if we have to start a new block
             if not self._canContinueBlock(node):
                 self._startNewBlock(node.key)
-
             vals, outslot_norm = self._getInstrLine(node)
+
+            # Disable exception pruning
+            if opts and not vals.jump:
+                dummyvals = ResultDict(line=ssa_ops.MagicThrow(self.parent))
+                if not self._canAppendInstrToCurrent(node.key, dummyvals):
+                    self._startNewBlock(node.key)
+                assert(self._canAppendInstrToCurrent(node.key, dummyvals))
+                self._appendInstr(node, dummyvals, self.current_slots, check_terminate=False)
+                vals, outslot_norm = self._getInstrLine(node)
+
             if not self._canAppendInstrToCurrent(node.key, vals):
                 self._startNewBlock(node.key)
                 vals, outslot_norm = self._getInstrLine(node)
@@ -631,12 +641,13 @@ class BlockMaker(object):
         for suc in block.jump.getExceptSuccessors():
             self.mergeIn((block, True), suc.key, outslot_except)
 
-    def _appendInstr(self, iNode, vals, outslot_norm):
+    def _appendInstr(self, iNode, vals, outslot_norm, check_terminate=True):
         parent = self.parent
         block = self.current_block
         line, jump = vals.line, vals.jump
         if line is not None:
             block.lines.append(line)
+        assert(block.jump is None)
         block.jump = jump
 
         if line is not None and line.outException is not None:
@@ -649,11 +660,12 @@ class BlockMaker(object):
             assert(block.locals_at_first_except is None or inslots.locals == block.locals_at_first_except)
             block.locals_at_first_except = inslots.locals
 
-            # Return and Throw must be immediately ended because they don't have normal fallthrough
-            # CheckCast must terminate block because cast type hack later on requires casts to be at end of block
-            if iNode.instruction[0] in (vops.RETURN, vops.THROW) or isinstance(line, ssa_ops.CheckCast):
-                fallthrough = self.getExceptFallthrough(iNode)
-                self._addOnException(block, fallthrough, outslot_norm)
+            if check_terminate:
+                # Return and Throw must be immediately ended because they don't have normal fallthrough
+                # CheckCast must terminate block because cast type hack later on requires casts to be at end of block
+                if iNode.instruction[0] in (vops.RETURN, vops.THROW) or isinstance(line, ssa_ops.CheckCast):
+                    fallthrough = self.getExceptFallthrough(iNode)
+                    self._addOnException(block, fallthrough, outslot_norm)
 
         if block.jump is None:
             unmerged_slots = outslot_norm
@@ -672,6 +684,17 @@ class BlockMaker(object):
                     self.mergeIn((block, False), suc.key, outslot_norm)
         self.current_slots = unmerged_slots
 
+    def mergeIn(self, from_key, target_key, outslots):
+        inslots = self.blockd[target_key].inslots
+        assert(len(inslots.stack) == len(outslots.stack) and len(inslots.locals) <= len(outslots.locals))
+        phis = inslots.locals + inslots.stack
+        vars = outslots.locals[:len(inslots.locals)] + outslots.stack
+        for phi, var in zip(phis, vars):
+            if phi is not None:
+                phi.add(from_key, var)
+        self.blockd[target_key].predecessors.append(from_key)
+
+    ## Block Creation #########################################
     def _makePhiFromVType(self, block, vt):
         var = self.parent.makeVarFromVtype(vt, self.initMap)
         return None if var is None else ssa_ops.Phi(block, var)
@@ -692,16 +715,6 @@ class BlockMaker(object):
     def makeBlock(self, key):
         node = self.iNodeD[key]
         return self.makeBlockWithInslots(key, node.state.locals, node.state.stack)
-
-    def mergeIn(self, from_key, target_key, outslots):
-        inslots = self.blockd[target_key].inslots
-        assert(len(inslots.stack) == len(outslots.stack) and len(inslots.locals) <= len(outslots.locals))
-        phis = inslots.locals + inslots.stack
-        vars = outslots.locals[:len(inslots.locals)] + outslots.stack
-        for phi, var in zip(phis, vars):
-            if phi is not None:
-                phi.add(from_key, var)
-        self.blockd[target_key].predecessors.append(from_key)
 
     ###########################################################
     def getExceptFallthrough(self, iNode):

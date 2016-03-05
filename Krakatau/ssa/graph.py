@@ -708,12 +708,12 @@ class SSA_Graph(object):
     def getConstPoolType(self, index):
         return self.class_.cpool.getType(index)
 
-def ssaFromVerified(code, iNodes):
+def ssaFromVerified(code, iNodes, opts):
     method = code.method
     inputTypes, returnTypes = parseUnboundMethodDescriptor(method.descriptor, method.class_.name, method.static)
 
     parent = SSA_Graph(code)
-    data = blockmaker.BlockMaker(parent, iNodes, inputTypes, returnTypes, code.except_raw)
+    data = blockmaker.BlockMaker(parent, iNodes, inputTypes, returnTypes, code.except_raw, opts=opts)
 
     parent.blocks = blocks = data.blocks
     parent.entryBlock = data.entryBlock

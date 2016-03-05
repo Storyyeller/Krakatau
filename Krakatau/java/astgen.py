@@ -170,7 +170,7 @@ def _convertJExpr(op, getExpr, clsname):
         expr = ast.Assignment(getExpr(op.rval), expr)
 
     if expr is None: # Temporary hack
-        if isinstance(op, (ssa_ops.TryReturn, ssa_ops.ExceptionPhi)):
+        if isinstance(op, (ssa_ops.TryReturn, ssa_ops.ExceptionPhi, ssa_ops.MagicThrow)):
             return None # Don't print out anything
     return ast.ExpressionStatement(expr)
 

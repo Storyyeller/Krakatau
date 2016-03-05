@@ -9,7 +9,7 @@ from .invoke import Invoke, InvokeDynamic
 from .imath import IAdd, IDiv, IMul, IRem, ISub, IAnd, IOr, IShl, IShr, IUshr, IXor, ICmp
 from .monitor import Monitor
 from .new import New, NewArray, MultiNewArray
-from .throw import Throw
+from .throw import Throw, MagicThrow
 from .truncate import Truncate
 from .tryreturn import TryReturn
 

@@ -24,7 +24,6 @@ krakatau_root = os.path.dirname(os.path.abspath(__file__))
 cache_location = os.path.join(krakatau_root, 'tests', '.cache')
 dec_class_location = os.path.join(krakatau_root, 'tests', 'decompiler', 'classes')
 dis_class_location = os.path.join(krakatau_root, 'tests', 'disassembler', 'classes')
-tempbase = tempfile.gettempdir()
 
 class TestFailed(Exception):
     pass
@@ -110,38 +109,40 @@ def runJavaAndCompare(target, testcases, good_fname, new_fname):
 
 def runDecompilerTest(target):
     print 'Running decompiler test {}...'.format(test)
-    temppath = os.path.join(tempbase, target)
+    tdir = tempfile.mkdtemp()
 
     cpath = [decompile.findJRE(), dec_class_location]
     if cpath[0] is None:
         raise RuntimeError('Unable to locate rt.jar')
 
-    createDir(temppath)
-    decompile.decompileClass(cpath, targets=[target], outpath=temppath, add_throws=True)
-    new_fname = compileJava(target, os.path.join(temppath, target + '.java'))
+    decompile.decompileClass(cpath, targets=[target], outpath=tdir, add_throws=True)
+    new_fname = compileJava(target, os.path.join(tdir, target + '.java'))
 
     testcases = map(tuple, tests.decompiler.registry[target])
     good_fname = os.path.join(dec_class_location, target + '.class')
     runJavaAndCompare(target, testcases, good_fname, new_fname)
+    shutil.rmtree(tdir)
 
 def runDisassemblerTest(target):
     print 'Running disassembler test {}...'.format(test)
-    temppath = os.path.join(tempbase, target)
+    tdir = tempfile.mkdtemp()
+
     classloc = os.path.join(dis_class_location, target + '.class')
-    jloc = os.path.join(temppath, target + '.j')
+    jloc = os.path.join(tdir, target + '.j')
 
-    createDir(temppath)
-    disassemble.disassembleClass(disassemble.readFile, targets=[classloc], outpath=temppath)
+    disassemble.disassembleClass(disassemble.readFile, targets=[classloc], outpath=tdir)
     pairs = assemble.assembleClass(jloc)
-    for name, data in pairs:
-        with open(os.path.join(temppath, name + '.class'), 'wb') as f:
-            f.write(data)
-        assert name == target
+    new_fname = os.path.join(tdir, target + '.class')
 
-    new_fname = os.path.join(temppath, target + '.class')
+    for name, data in pairs:
+        assert name == target
+        with open(new_fname, 'wb') as f:
+            f.write(data)
+
     testcases = map(tuple, tests.disassembler.registry[target])
     good_fname = os.path.join(dis_class_location, target + '.class')
     runJavaAndCompare(target, testcases, good_fname, new_fname)
+    shutil.rmtree(tdir)
 
 def runAssemblerTest(fname, exceptFailure):
     print 'Running assembler test', os.path.basename(fname)

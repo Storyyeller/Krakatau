@@ -9,6 +9,7 @@ To add a new test, add the relevant classfile and an entry in registry.
 import os, shutil, tempfile, time
 import hashlib
 import json
+import multiprocessing
 import optparse
 import subprocess
 
@@ -38,13 +39,6 @@ def read(filename):
         return f.read()
 
 def shash(data): return hashlib.sha256(data).hexdigest()
-
-def createDir(path):
-    try:
-        os.mkdir(path)
-    except OSError:
-        pass
-    assert(os.path.isdir(path))
 
 ###############################################################################
 def _runJava(target, in_fname, argslist):
@@ -107,8 +101,8 @@ def runJavaAndCompare(target, testcases, good_fname, new_fname):
                 message.append('  actual stderr  : ' + repr(actual[1]))
             raise TestFailed('\n'.join(message))
 
-def runDecompilerTest(target):
-    print 'Running decompiler test {}...'.format(test)
+def runDecompilerTest(target, testcases):
+    print 'Running decompiler test {}...'.format(target)
     tdir = tempfile.mkdtemp()
 
     cpath = [decompile.findJRE(), dec_class_location]
@@ -118,13 +112,13 @@ def runDecompilerTest(target):
     decompile.decompileClass(cpath, targets=[target], outpath=tdir, add_throws=True)
     new_fname = compileJava(target, os.path.join(tdir, target + '.java'))
 
-    testcases = map(tuple, tests.decompiler.registry[target])
+    # testcases = map(tuple, tests.decompiler.registry[target])
     good_fname = os.path.join(dec_class_location, target + '.class')
     runJavaAndCompare(target, testcases, good_fname, new_fname)
     shutil.rmtree(tdir)
 
-def runDisassemblerTest(target):
-    print 'Running disassembler test {}...'.format(test)
+def runDisassemblerTest(target, testcases):
+    print 'Running disassembler test {}...'.format(target)
     tdir = tempfile.mkdtemp()
 
     classloc = os.path.join(dis_class_location, target + '.class')
@@ -139,7 +133,6 @@ def runDisassemblerTest(target):
         with open(new_fname, 'wb') as f:
             f.write(data)
 
-    testcases = map(tuple, tests.disassembler.registry[target])
     good_fname = os.path.join(dis_class_location, target + '.class')
     runJavaAndCompare(target, testcases, good_fname, new_fname)
     shutil.rmtree(tdir)
@@ -153,30 +146,43 @@ def runAssemblerTest(fname, exceptFailure):
         error = True
     assert error == exceptFailure
 
-def runAssemblerTests(basedir, exceptFailure):
+def runTest(data):
+    {
+        'decompiler': runDecompilerTest,
+        'disassembler': runDisassemblerTest,
+        'assembler': runAssemblerTest,
+    }[data[0]](*data[1:])
+
+def addAssemblerTests(testlist, basedir, exceptFailure):
     for fname in os.listdir(basedir):
         if fname.endswith('.j'):
-            runAssemblerTest(os.path.join(basedir, fname), exceptFailure)
-
-
+            testlist.append(('assembler', os.path.join(basedir, fname), exceptFailure))
 
 if __name__ == '__main__':
     op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
                                description=__doc__)
     opts, args = op.parse_args()
-    createDir(cache_location)
-
+    try:
+        os.mkdir(cache_location)
+    except OSError:
+        pass
 
     start_time = time.time()
-    for test in sorted(tests.decompiler.registry):
-        runDecompilerTest(test)
-    for test in sorted(tests.disassembler.registry):
-        runDisassemblerTest(test)
+    testlist = []
 
-    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'assembler', 'bad'), True)
-    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'assembler', 'good'), False)
-    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'decompiler', 'source'), False)
-    runAssemblerTests(os.path.join(krakatau_root, 'tests', 'disassembler', 'source'), False)
+    for target, testcases in sorted(tests.decompiler.registry.items()):
+        testlist.append(('decompiler', target, map(tuple, testcases)))
+    for target, testcases in sorted(tests.disassembler.registry.items()):
+        testlist.append(('disassembler', target, map(tuple, testcases)))
+
+    test_base = os.path.join(krakatau_root, 'tests')
+    addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'bad'), True)
+    addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'good'), False)
+    addAssemblerTests(testlist, os.path.join(test_base, 'decompiler', 'source'), False)
+    addAssemblerTests(testlist, os.path.join(test_base, 'disassembler', 'source'), False)
+
+    print len(testlist), 'test cases found'
+    multiprocessing.Pool(processes=5).map(runTest, testlist)
 
     print 'All tests passed!'
     print 'elapsed time:', time.time()-start_time

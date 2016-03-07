@@ -103,7 +103,7 @@ class LazyLabelBase(JavaStatement):
         self.label, self.func = None, labelfunc
         self.continueKey = begink
         self.breakKey = endk
-        # self.id = next(sbcount) #For debugging purposes
+        self.id = next(sbcount) #For debugging purposes
 
     def getLabel(self):
         if self.label is None:

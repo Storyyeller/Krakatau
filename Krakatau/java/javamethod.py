@@ -270,8 +270,9 @@ def _whileCondition_cb(item):
     #Now inline everything
     item.expr = _simplifyExpressions(ast.BinaryInfix('&&', [item.expr, reverseBoolExpr(cond)]))
     if falseb is None:
-        body.statements.pop(0)
+        body.continueKey = body.statements.pop(0).breakKey
     else:
+        body.continueKey = falseb.continueKey
         body.statements[0] = falseb
         falseb.labelable = True
     trueb.labelable = True
@@ -288,6 +289,7 @@ def _whileCondition_cb(item):
     #it too. We don't replace item.ckey because it should never appear, even as an
     #unreachable jump
     replaceKeys(trueb, {head.breakKey:trueb.breakKey, item.breakKey:trueb.breakKey})
+    assert(item.continueKey != item.getScopes()[0].continueKey)
     return [item], trueb
 
 def _simplifyBlocksSub(scope, item, isLast):

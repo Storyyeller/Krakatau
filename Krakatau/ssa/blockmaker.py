@@ -473,7 +473,6 @@ def slotsRvals(inslots):
 _jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
 class BlockMaker(object):
     def __init__(self, parent, iNodes, inputTypes, returnTypes, except_raw, opts):
-        print 'opts', opts
         self.parent = parent
         self.blocks = []
         self.blockd = {}

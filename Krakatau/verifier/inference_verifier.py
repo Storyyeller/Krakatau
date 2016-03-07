@@ -35,7 +35,7 @@ class VerifierTypesState(object):
         self.masks = [(addr, old | new) for addr, old in self.masks]
 
     def local(self, i):
-        if len(self.locals) < i:
+        if len(self.locals) <= i:
             return T_INVALID
         return self.locals[i]
 

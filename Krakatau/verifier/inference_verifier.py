@@ -427,9 +427,9 @@ class InstructionNode(object):
         #Merge into exception handlers first
         for (start, end, handler, except_info) in exceptions:
             if start <= self.key < end:
-                self._mergeSingleSuccessor(handler, newstate.withExcept(except_info), iNodes, True)
+                self._mergeSingleSuccessor(handler, self.state.withExcept(except_info), iNodes, True)
                 if self.op == ops.INVOKEINIT: #two cases since the ctor may suceed or fail before throwing
-                    self._mergeSingleSuccessor(handler, self.state.withExcept(except_info), iNodes, True)
+                    self._mergeSingleSuccessor(handler, newstate.withExcept(except_info), iNodes, True)
 
         #Now regular successors
         for k in self.successors:

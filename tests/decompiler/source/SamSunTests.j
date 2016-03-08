@@ -38,9 +38,17 @@ L3:
     .end code
 .end method
 
+.method public static num : ()I
+    .code stack 10 locals 10
+L0:     iconst_0
+L1:     ireturn
+L2:
+    .end code
+.end method
+
 .method public static infiniteLoop : ([Ljava/lang/String;)V
     .code stack 10 locals 10
-        invokestatic Method java/lang/Runtime availableProcessors ()I
+        invokestatic Method [cls] num ()I
 L0:
         dup
         tableswitch 0

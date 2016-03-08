@@ -7,6 +7,9 @@ from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 def getElementTypes(env, tops):
     types = [objtypes.withDimInc(tt, -1) for tt in tops]
+    # temporary hack
+    types = [objtypes.removeInterface(env, tt) for tt in types]
+
     supers = [tt for tt in types if objtypes.isBaseTClass(tt)]
     exact = [tt for tt in types if not objtypes.isBaseTClass(tt)]
     return ObjectConstraint.fromTops(env, supers, exact)

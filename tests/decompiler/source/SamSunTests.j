@@ -7,7 +7,11 @@
 .method public static main : ([Ljava/lang/String;)V
     .code stack 10 locals 10
         aload_0
+        dup
+        dup
         invokestatic [cls] exceptionVerificationUsesOldLocalsState ([Ljava/lang/String;)V
+        invokestatic [cls] castToInterface ([Ljava/lang/String;)V
+        invokestatic [cls] castFromInterface ([Ljava/lang/String;)V
         return
     .end code
 .end method
@@ -59,4 +63,59 @@ L4:
     .end code
 .end method
 
+.method public static castToInterface : ([Ljava/lang/String;)V
+    .code stack 10 locals 10
+        iconst_2
+        anewarray java/io/Serializable
+        astore_0
+        aload_0
+        iconst_0
+        new java/util/concurrent/atomic/AtomicReference
+        dup
+        aload_0
+        invokespecial Method java/util/concurrent/atomic/AtomicReference <init> (Ljava/lang/Object;)V
+        checkcast java/io/Serializable
+        aastore
+        aload_0
+        iconst_1
+        aconst_null
+        aastore
+        getstatic java/lang/System out Ljava/io/PrintStream;
+        aload_0
+        iconst_1
+        aaload
+        invokevirtual Method java/io/PrintStream println (Ljava/lang/Object;)V
+        return
+    .end code
+.end method
+
+.method public static castFromInterface : ([Ljava/lang/String;)V
+    .code stack 10 locals 10
+        .catch java/lang/Throwable from L0 to L1 using L2
+        iconst_1
+        anewarray java/io/Serializable
+        astore_0
+        aload_0
+        iconst_0
+        new java/lang/Exception
+        dup
+        invokespecial Method java/lang/Exception <init> ()V
+        aastore
+        aload_0
+        iconst_0
+        aaload
+L0:
+        checkcast java/lang/Exception
+L1:
+        astore_0
+        aconst_null
+L2:
+        getstatic java/lang/System out Ljava/io/PrintStream;
+        aload_0
+        invokevirtual Method java/io/PrintStream println (Ljava/lang/Object;)V
+        return
+    .end code
+.end method
+
 .end class
+

@@ -216,7 +216,8 @@ class SSA_Graph(object):
 
                 for var in scc:
                     old = v2b[var].unaryConstraints[var]
-                    v2b[var].unaryConstraints[var] = UCs[var] = constraints.join(uc, old)
+                    new = constraints.join(uc, old) or old # temporary hack
+                    v2b[var].unaryConstraints[var] = UCs[var] = new
             else:
                 # There is a root in this scc, so we can't do anything
                 for var in scc:
@@ -235,6 +236,7 @@ class SSA_Graph(object):
             for block in self.blocks:
                 assert(block in self.blocks)
                 UCs = block.unaryConstraints
+                assert(None not in UCs.values())
                 dirty = visit_counts[block] == 0
                 for phi in block.phis:
                     if phi in dirty_phis:

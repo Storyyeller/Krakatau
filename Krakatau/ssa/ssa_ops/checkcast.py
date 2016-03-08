@@ -8,6 +8,8 @@ class CheckCast(BaseOp):
         super(CheckCast, self).__init__(parent, args, makeException=True)
         self.env = parent.env
         self.target_tt = target
+        # Temporary hack
+        target = objtypes.removeInterface(self.env, target)
 
         if objtypes.isBaseTClass(target):
             self.outCasted = ObjectConstraint.fromTops(parent.env, [target], [])

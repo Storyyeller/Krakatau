@@ -119,3 +119,9 @@ def declTypeToActual(env, decltype):
         return [], [decltype]
     else:
         return [decltype], []
+
+def removeInterface(env, decltype):
+    name, newdim = baset(decltype), dim(decltype)
+    if isBaseTClass(decltype) and env.isInterface(name):
+        return withDimInc(ObjectTT, newdim)
+    return decltype

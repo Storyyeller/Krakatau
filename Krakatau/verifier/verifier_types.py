@@ -84,9 +84,6 @@ def withNoConst(fi):
 def _decToObjArray(fi):
     return fi if fi.tag == '.obj' else T_ARRAY(OBJECT_INFO, fi.dim-1)
 
-def _arrbase(fi):
-    return _makeinfo(fi.tag, 0, fi.extra)
-
 def mergeTypes(env, t1, t2):
     if t1 == t2:
         return t1
@@ -119,10 +116,10 @@ def mergeTypes(env, t1, t2):
             t1, t2 = t2, t1
 
         if t1.dim == t2.dim:
-            res = mergeTypes(env, _arrbase(t1), _arrbase(t2))
+            res = mergeTypes(env, withNoDimension(t1), withNoDimension(t2))
             return res if res == T_INVALID else _makeinfo('.obj', t1.dim, res.extra)
         else: #t1.dim < t2.dim
-            return t1 if _arrbase(t1) in (CLONE_INFO,SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
+            return t1 if withNoDimension(t1) in (CLONE_INFO, SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
     else: #neither is array
         if env.isInterface(t2.extra, forceCheck=True):
             return OBJECT_INFO

@@ -297,21 +297,30 @@ class InstructionNode(object):
 
         self._precomputeValues()
 
+    def _removeInterface(self, vt):
+        if vt.tag == '.obj' and vt.extra is not None and self.env.isInterface(vt.extra, forceCheck=True):
+            return T_ARRAY(OBJECT_INFO, vt.dim)
+        return vt
+
     def _precomputeValues(self):
         #parsed_desc, successors
         off_i = self.offsetToIndex[self.key]
         self.next_instruction = self.indexToOffset[off_i+1] #None if end of code
+        op = self.instruction[0]
 
         self.pop_amount = _getPopAmount(self.cpool, self.instruction, self.code.method)
 
         #cache these, since they're not state dependent
         result = _getStackResult(self.cpool, self.instruction, self.key)
+        # temporary hack
+        if op == ops.CHECKCAST:
+            result = self._removeInterface(result)
+
         if result is not None:
             self.stack_push = [result]
             if result in (T_LONG, T_DOUBLE):
                 self.stack_push.append(T_INVALID)
 
-        op = self.instruction[0]
         if op in genericStackCodes:
             self.stack_code = genericStackCodes[op][1]
 
@@ -370,7 +379,10 @@ class InstructionNode(object):
         if self.stack_code is not None:
             state.push(popped[i] for i in self.stack_code)
         elif op == ops.ARRLOAD_OBJ:
-            state.push([decrementDim(popped[0])])
+            # temporary hack
+            result = self._removeInterface(decrementDim(popped[0]))
+            state.push([result])
+
         elif op == ops.NEWARRAY or op == ops.ANEWARRAY:
             arrt = self.stack_push[0]
             size = popped[0].const

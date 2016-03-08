@@ -38,4 +38,17 @@ L3:
     .end code
 .end method
 
+.method public static infiniteLoop : ([Ljava/lang/String;)V
+    .code stack 10 locals 10
+        invokestatic Method java/lang/Runtime availableProcessors ()I
+L0:
+        dup
+        tableswitch 0
+            L0
+            default: L4
+L4:
+        return
+    .end code
+.end method
+
 .end class

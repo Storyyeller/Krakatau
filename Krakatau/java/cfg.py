@@ -158,13 +158,10 @@ class DUGraph(object):
             elif isinstance(stmt, ast.WhileStatement):
                 if stmt.expr != ast.Literal.TRUE: #while(cond)
                     assert(stmt.breakKey is not None)
-                    assert(stmt.continueKey != stmt.getScopes()[0].continueKey)
                     self.finishBlock(block, catch_stack)
                     block = self.makeBlock(stmt.continueKey, break_dict, None, None)
                     visitExpr(stmt.expr, block.lines)
                     break_dict[stmt.breakKey].append(block)
-                else:
-                    assert(stmt.continueKey == stmt.getScopes()[0].continueKey)
 
                 break_dict[stmt.continueKey].append(block)
                 body_block = self.visitScope(stmt.getScopes()[0], break_dict, catch_stack)

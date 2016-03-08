@@ -79,7 +79,7 @@ class TypeConstraint(ValueType):
         return TypeConstraint.reduce(cons[0].env, supers, exact)
 
 class ObjectConstraint(ValueType):
-    __slots__ = "null types arrlen isBot".split()
+    __slots__ = "null types isBot".split()
     def __init__(self, null, types):
         self.null, self.types = null, types
         self.isBot = null and types.isBot

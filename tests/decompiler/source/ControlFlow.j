@@ -7,6 +7,18 @@
     .limit locals 11
     .limit stack 11
 
+    ; Test unused iinc results
+    iconst_3
+    iconst_3
+    istore 3
+    istore 4
+    iconst_4
+    iconst_4
+    if_icmpgt Lendiinc
+    iinc 4 -44
+Lendiinc:
+    iinc 3 33
+
 LSTART:
     aload_0
     dup

@@ -1,17 +1,12 @@
-#!/usr/bin/env python2
-'''Script for testing the decompiler.
-
-On the first run tests/*.test files will be created with expected results for each test.
-
-To generate a test's result file, run with `--create-only`.
-To add a new test, add the relevant classfile and an entry in registry.
-'''
-import os, shutil, tempfile, time
 import hashlib
 import json
 import multiprocessing
-import optparse
+import os
+import shutil
 import subprocess
+import sys
+import tempfile
+import time
 
 from Krakatau import script_util
 from Krakatau.assembler.tokenize import AsssemblerError
@@ -163,9 +158,8 @@ def addAssemblerTests(testlist, basedir, exceptFailure):
             testlist.append(('assembler', os.path.join(basedir, fname), exceptFailure))
 
 if __name__ == '__main__':
-    op = optparse.OptionParser(usage='Usage: %prog [options] [testfile(s)]',
-                               description=__doc__)
-    opts, args = op.parse_args()
+    args = sys.argv[1] if len(sys.argv) > 1 else 'dsa'
+
     try:
         os.mkdir(cache_location)
     except OSError:
@@ -174,16 +168,19 @@ if __name__ == '__main__':
     start_time = time.time()
     testlist = []
 
-    for target, testcases in sorted(tests.decompiler.registry.items()):
-        testlist.append(('decompiler', target, map(tuple, testcases)))
-    for target, testcases in sorted(tests.disassembler.registry.items()):
-        testlist.append(('disassembler', target, map(tuple, testcases)))
+    if 'd' in args:
+        for target, testcases in sorted(tests.decompiler.registry.items()):
+            testlist.append(('decompiler', target, map(tuple, testcases)))
+    if 's' in args:
+        for target, testcases in sorted(tests.disassembler.registry.items()):
+            testlist.append(('disassembler', target, map(tuple, testcases)))
 
-    test_base = os.path.join(krakatau_root, 'tests')
-    addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'bad'), True)
-    addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'good'), False)
-    addAssemblerTests(testlist, os.path.join(test_base, 'decompiler', 'source'), False)
-    addAssemblerTests(testlist, os.path.join(test_base, 'disassembler', 'source'), False)
+    if 'a' in args:
+        test_base = os.path.join(krakatau_root, 'tests')
+        addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'bad'), True)
+        addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'good'), False)
+        addAssemblerTests(testlist, os.path.join(test_base, 'decompiler', 'source'), False)
+        addAssemblerTests(testlist, os.path.join(test_base, 'disassembler', 'source'), False)
 
     print len(testlist), 'test cases found'
     for error in multiprocessing.Pool(processes=5).map(runTest, testlist):
@@ -191,5 +188,5 @@ if __name__ == '__main__':
             print error
             break
     else:
-        print 'All tests passed!'
+        print 'All {} tests passed!'.format(len(testlist))
         print 'elapsed time:', time.time()-start_time

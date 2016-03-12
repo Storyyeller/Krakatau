@@ -531,7 +531,7 @@ class SSA_Graph(object):
         skipvars = [phi.get((jsrblock, False)) for phi in ftblock.phis]
         skipvars = [var for var in skipvars if var.origin is not jsrop]
         #will need to change if we ever add a pass to create new skipvars
-        assert set(skipvars) <= jsrop.debug_skipvars
+        # assert set(skipvars) <= jsrop.debug_skipvars
 
         svarcopy = {(var, block):self._copyVar(var) for var, block in itertools.product(skipvars, region)}
         for var, block in itertools.product(skipvars, region):
@@ -547,7 +547,8 @@ class SSA_Graph(object):
                 else:
                     phi.add(key, svarcopy[var, key[0]])
 
-        outreplace = {jv:rv for jv, rv in zip(jsrblock.jump.output, retblock.jump.input) if jv is not None}
+        outreplace = {jv:rv for jv, rv in zip(jsrblock.jump.output.stack, retblock.jump.input.stack) if jv is not None}
+        outreplace.update({jv:retblock.jump.input.locals[i] for i, jv in jsrblock.jump.output.locals.items() if jv is not None})
         for var in outreplace: #don't need jsrop's out vars anymore
             del jsrblock.unaryConstraints[var]
 
@@ -575,7 +576,6 @@ class SSA_Graph(object):
         self.procs = graph_util.topologicalSort(self.procs, parents.get)
         if any(parents.values()):
             print 'Warning, nesting subprocedures detected! This method may take a long time to decompile.'
-
         print 'Subprocedures for', self.code.method.name + ':', self.procs
 
         #now inline the procs
@@ -723,7 +723,7 @@ def ssaFromVerified(code, iNodes, opts):
     assert parent.entryBlock in blocks
 
     #create subproc info
-    procd = {block.jump.target:subproc.ProcInfo(block, block.jump.target) for block in blocks if isinstance(block.jump, subproc.DummyRet)}
+    procd = {block.jump.target: subproc.ProcInfo(block, block.jump.target) for block in blocks if isinstance(block.jump, subproc.DummyRet)}
     for block in blocks:
         if isinstance(block.jump, subproc.ProcCallOp):
             procd[block.jump.target].jsrblocks.append(block)
@@ -742,7 +742,7 @@ def ssaFromVerified(code, iNodes, opts):
     for block in blocks:
         bvars = []
         if isinstance(block.jump, subproc.ProcCallOp):
-            bvars += block.jump.output
+            bvars += block.jump.flatOutput()
         #entry block has no phis
         if block is parent.entryBlock:
             bvars += parent.inputArgs

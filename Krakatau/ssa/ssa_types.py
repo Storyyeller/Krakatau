@@ -6,6 +6,9 @@ from ..verifier import verifier_types as vtypes
 nt = collections.namedtuple
 slots_t = nt('slots_t', ('locals', 'stack'))
 
+def _localsAsList(self): return [t[1] for t in sorted(self.locals.items())]
+slots_t.localsAsList = property(_localsAsList)
+
 #types
 SSA_INT = 'int', 32
 SSA_LONG = 'int', 64

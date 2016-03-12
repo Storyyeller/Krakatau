@@ -189,7 +189,7 @@ def _iinc(maker, input_, iNode):
     constval = makeConstVar(maker.parent, SSA_INT, amount)
     line = ssa_ops.IAdd(maker.parent, (oldval, constval))
 
-    newlocals = list(input_.locals)
+    newlocals = input_.locals.copy()
     newlocals[index] = line.rval
     return ResultDict(line=line, newlocals=newlocals)
 
@@ -211,7 +211,7 @@ def _invoke(maker, input_, iNode):
         argcnt += 1
     splitInd = len(input_.stack) - argcnt
 
-    #If we are an initializer, store a copy of the uninitialized verifier type so the Java decompiler can patch things up later
+    # If we are an initializer, store a copy of the uninitialized verifier type so the Java decompiler can patch things up later
     isThisCtor = iNode.isThisCtor if iNode.op == vops.INVOKEINIT else False
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
@@ -237,14 +237,14 @@ def _jsr(maker, input_, iNode):
         jump = ssa_jumps.Goto(maker.parent, maker.blockd[iNode.successors[0]])
         return ResultDict(newstack=newstack, jump=jump)
 
-    #create output variables from callop to represent vars received from ret.
-    #We can use {} for initMap since there will never be unintialized types here
+    # create output variables from callop to represent vars received from ret.
+    # We can use {} for initMap since there will never be unintialized types here
     retnode = maker.iNodeD[iNode.returnedFrom]
     stack = [maker.parent.makeVarFromVtype(vt, {}) for vt in retnode.out_state.stack]
-    locals = [maker.parent.makeVarFromVtype(vt, {}) for vt in retnode.out_state.locals]
-    out_slots = slots_t(locals=locals, stack=stack)
+    newlocals = dict(enumerate(maker.parent.makeVarFromVtype(vt, {}) for vt in retnode.out_state.locals))
+    out_slots = slots_t(locals=newlocals, stack=stack)
 
-    #Simply store the data for now and fix things up once all the blocks are created
+    # Simply store the data for now and fix things up once all the blocks are created
     jump = subproc.ProcCallOp(maker.blockd[iNode.successors[0]], maker.blockd[iNode.next_instruction], input_, out_slots)
     return ResultDict(jump=jump, newstack=newstack)
 
@@ -358,11 +358,8 @@ def _store(maker, input_, iNode):
     cat = getCategory(iNode.instruction[1])
     index = iNode.instruction[2]
 
-    newlocals = list(input_.locals)
-    if len(newlocals) < index+cat:
-        newlocals += [None] * (index+cat - len(newlocals))
-
-    newlocals[index:index+cat] = input_.stack[-cat:]
+    newlocals = input_.locals.copy()
+    newlocals[index] = input_.stack[-cat]
     newstack = input_.stack[:-cat]
     return ResultDict(newstack=newstack, newlocals=newlocals)
 

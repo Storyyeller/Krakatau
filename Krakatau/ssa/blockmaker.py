@@ -13,8 +13,8 @@ ENTRY_KEY, RETURN_KEY, RETHROW_KEY = -1, -2, -3
 
 def slotsRvals(inslots):
     stack = [(None if phi is None else phi.rval) for phi in inslots.stack]
-    locals = [(None if phi is None else phi.rval) for phi in inslots.locals]
-    return slots_t(stack=stack, locals=locals)
+    newlocals = {i: phi.rval for i, phi in inslots.locals.items() if phi is not None}
+    return slots_t(stack=stack, locals=newlocals)
 
 _jump_instrs = frozenset([vops.GOTO, vops.IF_A, vops.IF_ACMP, vops.IF_I, vops.IF_ICMP, vops.JSR, vops.SWITCH])
 class BlockMaker(object):
@@ -27,7 +27,7 @@ class BlockMaker(object):
         self.iNodeD = {n.key:n for n in self.iNodes}
         exceptions = [eh for eh in except_raw if eh.handler in self.iNodeD]
 
-        #create map of uninitialized -> initialized types so we can convert them
+        # create map of uninitialized -> initialized types so we can convert them
         self.initMap = {}
         for node in self.iNodes:
             if node.op == vops.NEW:
@@ -35,13 +35,14 @@ class BlockMaker(object):
         self.initMap[verifier_types.T_UNINIT_THIS] = verifier_types.T_OBJECT(parent.class_.name)
         self.hasmonenter = any(node.instruction[0] == vops.MONENTER for node in self.iNodes)
 
-        self.entryBlock = self.makeBlockWithInslots(ENTRY_KEY, locals=inputTypes, stack=[])
-        self.returnBlock = self.makeBlockWithInslots(RETURN_KEY, locals=[], stack=returnTypes)
+        self.entryBlock = self.makeBlockWithInslots(ENTRY_KEY, newlocals=inputTypes, stack=[])
+        self.returnBlock = self.makeBlockWithInslots(RETURN_KEY, newlocals=[], stack=returnTypes)
         self.returnBlock.jump = ssa_jumps.Return(self, [phi.rval for phi in self.returnBlock.phis])
-        self.rethrowBlock = self.makeBlockWithInslots(RETHROW_KEY, locals=[], stack=[verifier_types.THROWABLE_INFO])
+        self.rethrowBlock = self.makeBlockWithInslots(RETHROW_KEY, newlocals=[], stack=[verifier_types.THROWABLE_INFO])
         self.rethrowBlock.jump = ssa_jumps.Rethrow(self, [phi.rval for phi in self.rethrowBlock.phis])
 
-        self.inputArgs = slotsRvals(self.entryBlock.inslots).locals #for ssagraph to copy
+        # for ssagraph to copy
+        self.inputArgs = slotsRvals(self.entryBlock.inslots).localsAsList
         self.entryBlock.phis = []
 
         # We need to create stub blocks for every jump target so we can add them as successors during creation
@@ -162,11 +163,15 @@ class BlockMaker(object):
         instr = iNode.instruction
 
         # internal variables won't have any preset type info associated, so we should add in the info from the verifier
-        assert len(inslots.stack) == len(iNode.state.stack) and len(inslots.locals) >= len(iNode.state.locals)
-        assert all(x is None for x in inslots.locals[len(iNode.state.locals):])
-        for ivar, vt in zip(inslots.stack + inslots.locals, iNode.state.stack + iNode.state.locals):
+        assert len(inslots.stack) == len(iNode.state.stack)
+        for i, ivar in enumerate(inslots.stack):
             if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
-                parent.setObjVarData(ivar, vt, initMap)
+                parent.setObjVarData(ivar, iNode.state.stack[i], initMap)
+
+        for i, ivar in inslots.locals.items():
+            if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
+                parent.setObjVarData(ivar, iNode.state.locals[i], initMap)
+
 
         vals = instructionHandlers[instr[0]](self, inslots, iNode)
         newstack = vals.newstack if vals.newstack is not None else inslots.stack
@@ -231,12 +236,15 @@ class BlockMaker(object):
 
     def mergeIn(self, from_key, target_key, outslots):
         inslots = self.blockd[target_key].inslots
-        assert len(inslots.stack) == len(outslots.stack) and len(inslots.locals) <= len(outslots.locals)
-        phis = inslots.locals + inslots.stack
-        vars = outslots.locals[:len(inslots.locals)] + outslots.stack
-        for phi, var in zip(phis, vars):
+
+        for i, phi in enumerate(inslots.stack):
             if phi is not None:
-                phi.add(from_key, var)
+                phi.add(from_key, outslots.stack[i])
+
+        for i, phi in inslots.locals.items():
+            if phi is not None:
+                phi.add(from_key, outslots.locals[i])
+
         self.blockd[target_key].predecessors.append(from_key)
 
     ## Block Creation #########################################
@@ -244,7 +252,7 @@ class BlockMaker(object):
         var = self.parent.makeVarFromVtype(vt, self.initMap)
         return None if var is None else ssa_ops.Phi(block, var)
 
-    def makeBlockWithInslots(self, key, locals, stack):
+    def makeBlockWithInslots(self, key, newlocals, stack):
         assert key not in self.blockd
         block = BasicBlock(key)
         self.blocks.append(block)
@@ -252,9 +260,9 @@ class BlockMaker(object):
 
         #create inslot phis
         stack = [self._makePhiFromVType(block, vt) for vt in stack]
-        locals = [self._makePhiFromVType(block, vt) for vt in locals]
-        block.inslots = slots_t(locals=locals, stack=stack)
-        block.phis = [phi for phi in stack + locals if phi is not None]
+        newlocals = dict(enumerate(self._makePhiFromVType(block, vt) for vt in newlocals))
+        block.inslots = slots_t(locals=newlocals, stack=stack)
+        block.phis = [phi for phi in stack + block.inslots.localsAsList if phi is not None]
         return block
 
     def makeBlock(self, key):
@@ -279,18 +287,17 @@ class BlockMaker(object):
         target_key, ft_key = jump.target.key, jump.fallthrough.key
         assert ft_key == jsrnode.next_instruction
 
-        #first merge regular jump to target
+        # first merge regular jump to target
         self.mergeIn((block, False), target_key, outslot_norm)
-        #create merged outslots for fallthrough
+        # create merged outslots for fallthrough
         fromcall = jump.output
-        localoff = jump.out_localoff
-        stack, locals = fromcall[:localoff], fromcall[localoff:]
-
         mask = [mask for key, mask in retnode.state.masks if key == target_key][0]
-        zipped = itertools.izip_longest(outslot_norm.locals, locals, fillvalue=None)
-        merged = [(y if i in mask else x) for i,(x,y) in enumerate(zipped)]
-        jump.debug_skipvars = set(merged) - set(locals)
 
-        outslot_merged = slots_t(locals=merged, stack=stack)
-        #merge merged outputs with fallthrough
+        skiplocs = fromcall.locals
+        retlocs = outslot_norm.locals
+        merged = {i: (skiplocs.get(i) if i in mask else retlocs.get(i)) for i in (mask | frozenset(retlocs))}
+        # jump.debug_skipvars = set(merged) - set(locals)
+
+        outslot_merged = slots_t(locals=merged, stack=outslot_norm.stack)
+        # merge merged outputs with fallthrough
         self.mergeIn((block, False), ft_key, outslot_merged)

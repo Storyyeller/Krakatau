@@ -16,6 +16,8 @@ ENTRY_KEY, RETURN_KEY, RETHROW_KEY = -1, -2, -3
 
 def getUsedLocals(iNodes, iNodeD, exceptions):
     # For every instruction, find which locals at that point may be used in the future
+    except_ranges = [(h, [node.key for node in iNodes if s <= node.key < e]) for s, e, h, i in exceptions]
+
     old = collections.defaultdict(int)
     while 1:
         data = old.copy()
@@ -41,14 +43,13 @@ def getUsedLocals(iNodes, iNodeD, exceptions):
 
                 assert node.next_instruction is not None
                 used |= (data[node.next_instruction] & ~mask)
+            data[node.key] |= used
 
-            # Note, this must come after the step marking stores unused!
-            for (start, end, handler, index) in exceptions:
-                if start <= node.key < end:
-                    used |= data[handler]
+        for hkey, region in except_ranges:
+            if data[hkey] != old[hkey]:
+                for key in region:
+                    data[key] |= data[hkey]
 
-            assert used | data[node.key] == used
-            data[node.key] = used
         if data == old:
             break
         old = data

@@ -109,11 +109,11 @@ class SSA_Graph(object):
             block.phis = filterOps(block.phis)
             block.lines = filterOps(block.lines)
             block.filterVarConstraints(keepset)
-        self._conscheck()
+        assert self._conscheck() is None
 
     def mergeSingleSuccessorBlocks(self):
         assert(not self.procs) # Make sure that all single jsr procs are inlined first
-        self._conscheck()
+        assert self._conscheck() is None
 
         removed = set()
         for block in self.blocks:
@@ -148,7 +148,7 @@ class SSA_Graph(object):
                         phi.replaceVars(replace)
                 removed.add(block2)
         self.blocks = [b for b in self.blocks if b not in removed]
-        self._conscheck()
+        assert self._conscheck() is None
 
     def disconnectConstantVariables(self):
         for block in self.blocks:
@@ -167,7 +167,7 @@ class SSA_Graph(object):
                         var.origin = None
                         var.const = newval
             block.phis = [phi for phi in block.phis if phi.rval is not None]
-        self._conscheck()
+        assert self._conscheck() is None
 
     def _conscheck(self):
         '''Sanity check'''
@@ -189,7 +189,7 @@ class SSA_Graph(object):
     def copyPropagation(self):
         # Loop aware copy propagation
         assert not self.procs
-        self._conscheck()
+        assert self._conscheck() is None
 
         # The goal is to propagate constants that would never be inferred pessimistically
         # due to the prescence of loops. Variables that aren't derived from a constant or phi
@@ -223,12 +223,12 @@ class SSA_Graph(object):
                 for var in scc:
                     UCs[var] = v2b[var].unaryConstraints[var]
 
-        self._conscheck()
+        assert self._conscheck() is None
 
     def abstractInterpert(self):
         # Sparse conditional constant propagation and type inference
         assert not self.procs
-        self._conscheck()
+        assert self._conscheck() is None
 
         visit_counts = collections.defaultdict(int)
         dirty_phis = set(itertools.chain.from_iterable(block.phis for block in self.blocks))
@@ -494,7 +494,7 @@ class SSA_Graph(object):
                 for phi1, phi2 in zip(oldc.phis, child.phis):
                     phi2.add((block, t), vard[phi1.get((oldb, t))])
 
-        self._conscheck()
+        assert self._conscheck() is None
         return blockd
 
     def _splitSubProc(self, proc):
@@ -561,7 +561,7 @@ class SSA_Graph(object):
             phi.replaceVars(outreplace)
 
     def inlineSubprocs(self):
-        self._conscheck()
+        assert self._conscheck() is None
         if not self.procs:
             return
 
@@ -585,11 +585,11 @@ class SSA_Graph(object):
                 print 'splitting', proc
                 #push new subproc onto stack
                 self.procs.append(self._splitSubProc(proc))
-                self._conscheck()
+                assert self._conscheck() is None
             # When a subprocedure has only one call point, it can just be inlined instead of splitted
             print 'inlining', proc
             self._inlineSubProc(proc)
-            self._conscheck()
+            assert self._conscheck() is None
     ##########################################################################
     def splitDualInedges(self):
         # Split any blocks that have both normal and exceptional in edges
@@ -631,7 +631,7 @@ class SSA_Graph(object):
                     phi.delete(t)
                     newphi.add(t, arg)
                 phi.add((new, False), newrval)
-        self._conscheck()
+        assert self._conscheck() is None
 
     def fixLoops(self):
         assert not self.procs
@@ -671,7 +671,7 @@ class SSA_Graph(object):
                 newtodo.extend(scc)
                 newtodo.remove(head)
             todo = newtodo
-        self._conscheck()
+        assert self._conscheck() is None
 
     # Functions called by children ###########################################
     # assign variable names for debugging

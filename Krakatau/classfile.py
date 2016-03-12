@@ -17,7 +17,7 @@ cp_structFmts = {3: '>i',
 
 def get_cp_raw(bytestream):
     const_count = bytestream.get('>H')
-    assert(const_count > 1)
+    assert const_count > 1
 
     placeholder = None,None
     pool = [placeholder]
@@ -34,7 +34,7 @@ def get_cp_raw(bytestream):
         #Longs and Doubles take up two spaces in the pool
         if tag == 5 or tag == 6:
             pool.append(placeholder)
-    assert(len(pool) == const_count)
+    assert len(pool) == const_count
     return pool
 
 def get_field_raw(bytestream):
@@ -68,7 +68,7 @@ class ClassFile(object):
 
     def __init__(self, bytestream):
         magic, minor, major = bytestream.get('>LHH')
-        assert(magic == 0xCAFEBABE)
+        assert magic == 0xCAFEBABE
         self.version = major,minor
 
         const_pool_raw = get_cp_raw(bytestream)
@@ -82,7 +82,7 @@ class ClassFile(object):
 
         ic_indices = [i for i,x in enumerate(const_pool_raw) if x == (1, ("InnerClasses",))]
         self.attributes_raw = get_attributes_raw(bytestream, ic_indices)
-        assert(bytestream.size() == 0)
+        assert bytestream.size() == 0
 
         self.flags = frozenset(name for name,mask in ClassFile.flagVals.items() if (mask & flags))
         self.cpool = constant_pool.ConstPool(const_pool_raw)

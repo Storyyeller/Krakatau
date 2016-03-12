@@ -41,7 +41,7 @@ class SETry(object):
 
 class SEIf(object):
     def __init__(self, head, newscopes):
-        assert(len(newscopes) == 2)
+        assert len(newscopes) == 2
         self.scopes = newscopes
         self.head = head
         update(self, [head] + newscopes)
@@ -57,7 +57,7 @@ class SESwitch(object):
 
         jump = head.node.block.jump
         keysets = {head.node.blockdict[b.key,False]:jump.reverse.get(b) for b in jump.getNormalSuccessors()}
-        assert(keysets.values().count(None) == 1)
+        assert keysets.values().count(None) == 1
         self.ordered_keysets = [keysets[item.entryBlock] for item in newscopes]
 
     def getScopes(self): return self.scopes

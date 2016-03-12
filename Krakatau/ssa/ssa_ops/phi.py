@@ -8,13 +8,13 @@ class Phi(object):
         self.block = block #used in constraint propagation
         self.dict = {}
         self.rval = rval
-        assert(rval is not None and rval.origin is None)
+        assert rval is not None and rval.origin is None
         rval.origin = self
 
     def add(self, key, val):
-        assert(key not in self.dict)
-        assert(val.type == self.rval.type)
-        assert(val is not None)
+        assert key not in self.dict
+        assert val.type == self.rval.type
+        assert val is not None
         self.dict[key] = val
 
     @property
@@ -32,7 +32,7 @@ class Phi(object):
         return self.rval, None, None
 
     def removeOutput(self, var):
-        assert(var == self.rval)
+        assert var == self.rval
         self.rval = None
 
 # An extended basic block can contain multiple throwing instructions

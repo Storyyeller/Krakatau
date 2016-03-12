@@ -32,7 +32,7 @@ def findVarDeclInfo(root, predeclared):
 
     def visitDeclExpr(scope, expr):
         info.setdefault(expr, DeclInfo())
-        assert(scope is not None and info[expr].declScope is None)
+        assert scope is not None and info[expr].declScope is None
         info[expr].declScope = scope
 
     for expr in predeclared:
@@ -54,7 +54,7 @@ def findVarDeclInfo(root, predeclared):
     return info
 
 def reverseBoolExpr(expr):
-    assert(expr.dtype == objtypes.BoolTT)
+    assert expr.dtype == objtypes.BoolTT
     if isinstance(expr, ast.BinaryInfix):
         symbols = "== != < >= > <=".split()
         floatts = (objtypes.FloatTT, objtypes.DoubleTT)
@@ -79,7 +79,7 @@ def getSubscopeIter(root):
             stack.extend(scope.getScopes())
 
 def mayBreakTo(root, forbidden):
-    assert(None not in forbidden)
+    assert None not in forbidden
     for scope in getSubscopeIter(root):
         if scope.jumpKey in forbidden:
             #We return true if scope has forbidden jump and is reachable
@@ -106,18 +106,18 @@ def mayBreakTo(root, forbidden):
 
                 if not isinstance(last, ast.WhileStatement):
                     for sub in last.getScopes():
-                        assert(sub.breakKey == last.breakKey == scope.jumpKey)
+                        assert sub.breakKey == last.breakKey == scope.jumpKey
     return False
 
 def replaceKeys(top, replace):
-    assert(None not in replace)
+    assert None not in replace
     get = lambda k:replace.get(k,k)
 
     if top.getScopes():
         if isinstance(top, ast.StatementBlock) and get(top.breakKey) is None:
             #breakKey can be None with non-None jumpKey when we're a scope in a switch statement that falls through
             #and the end of the switch statement is unreachable
-            assert(get(top.jumpKey) is None or not top.labelable)
+            assert get(top.jumpKey) is None or not top.labelable
 
         top.breakKey = get(top.breakKey)
         if isinstance(top, ast.StatementBlock):
@@ -168,9 +168,9 @@ def _pruneRethrow_cb(item):
         break
     if not item.pairs:
         new = item.tryb
-        assert(new.breakKey == item.breakKey)
-        assert(new.continueKey == item.continueKey)
-        assert(not new.labelable)
+        assert new.breakKey == item.breakKey
+        assert new.continueKey == item.continueKey
+        assert not new.labelable
         new.labelable = True
         return new
     return item
@@ -210,7 +210,7 @@ def _pruneIfElse_cb(item):
             tblock, fblock = item.scopes = fblock, tblock
 
         if priority(tblock) < (3, 0):
-            assert(tblock.statements or not tblock.doesFallthrough())
+            assert tblock.statements or not tblock.doesFallthrough()
             item.scopes = tblock,
             item.breakKey = fblock.continueKey
             fblock.labelable = True
@@ -250,7 +250,7 @@ def _whileCondition_cb(item):
             trueb, falseb = falseb, trueb
         else:
             return failure
-    assert(not mayBreakTo(trueb, badjumps1))
+    assert not mayBreakTo(trueb, badjumps1)
 
 
     trivial = not trueb.statements and trueb.jumpKey == item.breakKey
@@ -278,10 +278,10 @@ def _whileCondition_cb(item):
     trueb.labelable = True
 
     if item.breakKey is None: #Make sure to maintain invariant that bkey=None -> jkey=None
-        assert(trueb.doesFallthrough())
+        assert trueb.doesFallthrough()
         trueb.jumpKey = trueb.breakKey = None
     trueb.breakKey = item.breakKey
-    assert(trueb.continueKey is not None)
+    assert trueb.continueKey is not None
     if not trivial:
         item.breakKey = trueb.continueKey
 
@@ -301,7 +301,7 @@ def _simplifyBlocksSub(scope, item, isLast):
         rest, item = _whileCondition_cb(item)
 
     if isinstance(item, ast.StatementBlock):
-        assert(item.breakKey is not None or item.jumpKey is None)
+        assert item.breakKey is not None or item.jumpKey is None
         #If bkey is None, it can't be broken to
         #If contents can also break to enclosing scope, it's always safe to inline
         bkey = item.breakKey
@@ -315,9 +315,9 @@ def _simplifyBlocksSub(scope, item, isLast):
 
         if not item.statements:
             if item.jumpKey != bkey:
-                assert(isLast)
+                assert isLast
                 scope.jumpKey = item.jumpKey
-                assert(scope.breakKey is not None or scope.jumpKey is None)
+                assert scope.breakKey is not None or scope.jumpKey is None
             return rest
     return rest + [item]
 
@@ -364,7 +364,7 @@ def _mergeComparisons(expr):
     if args is None:
         return expr
 
-    assert(not hasSideEffects(args[0]) and not hasSideEffects(args[1]))
+    assert not hasSideEffects(args[0]) and not hasSideEffects(args[1])
     if args[0].dtype in (objtypes.FloatTT, objtypes.DoubleTT):
         mask, d = 15, _bit2ops_float
     else:
@@ -401,7 +401,7 @@ def _simplifyExpressions(expr):
                     #these could be string or class literals, but those are always nonnull so it still works
                     res = (left == right) == (op == '==')
                 else:
-                    assert(left.dtype == right.dtype)
+                    assert left.dtype == right.dtype
                     res = opfuncs[op](left.val, right.val)
                 expr = bools[res]
             # (a ? lb : c) cmp ld -> a ? (lb cmp ld) : (c cmp ld)
@@ -477,7 +477,7 @@ def _replaceExpressions(scope, item, rdict):
         item.expr = item.expr.replaceSubExprs(rdict)
     #remove redundant assignments i.e. x=x;
     if isinstance(item.expr, ast.Assignment):
-        assert(isinstance(item, ast.ExpressionStatement))
+        assert isinstance(item, ast.ExpressionStatement)
         left, right = item.expr.params
         if left == right:
             return []
@@ -565,7 +565,7 @@ def _inlineVariables(root):
     replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
     def doReplacement(item, pairs):
         old, new = item.expr.params
-        assert(isinstance(old, ast.Local) and old.dtype == new.dtype)
+        assert isinstance(old, ast.Local) and old.dtype == new.dtype
         stack = [(True, (True, item2, expr)) for item2, expr in reversed(pairs) if expr is not None]
         while stack:
             recurse, args = stack.pop()
@@ -591,7 +591,7 @@ def _inlineVariables(root):
                         for param in reversed(left.params):
                             stack.append((True, (canReplace, left, param)))
                     else:
-                        assert(isinstance(left, ast.Local))
+                        assert isinstance(left, ast.Local)
                 else:
                     for param in reversed(expr.params):
                         stack.append((True, (canReplace, expr, param)))
@@ -602,7 +602,7 @@ def _inlineVariables(root):
                             params = parent.params = list(parent.params)
                             params[params.index(old)] = new
                         else: #replacing in a top level statement
-                            assert(parent.expr == old)
+                            assert parent.expr == old
                             parent.expr = new
                     return canReplace
             else:
@@ -670,8 +670,8 @@ def _createDeclarations(root, predeclared):
 
     mdVisitScope(root)
     # print remaining
-    assert(not remaining)
-    assert(None not in localdefs)
+    assert not remaining
+    assert None not in localdefs
     for scope, ldefs in localdefs.items():
         scope.statements = ldefs + scope.statements
 
@@ -694,7 +694,7 @@ def _createTernaries(scope, item):
                         temp = ast.ExpressionStatement(ast.Assignment(e1.params[0], expr))
 
                         if not block1.doesFallthrough():
-                            assert(not block2.doesFallthrough())
+                            assert not block2.doesFallthrough()
                             item = ast.StatementBlock(item.func, item.continueKey, item.breakKey, [temp], block1.jumpKey)
                         else:
                             item = temp
@@ -743,7 +743,7 @@ def _fallsThrough(scope, usedBreakTargets):
         return any(_fallsThrough(sub, usedBreakTargets) for sub in last.getScopes())
 
 def _chooseJump(choices, breakPair, continuePair):
-    assert(None not in choices)
+    assert None not in choices
     if breakPair in choices:
         return breakPair
     if continuePair in choices:
@@ -755,7 +755,7 @@ def _chooseJump(choices, breakPair, continuePair):
     return choices[0]
 
 def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tuple), breakPair=None, continuePair=None, fallthroughs=NONE_SET, dryRun=False):
-    assert(None in fallthroughs)
+    assert None in fallthroughs
     newfallthroughs = fallthroughs
     newcontinuePair = continuePair
     newbreakPair = breakPair
@@ -790,7 +790,7 @@ def _generateJumps(scope, usedBreakTargets, targets=collections.defaultdict(tupl
     for item in scope.statements:
         if isinstance(item, ast.StatementBlock) and item.statements:
             if isinstance(item.statements[-1], ast.JumpStatement):
-                assert(item is scope.statements[-1] or item in usedBreakTargets)
+                assert item is scope.statements[-1] or item in usedBreakTargets
 
     # Now that we've visited children, decide if we need a jump for this scope, and if so, generate it
     if scope.jumpKey not in fallthroughs:
@@ -837,12 +837,12 @@ def generateAST(method, graph, forbidden_identifiers):
         ################################################################################################
         ast_root.bases = (ast_root,) #needed for our setScopeParents later
 
-        assert(_generateJumps(ast_root, set(), dryRun=True) is None)
+        assert _generateJumps(ast_root, set(), dryRun=True) is None
         _preorder(ast_root, _fixObjectCreations)
         boolize.boolizeVars(ast_root, argsources)
         boolize.interfaceVars(env, ast_root, argsources)
         _simplifyBlocks(ast_root)
-        assert(_generateJumps(ast_root, set(), dryRun=True) is None)
+        assert _generateJumps(ast_root, set(), dryRun=True) is None
 
         _mergeVariables(ast_root, argsources, method.static)
 

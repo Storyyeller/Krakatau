@@ -33,7 +33,7 @@ class JavaStatement(object):
 class ExpressionStatement(JavaStatement):
     def __init__(self, expr):
         self.expr = expr
-        assert(expr is not None)
+        assert expr is not None
 
     def print_(self, printer, print_): return print_(self.expr) + ';'
     def tree(self, printer, tree): return [self.__class__.__name__, tree(self.expr)]
@@ -179,7 +179,7 @@ class SwitchStatement(LazyLabelBase):
         def printCase(keys):
             if keys is None:
                 return 'default: '
-            assert(keys)
+            assert keys
             return ''.join(map('case {}: '.format, sorted(keys)))
 
         bodies = [(printCase(keys) + print_(scope)) for keys, scope in self.pairs]
@@ -202,7 +202,7 @@ class WhileStatement(LazyLabelBase):
         super(WhileStatement, self).__init__(labelfunc, begink, endk)
         self.expr = Literal.TRUE
         self.parts = parts
-        assert(len(self.parts) == 1)
+        assert len(self.parts) == 1
 
     def getScopes(self): return self.parts
 
@@ -225,7 +225,7 @@ class StatementBlock(LazyLabelBase):
     def getScopes(self): return self,
 
     def print_(self, printer, print_):
-        assert(self.labelable or self.label is None)
+        assert self.labelable or self.label is None
         contents = '\n'.join(print_(x) for x in self.statements)
         indented = ['    '+line for line in contents.splitlines()]
         # indented[:0] = ['    //{} {}'.format(self,x) for x in (self.continueKey, self.breakKey, self.jumpKey)]
@@ -249,7 +249,7 @@ _assignable_lprims = objtypes.IntTT, objtypes.LongTT, objtypes.FloatTT, objtypes
 
 # Also used in boolize.py
 def isPrimativeAssignable(x, y): #x = fromt, y = to
-    assert(objtypes.dim(x) == objtypes.dim(y) == 0)
+    assert objtypes.dim(x) == objtypes.dim(y) == 0
 
     if x == y or (x in _assignable_sprims and y in _assignable_lprims):
         return True
@@ -266,7 +266,7 @@ def isJavaAssignable(env, fromt, to):
         return True
 
     if isReferenceType(to):
-        assert(isReferenceType(fromt))
+        assert isReferenceType(fromt)
         #todo - make it check interfaces too
         return objtypes.isSubtype(env, fromt, to)
     else: #allowed if numeric conversion is widening
@@ -375,7 +375,7 @@ class ArrayCreation(JavaExpression):
         self.dim = objtypes.dim(tt)
         self.params = [TypeName(objtypes.withNoDim(tt))] + list(sizeargs)
         self.dtype = tt
-        assert(self.dim >= len(sizeargs) > 0)
+        assert self.dim >= len(sizeargs) > 0
         self.fmt = 'new {}' + '[{}]'*len(sizeargs) + '[]'*(self.dim-len(sizeargs))
 
     def tree(self, printer, tree): return [self.__class__.__name__, map(tree, self.params), self.dim]
@@ -408,7 +408,7 @@ for _ops, _val in zip(_binary_ptable, range(10,20)):
 
 class BinaryInfix(JavaExpression):
     def __init__(self, opstr, params, dtype=None):
-        assert(len(params) == 2)
+        assert len(params) == 2
         self.params = params
         self.opstr = opstr
         self.fmt = '{{}} {} {{}}'.format(opstr)
@@ -485,7 +485,7 @@ class FieldAccess(JavaExpression):
     def print_(self, printer, print_):
         if self.op is None:
             name = self.name
-            assert(name in ('length','class'))
+            assert name in ('length','class')
         else:
             cls, name, desc = self.op.target, self.op.name, self.op.desc
             name = escapeString(printer.fieldName(cls, name, desc))
@@ -505,7 +505,7 @@ class FieldAccess(JavaExpression):
             self.params[0] = Parenthesis(p0)
 
 def printFloat(x, isSingle):
-    assert(x >= 0.0 and not math.isinf(x))
+    assert x >= 0.0 and not math.isinf(x)
     suffix = 'f' if isSingle else ''
     if isSingle and x > 0.0:
         #Try to find more compract representation for floats, since repr treats everything as doubles
@@ -513,7 +513,7 @@ def printFloat(x, isSingle):
         half_ulp2 = math.ldexp(1.0, max(e - 25, -150)) #don't bother doubling when near the upper range of a given e value
         half_ulp1 = (half_ulp2/2) if m == 0.5 and e >= -125 else half_ulp2
         lbound, ubound = x-half_ulp1, x+half_ulp2
-        assert(lbound < x < ubound)
+        assert lbound < x < ubound
         s = '{:g}'.format(x).replace('+','')
         if lbound < float(s) < ubound: #strict ineq to avoid potential double rounding issues
             return s + suffix
@@ -621,7 +621,7 @@ class MethodInvocation(JavaExpression):
     def print_(self, printer, print_):
         cls, name, desc = self.op.target, self.op.name, self.op.desc
         if name != self.name:
-            assert(name == '<init>')
+            assert name == '<init>'
             name = self.name
         else:
             name = escapeString(printer.methodName(cls, name, desc))

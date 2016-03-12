@@ -8,7 +8,7 @@ class ProcInfo(object):
         self.retblock = retblock
         self.target = target
         self.jsrblocks = []
-        assert(target is retblock.jump.target)
+        assert target is retblock.jump.target
 
     def __str__(self): return 'Proc{}<{}>'.format(self.target.key, ', '.join(str(b.key) for b in self.jsrblocks))
     __repr__ = __str__
@@ -38,7 +38,7 @@ class ProcCallOp(ProcJumpBase):
 
         for var in self.output:
             if var is not None:
-                assert(var.origin is None)
+                assert var.origin is None
                 var.origin = self
 
     def getNormalSuccessors(self): return self.fallthrough, self.target

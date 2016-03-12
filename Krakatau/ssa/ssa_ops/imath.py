@@ -72,7 +72,7 @@ class IXor(BaseOp):
 # Shifts currently only propogate ranges in the case where the shift is a known constant
 # TODO - make this handle the general case
 def getMaskedRange(x, bits):
-    assert(bits < x.width)
+    assert bits < x.width
     y = IntConstraint.const(x.width, (1<<bits) - 1)
     x = bitwise_util.propagateAnd(x,y)
 

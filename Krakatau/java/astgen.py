@@ -31,7 +31,7 @@ class VarInfo(object):
                     tt = uc.getSingleTType() #temp hack
                     if uc.types.isBoolOrByteArray():
                         tt = objtypes.TypeTT(objtypes.BExpr, objtypes.dim(tt)+1)
-                        # assert((objtypes.BoolTT[0], tt[1]) in uc.types.exact)
+                        # assert (objtypes.BoolTT[0], tt[1]) in uc.types.exact
                 else:
                     tt = _ssaToTT[var.type]
                 self._tts[var] = tt
@@ -81,7 +81,7 @@ _math_types += (ssa_ops.FAdd, ssa_ops.FDiv, ssa_ops.FMul, ssa_ops.FRem, ssa_ops.
 _math_symbols = dict(zip(_math_types, '+ / * % - & | << >> >>> ^ + / * % -'.split()))
 def _convertJExpr(op, getExpr, clsname):
     params = [getExpr(var) for var in op.params]
-    assert(None not in params)
+    assert None not in params
     expr = None
 
     #Have to do this one seperately since it isn't an expression statement
@@ -110,7 +110,7 @@ def _convertJExpr(op, getExpr, clsname):
         if ascend:
             expr = ast.Ternary(ast.BinaryInfix('<',params,boolt), cn1, ast.Ternary(ast.BinaryInfix('==',params,boolt), c0, c1))
         else:
-            assert(op.NaN_val == -1)
+            assert op.NaN_val == -1
             expr = ast.Ternary(ast.BinaryInfix('>',params,boolt), c1, ast.Ternary(ast.BinaryInfix('==',params,boolt), c0, cn1))
     elif isinstance(op, ssa_ops.FieldAccess):
         dtype = objtypes.verifierToSynthetic(parseFieldDescriptor(op.desc, unsynthesize=False)[0])
@@ -184,7 +184,7 @@ def _createASTBlock(info, endk, node):
         split_ind = 0
         if isinstance(block.jump, ssa_jumps.OnException):
             # find index of first throwing instruction, so we can insert eassigns before it later
-            assert(isinstance(block.lines[-1], ssa_ops.ExceptionPhi))
+            assert isinstance(block.lines[-1], ssa_ops.ExceptionPhi)
             split_ind = block.lines.index(block.lines[-1].params[0].origin)
 
         lines_before = filter(None, map(op2expr, block.lines[:split_ind]))
@@ -199,11 +199,11 @@ def _createASTBlock(info, endk, node):
     if block and len(block.lines) >= 2:
         temp_op = block.lines[-2]
         if lines_after and isinstance(temp_op, ssa_ops.CheckCast):
-            assert(isinstance(lines_after[-1].expr, ast.Cast))
+            assert isinstance(lines_after[-1].expr, ast.Cast)
             var = temp_op.params[0]
             cexpr = lines_after[-1].expr
             lhs = info.var(node, var, True)
-            assert(lhs != cexpr.params[1])
+            assert lhs != cexpr.params[1]
             lines_after[-1].expr = ast.Assignment(lhs, cexpr)
             nvar = outreplace[var] = lines_after[-1].expr.params[0]
             nvar.dtype = cexpr.dtype
@@ -211,7 +211,7 @@ def _createASTBlock(info, endk, node):
     eassigns = []
     nassigns = []
     for n2 in node.successors:
-        assert((n2 in node.outvars) != (n2 in node.eassigns))
+        assert (n2 in node.outvars) != (n2 in node.eassigns)
         if n2 in node.eassigns:
             for outv, inv in zip(node.eassigns[n2], n2.invars):
                 if outv is None: #this is how we mark the thrown exception, which
@@ -234,8 +234,8 @@ def _createASTBlock(info, endk, node):
     norm_successors = node.normalSuccessors()
     jump = None if block is None else block.jump
     if isinstance(jump, (ssa_jumps.Rethrow, ssa_jumps.Return)):
-        assert(not norm_successors)
-        assert(not node.eassigns and not node.outvars)
+        assert not norm_successors
+        assert not node.eassigns and not node.outvars
         if isinstance(jump, ssa_jumps.Rethrow):
             param = info.var(node, jump.params[-1])
             statements.append(ast.ThrowStatement(param))
@@ -247,16 +247,16 @@ def _createASTBlock(info, endk, node):
                 statements.append(ast.ReturnStatement())
         breakKey, jumpKey = endk, None
     elif len(norm_successors) == 0:
-        assert(isinstance(jump, ssa_jumps.OnException))
+        assert isinstance(jump, ssa_jumps.OnException)
         breakKey, jumpKey = endk, None
     elif len(norm_successors) == 1: #normal successors
         breakKey, jumpKey = endk, norm_successors[0]._key
     else: #case of if and switch jumps handled in parent scope
-        assert(len(norm_successors) > 1)
+        assert len(norm_successors) > 1
         breakKey, jumpKey = endk, endk
 
     new = ast.StatementBlock(info.labelgen, node._key, breakKey, statements, jumpKey)
-    assert(None not in statements)
+    assert None not in statements
     return new
 
 _cmp_strs = dict(zip(('eq','ne','lt','ge','gt','le'), "== != < >= > <=".split()))
@@ -274,7 +274,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         parts = [_createASTSub(info, scope, current, True) for scope in current.getScopes()]
         return ast.WhileStatement(info.labelgen, begink, endk, tuple(parts))
     elif isinstance(current, SETry):
-        assert(len(current.getScopes()) == 2)
+        assert len(current.getScopes()) == 2
         parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
         catchnode = current.getScopes()[-1].entryBlock
         declt = ast.CatchTypeNames(info.env, current.toptts)
@@ -312,7 +312,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
 
     #bundle head and if together so we can return as single statement
     headscope = _createASTBlock(info, midk, node)
-    assert(headscope.jumpKey is midk)
+    assert headscope.jumpKey is midk
     return ast.StatementBlock(info.labelgen, begink, endk, [headscope, new], endk)
 
 def createAST(method, ssagraph, seroot, namegen):

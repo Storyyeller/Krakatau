@@ -60,14 +60,14 @@ class SSA_Graph(object):
         self.block_numberer = itertools.count(-4,-1)
 
     def condenseBlocks(self):
-        assert(not self.procs)
+        assert not self.procs
         old = self.blocks
         # Can't do a consistency check on entry as the graph may be in an inconsistent state at this point
         # Since the purpose of this function is to prune unreachable blocks from self.blocks
         sccs = graph_util.tarjanSCC([self.entryBlock], lambda block:block.jump.getSuccessors())
         self.blocks = list(itertools.chain.from_iterable(map(reversed, sccs[::-1])))
 
-        assert(set(self.blocks) <= set(old))
+        assert set(self.blocks) <= set(old)
         if len(self.blocks) < len(old):
             kept = set(self.blocks)
             for block in self.blocks:
@@ -78,7 +78,7 @@ class SSA_Graph(object):
         return []
 
     def removeUnusedVariables(self):
-        assert(not self.procs)
+        assert not self.procs
         roots = [x for x in self.inputArgs if x is not None]
         for block in self.blocks:
             roots += block.jump.params
@@ -89,7 +89,7 @@ class SSA_Graph(object):
         reachable = graph_util.topologicalSort(roots, lambda var:(var.origin.params if var.origin else []))
 
         keepset = set(reachable)
-        assert(None not in keepset)
+        assert None not in keepset
         def filterOps(oldops):
             newops = []
             for op in oldops:
@@ -101,8 +101,8 @@ class SSA_Graph(object):
                         if v and v not in keepset:
                             op.removeOutput(v)
                 else:
-                    assert(keepset.isdisjoint(op.getOutputs()))
-                    assert(not op.has_side_effects)
+                    assert keepset.isdisjoint(op.getOutputs())
+                    assert not op.has_side_effects
             return newops
 
         for block in self.blocks:
@@ -172,23 +172,23 @@ class SSA_Graph(object):
     def _conscheck(self):
         '''Sanity check'''
         for block in self.blocks:
-            assert(block.jump is not None)
+            assert block.jump is not None
             for phi in block.phis:
-                assert(phi.rval is None or phi.rval in block.unaryConstraints)
+                assert phi.rval is None or phi.rval in block.unaryConstraints
                 for k,v in phi.dict.items():
-                    assert(v in k[0].unaryConstraints)
+                    assert v in k[0].unaryConstraints
 
         keys = [block.key for block in self.blocks]
-        assert(len(set(keys)) == len(keys))
+        assert len(set(keys)) == len(keys)
         temp = [self.entryBlock]
         for proc in self.procs:
             temp += [proc.retblock]
             temp += proc.jsrblocks
-        assert(len(set(temp)) == len(temp))
+        assert len(set(temp)) == len(temp)
 
     def copyPropagation(self):
         # Loop aware copy propagation
-        assert(not self.procs)
+        assert not self.procs
         self._conscheck()
 
         # The goal is to propagate constants that would never be inferred pessimistically
@@ -211,7 +211,7 @@ class SSA_Graph(object):
             if all(var in assigns for var in scc):
                 invars = sum(map(assigns.get, scc), [])
                 inputs = [UCs[invar] for invar in invars if invar in UCs]
-                assert(inputs)
+                assert inputs
                 uc = constraints.meet(*inputs)
 
                 for var in scc:
@@ -227,16 +227,16 @@ class SSA_Graph(object):
 
     def abstractInterpert(self):
         # Sparse conditional constant propagation and type inference
-        assert(not self.procs)
+        assert not self.procs
         self._conscheck()
 
         visit_counts = collections.defaultdict(int)
         dirty_phis = set(itertools.chain.from_iterable(block.phis for block in self.blocks))
         while dirty_phis:
             for block in self.blocks:
-                assert(block in self.blocks)
+                assert block in self.blocks
                 UCs = block.unaryConstraints
-                assert(None not in UCs.values())
+                assert None not in UCs.values()
                 dirty = visit_counts[block] == 0
                 for phi in block.phis:
                     if phi in dirty_phis:
@@ -246,7 +246,7 @@ class SSA_Graph(object):
                         old = UCs[phi.rval]
                         UCs[phi.rval] = out = constraints.join(old, out)
                         dirty = dirty or out != old
-                        assert(out)
+                        assert out
 
                 if not dirty or visit_counts[block] >= 5:
                     continue
@@ -259,7 +259,7 @@ class SSA_Graph(object):
                     if hasattr(op, 'propagateConstraints'):
                         output_vars = op.getOutputs()
                         inputs = [UCs[var] for var in op.params]
-                        assert(None not in inputs)
+                        assert None not in inputs
                         output_info = op.propagateConstraints(*inputs)
 
                         for var, out in zip(output_vars, [output_info.rval, output_info.eval]):
@@ -269,7 +269,7 @@ class SSA_Graph(object):
                             UCs[var] = out = constraints.join(old, out)
                             if out is None:
                                 if var is op.outException:
-                                    assert(isinstance(last_line, ssa_ops.ExceptionPhi))
+                                    assert isinstance(last_line, ssa_ops.ExceptionPhi)
                                     last_line.params.remove(var)
                                 op.removeOutput(var) # Note, this must be done after the op.outException check!
                                 del UCs[var]
@@ -280,8 +280,8 @@ class SSA_Graph(object):
                             must_throw = True
                             # Remove all code after this in the basic block and adjust exception code
                             # at end as appropriate
-                            assert(isinstance(last_line, ssa_ops.ExceptionPhi))
-                            assert(i < len(block.lines) and op.outException)
+                            assert isinstance(last_line, ssa_ops.ExceptionPhi)
+                            assert i < len(block.lines) and op.outException
                             removed = block.lines[i+1:-1]
                             block.lines = block.lines[:i+1] + [last_line]
                             for op2 in removed:
@@ -297,7 +297,7 @@ class SSA_Graph(object):
                     inputs = map(UCs.get, last_line.params)
                     out = constraints.meet(*inputs)
                     old = UCs[last_line.outException]
-                    assert(out is None or not out.null)
+                    assert out is None or not out.null
                     UCs[last_line.outException] = out = constraints.join(old, out)
                     if out is None:
                         del UCs[last_line.outException]
@@ -308,7 +308,7 @@ class SSA_Graph(object):
                 # prune jumps
                 dobreak = False
                 if hasattr(block.jump, 'constrainJumps'):
-                    assert(block.jump.params)
+                    assert block.jump.params
                     oldEdges = block.jump.getSuccessorPairs()
                     inputs = map(UCs.get, block.jump.params)
                     block.jump = block.jump.constrainJumps(*inputs)
@@ -336,7 +336,7 @@ class SSA_Graph(object):
 
                 # update dirty set
                 for child, t in block.jump.getSuccessorPairs():
-                    assert(child in self.blocks)
+                    assert child in self.blocks
                     for phi in child.phis:
                         if phi.get((block, t)) in dirty_vars:
                             dirty_phis.add(phi)
@@ -375,9 +375,9 @@ class SSA_Graph(object):
 
                 var1 = throw_op.params[0]
                 var2 = throw_op.outException
-                assert(ephi.params == [var2])
+                assert ephi.params == [var2]
                 var3 = ephi.outException
-                assert(parent.jump.params[0] == var3)
+                assert parent.jump.params[0] == var3
 
                 for phi in child.phis:
                     phi.replaceVars({var3: var1})
@@ -433,7 +433,7 @@ class SSA_Graph(object):
         # Find the set of blocks 'in' a subprocedure, i.e. those reachable from the target that can reach the ret block
         region = graph_util.topologicalSort([proc.retblock], lambda block:[] if block == proc.target else [b for b,t in block.predecessors])
         temp = set(region)
-        assert(self.entryBlock not in temp and proc.target in temp and temp.isdisjoint(proc.jsrblocks))
+        assert self.entryBlock not in temp and proc.target in temp and temp.isdisjoint(proc.jsrblocks)
         return region
 
     def _duplicateBlocks(self, region, excludedPreds):
@@ -452,14 +452,14 @@ class SSA_Graph(object):
                 new = copy.copy(op)
                 new.replaceVars(vard)
                 new.replaceOutVars(vard)
-                assert(new.getOutputs().count(None) == op.getOutputs().count(None))
+                assert new.getOutputs().count(None) == op.getOutputs().count(None)
                 for outv in new.getOutputs():
                     if outv is not None:
-                        assert(outv.origin is None)
+                        assert outv.origin is None
                         outv.origin = new
                 block.lines.append(new)
 
-            assert(set(vard).issuperset(oldb.jump.params))
+            assert set(vard).issuperset(oldb.jump.params)
             block.jump = oldb.jump.clone()
             block.jump.replaceVars(vard)
 
@@ -484,13 +484,13 @@ class SSA_Graph(object):
             block.jump.replaceBlocks(blockd)
 
         for old, new in vard.items():
-            assert(type(old.origin) == type(new.origin))
+            assert type(old.origin) == type(new.origin)
 
         #Fill in phi args in successors of new blocks
         for oldb, block in blockd.items():
             for oldc, t in oldb.jump.getSuccessorPairs():
                 child = blockd.get(oldc, oldc)
-                assert(len(child.phis) == len(oldc.phis))
+                assert len(child.phis) == len(oldc.phis)
                 for phi1, phi2 in zip(oldc.phis, child.phis):
                     phi2.add((block, t), vard[phi1.get((oldb, t))])
 
@@ -502,7 +502,7 @@ class SSA_Graph(object):
         #this involves duplicating the body of the procedure
         #the new proc is appended to the list of procs so it can work properly
         #with the stack processing in inlineSubprocs
-        assert(len(proc.jsrblocks) > 1)
+        assert len(proc.jsrblocks) > 1
         target, retblock = proc.target, proc.retblock
         region = self._region(proc)
 
@@ -514,12 +514,12 @@ class SSA_Graph(object):
         #Sanity check
         for temp in self.procs + [newproc]:
             for jsr in temp.jsrblocks:
-                assert(jsr.jump.target == temp.target)
+                assert jsr.jump.target == temp.target
         return newproc
 
     def _inlineSubProc(self, proc):
         #Inline a proc with single callsite inplace
-        assert(len(proc.jsrblocks) == 1)
+        assert len(proc.jsrblocks) == 1
         target, retblock = proc.target, proc.retblock
         region = self._region(proc)
 
@@ -531,7 +531,7 @@ class SSA_Graph(object):
         skipvars = [phi.get((jsrblock, False)) for phi in ftblock.phis]
         skipvars = [var for var in skipvars if var.origin is not jsrop]
         #will need to change if we ever add a pass to create new skipvars
-        assert(set(skipvars) <= jsrop.debug_skipvars)
+        assert set(skipvars) <= jsrop.debug_skipvars
 
         svarcopy = {(var, block):self._copyVar(var) for var, block in itertools.product(skipvars, region)}
         for var, block in itertools.product(skipvars, region):
@@ -593,14 +593,14 @@ class SSA_Graph(object):
     ##########################################################################
     def splitDualInedges(self):
         # Split any blocks that have both normal and exceptional in edges
-        assert(not self.procs)
+        assert not self.procs
         for block in self.blocks[:]:
             if block is self.entryBlock:
                 continue
             types = set(zip(*block.predecessors)[1])
             if len(types) <= 1:
                 continue
-            assert(not isinstance(block.jump, (ssa_jumps.Return, ssa_jumps.Rethrow)))
+            assert not isinstance(block.jump, (ssa_jumps.Return, ssa_jumps.Rethrow))
 
             new = self._newBlockFrom(block)
             print 'Splitting', block, '->', new
@@ -611,7 +611,7 @@ class SSA_Graph(object):
                 block.predecessors.remove(t)
 
             for pred, _ in badpreds:
-                assert(isinstance(pred.jump, ssa_jumps.OnException))
+                assert isinstance(pred.jump, ssa_jumps.OnException)
                 pred.jump.replaceExceptTarget(block, new)
 
             new.jump = ssa_jumps.Goto(self, block)
@@ -634,7 +634,7 @@ class SSA_Graph(object):
         self._conscheck()
 
     def fixLoops(self):
-        assert(not self.procs)
+        assert not self.procs
         todo = self.blocks[:]
         while todo:
             newtodo = []
@@ -664,7 +664,7 @@ class SSA_Graph(object):
                         reachable.remove(head)
 
                     head, reachable = min(reaches, key=lambda t:(len(t[1]), -len(t[0].predecessors)))
-                    assert(head not in reachable)
+                    assert head not in reachable
                     print 'Duplicating {} nodes'.format(len(reachable))
                     blockd = self._duplicateBlocks(reachable, set(scc) - set(reachable))
                     newtodo += map(blockd.get, reachable)
@@ -687,11 +687,11 @@ class SSA_Graph(object):
     def setObjVarData(self, var, vtype, initMap):
         vtype2 = initMap.get(vtype, vtype)
         tt = objtypes.verifierToSynthetic(vtype2)
-        assert(var.decltype is None or var.decltype == tt)
+        assert var.decltype is None or var.decltype == tt
         var.decltype = tt
         #if uninitialized, record the offset of originating new instruction for later
         if vtype.tag == '.new':
-            assert(var.uninit_orig_num is None or var.uninit_orig_num == vtype.extra)
+            assert var.uninit_orig_num is None or var.uninit_orig_num == vtype.extra
             var.uninit_orig_num = vtype.extra
 
     def makeVarFromVtype(self, vtype, initMap):
@@ -720,7 +720,7 @@ def ssaFromVerified(code, iNodes, opts):
     parent.blocks = blocks = data.blocks
     parent.entryBlock = data.entryBlock
     parent.inputArgs = data.inputArgs
-    assert(parent.entryBlock in blocks)
+    assert parent.entryBlock in blocks
 
     #create subproc info
     procd = {block.jump.target:subproc.ProcInfo(block, block.jump.target) for block in blocks if isinstance(block.jump, subproc.DummyRet)}
@@ -757,7 +757,7 @@ def ssaFromVerified(code, iNodes, opts):
         for suc, t in block.jump.getSuccessorPairs():
             for phi in suc.phis:
                 bvars.append(phi.get((block, t)))
-        assert(None not in bvars)
+        assert None not in bvars
         # Note that makeConstraint can indirectly cause class loading
         block.unaryConstraints = {var:makeConstraint(var) for var in bvars}
 

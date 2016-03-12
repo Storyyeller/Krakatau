@@ -276,7 +276,7 @@ def _ldc(maker, input_, iNode):
         var.decltype = objtypes.ClassTT
     #Todo - handle MethodTypes and MethodHandles?
 
-    assert(var)
+    assert var
     newstack = input_.stack + [var] + [None]*(cat-1)
     return ResultDict(newstack=newstack)
 
@@ -296,7 +296,7 @@ def _multinewarray(maker, input_, iNode):
     op, index, dim = iNode.instruction
     name = maker.parent.getConstPoolArgs(index)[0]
     tt = parseArrOrClassName(name)
-    assert(objtypes.dim(tt) >= dim)
+    assert objtypes.dim(tt) >= dim
 
     line = ssa_ops.MultiNewArray(maker.parent, input_.stack[-dim:], tt)
     newstack = input_.stack[:-dim] + [line.rval]

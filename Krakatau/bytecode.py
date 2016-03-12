@@ -3,7 +3,7 @@ from . import opnames
 
 def parseInstructions(bytestream, isConstructor):
     data = bytestream
-    assert(data.off == 0)
+    assert data.off == 0
 
     instructions = {}
     while data.size() > 0:
@@ -15,7 +15,7 @@ def parseInstructions(bytestream, isConstructor):
             inst = (opnames.INVOKEINIT,) + inst[1:]
 
         instructions[address] = inst
-    assert(data.size() == 0)
+    assert data.size() == 0
     return instructions
 
 simpleOps = {0x00:opnames.NOP, 0x01:opnames.CONSTNULL, 0x94:opnames.LCMP,
@@ -143,7 +143,7 @@ def getNextInstruction(data, address):
         default = data.get('>i') + address
         low = data.get('>i')
         high = data.get('>i')
-        assert(high >= low)
+        assert high >= low
         numpairs = high - low + 1
         offsets = [data.get('>i') + address for _ in range(numpairs)]
         jumps = zip(range(low, high+1), offsets)
@@ -152,7 +152,7 @@ def getNextInstruction(data, address):
         padding = data.getRaw((3-address) % 4)
         default = data.get('>i') + address
         numpairs = data.get('>i')
-        assert(numpairs >= 0)
+        assert numpairs >= 0
         pairs = [data.get('>ii') for _ in range(numpairs)]
         jumps = [(x,(y + address)) for x,y in pairs]
         inst = opnames.SWITCH, default, jumps
@@ -188,7 +188,7 @@ def getNextInstruction(data, address):
         elif realbyte == 0x84:
             inst = opnames.IINC, data.get('>H'), data.get('>h')
         else:
-            assert(0)
+            assert 0
     elif byte == 0xc5:
         op = opnames.MULTINEWARRAY
         index = data.get('>H')
@@ -204,7 +204,7 @@ def getNextInstruction(data, address):
     elif byte == 0xc9:
         inst = opnames.JSR, data.get('>i') + address
     else:
-        assert(0)
+        assert 0
     return inst
 
 def printInstruction(instr):

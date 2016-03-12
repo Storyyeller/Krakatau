@@ -82,7 +82,7 @@ class BlockMaker(object):
                 dummyvals = ResultDict(line=ssa_ops.MagicThrow(self.parent))
                 if not self._canAppendInstrToCurrent(node.key, dummyvals):
                     self._startNewBlock(node.key)
-                assert(self._canAppendInstrToCurrent(node.key, dummyvals))
+                assert self._canAppendInstrToCurrent(node.key, dummyvals)
                 self._appendInstr(node, dummyvals, self.current_slots, check_terminate=False)
                 vals, outslot_norm = self._getInstrLine(node)
 
@@ -90,14 +90,14 @@ class BlockMaker(object):
                 self._startNewBlock(node.key)
                 vals, outslot_norm = self._getInstrLine(node)
 
-            assert(self._canAppendInstrToCurrent(node.key, vals))
+            assert self._canAppendInstrToCurrent(node.key, vals)
             self._appendInstr(node, vals, outslot_norm)
 
         # do sanity checks
-        assert(len(self.blocks) == len(self.blockd))
+        assert len(self.blocks) == len(self.blockd)
         for block in self.blocks:
-            assert(block.jump is not None and block.phis is not None)
-            assert(len(block.predecessors) == len(set(block.predecessors)))
+            assert block.jump is not None and block.phis is not None
+            assert len(block.predecessors) == len(set(block.predecessors))
             # cleanup temp vars
             block.inslots = None
             block.throwvars = None
@@ -128,7 +128,7 @@ class BlockMaker(object):
                     return False
                 chpairs = self._chPairsAt(address)
                 return chpairs == block.chpairs
-        assert(block.jump is None)
+        assert block.jump is None
         return True
 
     def _startNewBlock(self, key):
@@ -140,13 +140,13 @@ class BlockMaker(object):
         # Finish current block
         block = self.current_block
         curslots = self.current_slots
-        assert(block.key != key)
+        assert block.key != key
         if block.jump is None:
             if block.chpairs is not None:
-                assert(block.throwvars)
+                assert block.throwvars
                 self._addOnException(block, self.blockd[key], curslots)
             else:
-                assert(not block.throwvars)
+                assert not block.throwvars
                 block.jump = ssa_jumps.Goto(self.parent, self.blockd[key])
 
         if curslots is not None:
@@ -162,8 +162,8 @@ class BlockMaker(object):
         instr = iNode.instruction
 
         # internal variables won't have any preset type info associated, so we should add in the info from the verifier
-        assert(len(inslots.stack) == len(iNode.state.stack) and len(inslots.locals) >= len(iNode.state.locals))
-        assert(all(x is None for x in inslots.locals[len(iNode.state.locals):]))
+        assert len(inslots.stack) == len(iNode.state.stack) and len(inslots.locals) >= len(iNode.state.locals)
+        assert all(x is None for x in inslots.locals[len(iNode.state.locals):])
         for ivar, vt in zip(inslots.stack + inslots.locals, iNode.state.stack + iNode.state.locals):
             if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
                 parent.setObjVarData(ivar, vt, initMap)
@@ -176,11 +176,11 @@ class BlockMaker(object):
 
     def _addOnException(self, block, fallthrough, outslot_norm):
         parent = self.parent
-        assert(block.throwvars and block.chpairs is not None)
+        assert block.throwvars and block.chpairs is not None
         ephi = ssa_ops.ExceptionPhi(parent, block.throwvars)
         block.lines.append(ephi)
 
-        assert(block.jump is None)
+        assert block.jump is None
         block.jump = ssa_jumps.OnException(parent, ephi.outException, block.chpairs, fallthrough)
         outslot_except = slots_t(locals=block.locals_at_first_except, stack=[ephi.outException])
         for suc in block.jump.getExceptSuccessors():
@@ -192,17 +192,17 @@ class BlockMaker(object):
         line, jump = vals.line, vals.jump
         if line is not None:
             block.lines.append(line)
-        assert(block.jump is None)
+        assert block.jump is None
         block.jump = jump
 
         if line is not None and line.outException is not None:
             block.throwvars.append(line.outException)
             chpairs = self._chPairsAt(iNode.key)
-            assert(block.chpairs is None or block.chpairs == chpairs)
+            assert block.chpairs is None or block.chpairs == chpairs
             block.chpairs = chpairs
 
             inslots = self.current_slots
-            assert(block.locals_at_first_except is None or inslots.locals == block.locals_at_first_except)
+            assert block.locals_at_first_except is None or inslots.locals == block.locals_at_first_except
             block.locals_at_first_except = inslots.locals
 
             if check_terminate:
@@ -215,7 +215,7 @@ class BlockMaker(object):
         if block.jump is None:
             unmerged_slots = outslot_norm
         else:
-            assert(isinstance(block.jump, ssa_jumps.OnException) or not block.throwvars)
+            assert isinstance(block.jump, ssa_jumps.OnException) or not block.throwvars
             unmerged_slots = None
             # Make sure that branch targets are distinct, since this is assumed everywhere
             # Only necessary for if statements as the other jumps merge targets automatically
@@ -231,7 +231,7 @@ class BlockMaker(object):
 
     def mergeIn(self, from_key, target_key, outslots):
         inslots = self.blockd[target_key].inslots
-        assert(len(inslots.stack) == len(outslots.stack) and len(inslots.locals) <= len(outslots.locals))
+        assert len(inslots.stack) == len(outslots.stack) and len(inslots.locals) <= len(outslots.locals)
         phis = inslots.locals + inslots.stack
         vars = outslots.locals[:len(inslots.locals)] + outslots.stack
         for phi, var in zip(phis, vars):
@@ -245,7 +245,7 @@ class BlockMaker(object):
         return None if var is None else ssa_ops.Phi(block, var)
 
     def makeBlockWithInslots(self, key, locals, stack):
-        assert(key not in self.blockd)
+        assert key not in self.blockd
         block = BasicBlock(key)
         self.blocks.append(block)
         self.blockd[key] = block
@@ -277,7 +277,7 @@ class BlockMaker(object):
         retnode = self.iNodeD[jsrnode.returnedFrom]
         jump = block.jump
         target_key, ft_key = jump.target.key, jump.fallthrough.key
-        assert(ft_key == jsrnode.next_instruction)
+        assert ft_key == jsrnode.next_instruction
 
         #first merge regular jump to target
         self.mergeIn((block, False), target_key, outslot_norm)

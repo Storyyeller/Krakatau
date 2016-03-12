@@ -6,7 +6,7 @@ class BaseJump(SSAFunctionBase):
         super(BaseJump, self).__init__(parent,arguments)
 
     def replaceBlocks(self, blockDict):
-        assert(not self.getSuccessors())
+        assert not self.getSuccessors()
 
     def getNormalSuccessors(self): return []
     def getExceptSuccessors(self): return []

@@ -28,7 +28,7 @@ class EqualityData(object):
     def _newval(self): return object()
 
     def initialize(self): #initialize to bottom value (all variables unequal)
-        assert(self.d is None)
+        assert self.d is None
         self.d = {}
 
     def handleAssign(self, var1, var2=None):
@@ -39,10 +39,10 @@ class EqualityData(object):
                 del self.d[var1]
         else:
             self.d[var1] = self.d.setdefault(var2, self._newval())
-            assert(self.iseq(var1, var2))
+            assert self.iseq(var1, var2)
 
     def iseq(self, var1, var2):
-        assert(var1 != var2)
+        assert var1 != var2
         return var1 in self.d and var2 in self.d and self.d[var1] is self.d[var2]
 
     def merge_update(self, other):
@@ -118,8 +118,8 @@ def calcEqualityData(graph):
                     dirty.add(suc)
 
     for block in blocks:
-        assert(d[block][0].d is not None)
-    assert(not dirty)
+        assert d[block][0].d is not None
+    assert not dirty
     return d
 
 class VarMergeInfo(object):
@@ -228,7 +228,7 @@ class VarMergeInfo(object):
                 candidate_set = candidate_set - final
             candidates = [v for v in candidate_set if v.dtype == cur.dtype]
             candidates = sorted(candidates, key=lambda v:d[v].key)
-            assert(cur not in candidates)
+            assert cur not in candidates
 
             #find first candidate that is actually compatible
             for parent in candidates:

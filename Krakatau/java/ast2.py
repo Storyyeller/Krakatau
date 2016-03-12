@@ -115,7 +115,7 @@ class ClassDef(object):
             header += ' extends ' + print_(self.super)
         if self.interfaces:
             if self.isInterface:
-                assert(self.super is None)
+                assert self.super is None
                 header += ' extends ' + ', '.join(print_(x) for x in self.interfaces)
             else:
                 header += ' implements ' + ', '.join(print_(x) for x in self.interfaces)

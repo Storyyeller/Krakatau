@@ -16,7 +16,7 @@ def _visit_statement(env, stmt):
         if objtypes.ThrowableTT not in caught_types:
             temp = _visit_statement(env, stmt.tryb)
             if temp != objtypes.NullTT:
-                assert(objtypes.dim(temp) == 0)
+                assert objtypes.dim(temp) == 0
                 name = objtypes.className(temp)
                 if not any(env.isSubclass(name, caught) for caught in caught_types):
                     result = temp
@@ -42,6 +42,6 @@ def addSingle(env, meth_asts):
         if not meth.body:
             continue
         tt = _visit_statement(env, meth.body)
-        assert(objtypes.commonSupertype(env, [tt, objtypes.ThrowableTT]) == objtypes.ThrowableTT)
+        assert objtypes.commonSupertype(env, [tt, objtypes.ThrowableTT]) == objtypes.ThrowableTT
         if tt != objtypes.NullTT:
             meth.throws = ast.TypeName(tt)

@@ -137,7 +137,7 @@ class ConstPool(object):
             return self.pool.index(item)
 
         if item[0] == 'Utf8':
-            assert(isinstance(item[1][0], basestring))
+            assert isinstance(item[1][0], basestring)
         cat2 = item[0] in ('Long','Double')
 
         if index is None:
@@ -155,7 +155,7 @@ class ConstPool(object):
                 self.reserved.remove(index+1)
                 self.addEmptySlot()
 
-        assert(index not in self.reserved)
+        assert index not in self.reserved
         self.pool[index] = item
         return index
 
@@ -194,10 +194,10 @@ class ConstPool(object):
         parts = []
         pool = self.pool
 
-        assert(not self.reserved)
+        assert not self.reserved
         self.fillPlaceholders()
 
-        assert(len(pool) <= 65535)
+        assert len(pool) <= 65535
         parts.append(struct.pack('>H',len(pool)))
 
         for name, vals in self.getPoolIter():

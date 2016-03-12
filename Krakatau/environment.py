@@ -97,7 +97,7 @@ class Environment(object):
 
     #Context Manager methods to manager our zipfiles
     def __enter__(self):
-        assert(not self._open)
+        assert not self._open
         for place in self.path:
             if place.endswith('.jar') or place.endswith('.zip'):
                 self._open[place] = zipfile.ZipFile(place, 'r').__enter__()

@@ -110,7 +110,7 @@ class DUGraph(object):
             parent.n_successors.append(block)
         del break_dict[block.key]
 
-        assert((myexcept_parents is None) == (caught_except is None))
+        assert (myexcept_parents is None) == (caught_except is None)
         if caught_except is not None: #this is the head of a catch block:
             block.caught_excepts = (caught_except,)
             for parent in myexcept_parents:
@@ -140,7 +140,7 @@ class DUGraph(object):
                 continue
 
             #compound statements
-            assert(stmt.continueKey is not None)
+            assert stmt.continueKey is not None
             if isinstance(stmt, (ast.IfStatement, ast.SwitchStatement)):
                 visitExpr(stmt.expr, block.lines)
 
@@ -157,7 +157,7 @@ class DUGraph(object):
 
             elif isinstance(stmt, ast.WhileStatement):
                 if stmt.expr != ast.Literal.TRUE: #while(cond)
-                    assert(stmt.breakKey is not None)
+                    assert stmt.breakKey is not None
                     self.finishBlock(block, catch_stack)
                     block = self.makeBlock(stmt.continueKey, break_dict, None, None)
                     visitExpr(stmt.expr, block.lines)
@@ -180,9 +180,9 @@ class DUGraph(object):
                 for cdecl, catchb in stmt.pairs:
                     parents = new_stack.pop()
                     self.visitScope(catchb, break_dict, catch_stack, cdecl.local, parents)
-                assert(new_stack == catch_stack)
+                assert new_stack == catch_stack
             else:
-                assert(isinstance(stmt, ast.StatementBlock))
+                assert isinstance(stmt, ast.StatementBlock)
                 break_dict[stmt.continueKey].append(block)
                 self.visitScope(stmt, break_dict, catch_stack, head_block=block)
 

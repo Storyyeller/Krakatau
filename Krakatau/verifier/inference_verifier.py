@@ -66,7 +66,7 @@ class VerifierTypesState(object):
 
     def merge(self, other, env):
         old_triple = self.stack, self.locals, self.masks
-        assert(len(self.stack) == len(other.stack))
+        assert len(self.stack) == len(other.stack)
         self.stack = [mergeTypes(env, new, old) for old, new in zip(self.stack, other.stack)]
         self.locals = [mergeTypes(env, new, old) for old, new in zip(self.locals, other.locals)]
         while self.locals and self.locals[-1] == T_INVALID:
@@ -101,7 +101,7 @@ def _loadMethodDesc(cpool, ind):
 def _indexToCFMInfo(cpool, ind, typen):
     actual = cpool.getType(ind)
     #JVM_GetCPMethodClassNameUTF accepts both
-    assert(actual == typen or actual == 'InterfaceMethod' and typen == 'Method')
+    assert actual == typen or actual == 'InterfaceMethod' and typen == 'Method'
 
     cname = cpool.getArgs(ind)[0]
     if cname.startswith('['):
@@ -255,7 +255,7 @@ def _getStackResult(cpool, instr, key):
         return _loadFieldDesc(cpool, instr[1])[0]
     elif op in _invoke_ops:
         out = _loadMethodDesc(cpool, instr[1])[1]
-        assert(0 <= len(out) <= 2)
+        assert 0 <= len(out) <= 2
         return out[0] if out else None
 
 class InstructionNode(object):
@@ -396,8 +396,8 @@ class InstructionNode(object):
             state.invalidateNews()
             self.out_state = state #store for later convienence
 
-        assert(all(isinstance(vt, fullinfo_t) for vt in state.stack))
-        assert(all(isinstance(vt, fullinfo_t) for vt in state.locals))
+        assert all(isinstance(vt, fullinfo_t) for vt in state.stack)
+        assert all(isinstance(vt, fullinfo_t) for vt in state.locals)
         return state
 
     def _mergeSingleSuccessor(self, other, newstate, iNodes, isException):
@@ -421,7 +421,7 @@ class InstructionNode(object):
             other.changed = other.changed or changed
 
     def update(self, iNodes, exceptions):
-        assert(self.visited)
+        assert self.visited
         self.changed = False
         newstate = self._getNewState(iNodes)
 
@@ -430,7 +430,7 @@ class InstructionNode(object):
             iNodes[self.returnedFrom].changed = True
 
         if successors is None:
-            assert(self.op == ops.RET)
+            assert self.op == ops.RET
             called = self.state.local(self.instruction[1]).extra
             temp = [n.next_instruction for n in iNodes.values() if (n.op == ops.JSR and n.instruction[1] == called)]
             successors = self.successors = tuple(temp)
@@ -466,9 +466,9 @@ def verifyBytecode(code):
 
     #Object has no superclass to construct, so it doesn't get an uninit this
     if method.isConstructor and class_.name != 'java/lang/Object':
-        assert(args[0] == T_OBJECT(class_.name))
+        assert args[0] == T_OBJECT(class_.name)
         args[0] = T_UNINIT_THIS
-    assert(len(args) <= 255 and len(args) <= code.locals)
+    assert len(args) <= 255 and len(args) <= code.locals
 
     offsets = sorted(code.bytecode.keys())
     offset_rmap = {v:i for i,v in enumerate(offsets)}

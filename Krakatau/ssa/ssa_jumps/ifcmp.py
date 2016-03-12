@@ -8,11 +8,11 @@ class If(BaseJump):
 
     def __init__(self, parent, cmp, successors, arguments):
         super(If, self).__init__(parent, arguments)
-        assert(cmp in ('eq','ne','lt','ge','gt','le'))
+        assert cmp in ('eq','ne','lt','ge','gt','le')
         self.cmp = cmp
         self.successors = successors
         self.isObj = (arguments[0].type == ssa_types.SSA_OBJECT)
-        assert(None not in successors)
+        assert None not in successors
 
     def replaceBlocks(self, blockDict):
         self.successors = [blockDict.get(key,key) for key in self.successors]
@@ -39,12 +39,12 @@ class If(BaseJump):
 
             results = func(x,y)
             if None in results:
-                assert(results == (None,None))
+                assert results == (None,None)
                 impossible.append((child,False))
         return self.reduceSuccessors(impossible)
 
     def getSuccessorConstraints(self, (block, t)):
-        assert(t is False)
+        assert t is False
         cmp_t = If.opposites[self.cmp] if block == self.successors[0] else self.cmp
 
         if self.isObj:

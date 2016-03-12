@@ -16,9 +16,9 @@ class TypeConstraint(ValueType):
         self.isBot = objtypes.ObjectTT in supers
 
         temp = self.supers | self.exact
-        assert(objtypes.NullTT not in temp)
-        assert(all(objtypes.isBaseTClass(tt) for tt in supers))
-        assert(all(objtypes.dim(tt) < 999 for tt in exact))
+        assert objtypes.NullTT not in temp
+        assert all(objtypes.isBaseTClass(tt) for tt in supers)
+        assert all(objtypes.dim(tt) < 999 for tt in exact)
 
     def _key(self): return self.supers, self.exact
     def __nonzero__(self): return bool(self.supers or self.exact)
@@ -46,7 +46,7 @@ class TypeConstraint(ValueType):
         return TypeConstraint(env, newsupers, newexact)
 
     def join(*cons):
-        assert(len(set(map(type, cons))) == 1)
+        assert len(set(map(type, cons))) == 1
         env = cons[0].env
 
         #optimize for the common case of joining with itself or with bot

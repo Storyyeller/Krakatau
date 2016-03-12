@@ -18,7 +18,7 @@ class BaseOp(SSAFunctionBase):
 
     def removeOutput(self, var):
         outs = self.rval, self.outException
-        assert(var is not None and var in outs)
+        assert var is not None and var in outs
         self.rval, self.outException = [(x if x != var else None) for x in outs]
 
     def replaceOutVars(self, vardict):

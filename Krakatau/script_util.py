@@ -17,7 +17,7 @@ def findFiles(target, recursive, prefix):
             targets = [name for name in archive.namelist() if name.endswith(prefix)]
     else:
         if recursive:
-            assert(os.path.isdir(target))
+            assert os.path.isdir(target)
             targets = []
 
             for root, dirs, files in os.walk(target):

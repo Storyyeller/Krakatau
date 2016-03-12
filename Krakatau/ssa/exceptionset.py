@@ -18,13 +18,13 @@ class CatchSetManager(object):
                 sofar = sofar | new
             self.mask = sofar
             self.pruneKeys()
-        assert(not self._conscheck())
+        assert not self._conscheck()
 
     def newMask(self, mask):
         for k in self.sets:
             self.sets[k] &= mask
         self.mask &= mask
-        assert(not self._conscheck())
+        assert not self._conscheck()
 
     def pruneKeys(self):
         for handler, catchset in list(self.sets.items()):
@@ -40,10 +40,10 @@ class CatchSetManager(object):
     def _conscheck(self):
         temp = ExceptionSet.EMPTY
         for v in self.sets.values():
-            assert(not v & temp)
+            assert not v & temp
             temp |= v
-        assert(temp == self.mask)
-        assert(isinstance(self.sets, collections.OrderedDict))
+        assert temp == self.mask
+        assert isinstance(self.sets, collections.OrderedDict)
 
 class ExceptionSet(ValueType):
     __slots__ = "env pairs".split()
@@ -53,14 +53,14 @@ class ExceptionSet(ValueType):
 
         #We allow env to be None for the empty set so we can construct empty sets easily
         #Any operation resulting in a nonempty set will get its env from the nonempty argument
-        assert(self.empty() or self.env is not None)
+        assert self.empty() or self.env is not None
 
         #make sure set is fully reduced
         parts = []
         for t, holes in pairs:
             parts.append(t)
             parts.extend(holes)
-        assert(len(set(parts)) == len(parts))
+        assert len(set(parts)) == len(parts)
 
     @staticmethod #factory
     def fromTops(env, *tops):
@@ -77,7 +77,7 @@ class ExceptionSet(ValueType):
     def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
     def __sub__(self, other):
-        assert(type(self) == type(other))
+        assert type(self) == type(other)
         if self.empty() or other.empty():
             return self
         if self == other:
@@ -94,7 +94,7 @@ class ExceptionSet(ValueType):
         return ExceptionSet.reduce(self.env, pairs)
 
     def __or__(self, other):
-        assert(type(self) == type(other))
+        assert type(self) == type(other)
         if other.empty() or self == other:
             return self
         if self.empty():
@@ -102,7 +102,7 @@ class ExceptionSet(ValueType):
         return ExceptionSet.reduce(self.env, self.pairs | other.pairs)
 
     def __and__(self, other):
-        assert(type(self) == type(other))
+        assert type(self) == type(other)
         new = self - (self - other)
         return new
 
@@ -148,7 +148,7 @@ class ExceptionSet(ValueType):
     def mergePair(subtest, pair1, pair2): #merge pair2 into pair1 and return the union
         t1, holes1 = pair1
         t2, holes2 = pair2
-        assert(subtest(t2,t1))
+        assert subtest(t2,t1)
 
         if t2 in holes1:
             holes1 = list(holes1)
@@ -166,7 +166,7 @@ class ExceptionSet(ValueType):
             elif subtest(h1, h2):
                 merged_holes.add(h2)
         merged_holes = ExceptionSet.reduceHoles(subtest, merged_holes)
-        assert(len(merged_holes) <= len(holes1b) + len(holes2))
+        assert len(merged_holes) <= len(holes1b) + len(holes2)
         return t1, (list(holes1a) + merged_holes)
 
     @staticmethod

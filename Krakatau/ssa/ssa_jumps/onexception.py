@@ -65,7 +65,7 @@ class OnException(BaseJump):
                 t = x.types
                 top_tts = t.supers | t.exact
                 tops = [objtypes.className(tt) for tt in top_tts]
-                assert(None not in tops)
+                assert None not in tops
                 if 'java/lang/Object' in tops:
                     tops = 'java/lang/Throwable',
                 mask = ExceptionSet.fromTops(t.env, *tops)
@@ -79,5 +79,5 @@ class OnException(BaseJump):
             return propagateConstraints
         else:
             #In fallthrough case, no exception so always return invalid
-            assert(block == self.default)
+            assert block == self.default
             return lambda arg:[None]

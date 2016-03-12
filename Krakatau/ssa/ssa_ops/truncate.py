@@ -14,7 +14,7 @@ class Truncate(BaseOp):
         #get range of target type
         w = self.width
         intw = x.width
-        assert(w < intw)
+        assert w < intw
         M = 1<<w
 
         mask = IntConstraint.const(intw, M-1)
@@ -31,7 +31,7 @@ class Truncate(BaseOp):
             if x.min <= HM <= x.max:
                 parts.append(-HM)
 
-            assert(-HM <= min(parts) <= max(parts) <= HM-1)
+            assert -HM <= min(parts) <= max(parts) <= HM-1
             return return_(IntConstraint.range(intw, min(parts), max(parts)))
         else:
             return return_(x)

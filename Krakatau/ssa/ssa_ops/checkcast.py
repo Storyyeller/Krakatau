@@ -23,7 +23,7 @@ class CheckCast(BaseOp):
         if intersect is None:
             return throw(self.outExceptionCons)
         elif intersect != x:
-            assert(not x.isConstNull())
+            assert not x.isConstNull()
             return maybeThrow(self.outExceptionCons)
         else:
             return return_(None)

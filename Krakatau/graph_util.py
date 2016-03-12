@@ -32,7 +32,7 @@ def tarjanSCC(roots, getChildren):
                     lowlink[current] = min(lowlink[current], index[child])
                 else:
                     lowlink[current] = min(lowlink[current], lowlink[child])
-                assert(lowlink[current] <= index[current])
+                assert lowlink[current] <= index[current]
 
             if index[current] == lowlink[current]:
                 scc = []
@@ -63,6 +63,6 @@ def topologicalSort(roots, getParents):
                 stack.append((current,1))
                 stack.extend((parent,0) for parent in getParents(current))
         else: #after recursing
-            assert(current in visited)
+            assert current in visited
             results.append(current)
     return results

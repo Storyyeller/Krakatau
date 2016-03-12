@@ -26,7 +26,7 @@ def _getField(field):
         cpool = field.class_.cpool
         const_attrs = [data for name,data in field.attributes if name == 'ConstantValue']
         if const_attrs:
-            assert(len(const_attrs) == 1)
+            assert len(const_attrs) == 1
             data = const_attrs[0]
             index = struct.unpack('>h', data)[0]
             initexpr = loadConstValue(cpool, index)

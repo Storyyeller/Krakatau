@@ -97,7 +97,7 @@ def boolizeVars(root, arg_vars):
     #Fix the propagated types
     for var in set(varlist):
         tag, dim = objtypes.baset(var.dtype), objtypes.dim(var.dtype)
-        assert(tag in int_tags or (dim>0 and tag == BExpr))
+        assert tag in int_tags or (dim>0 and tag == BExpr)
         #make everything bool which is not forced to int
         if sets.find(var) != False:
             var.dtype = objtypes.withDimInc(BoolTT, dim)
@@ -167,12 +167,12 @@ def interfaceVars(env, root, arg_vars):
     # visit variables in topological order. Doesn't handle case of loops, but this is a temporary hack anyway
     order = graph_util.topologicalSort(varlist, lambda v:assigns[v])
     for var in order:
-        assert(var not in newtypes)
+        assert var not in newtypes
 
         tts = [newtypes.get(right, objtypes.ObjectTT) for right in assigns[var]]
         if var in consts:
             tts.append(consts[var])
         newtypes[var] = newtype = objtypes.commonSupertype(env, tts)
         if newtype != objtypes.ObjectTT and newtype != var.dtype and newtype != objtypes.NullTT:
-            # assert(objtypes.baset(var.dtype) == objtypes.baset(objtypes.ObjectTT))
+            # assert objtypes.baset(var.dtype) == objtypes.baset(objtypes.ObjectTT)
             var.dtype = newtype

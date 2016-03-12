@@ -4,7 +4,7 @@ from ..error import ClassLoaderError
 #types are represented by classname, dimension
 #primative types are .int, etc since these cannot be valid classnames since periods are forbidden
 def TypeTT(baset, dim):
-    assert(dim >= 0)
+    assert dim >= 0
     return baset, dim
 
 # Not real types
@@ -89,7 +89,7 @@ def verifierToSynthetic_seq(vts):
     return [verifierToSynthetic(vt) for vt in vts if vt != vtypes.T_INVALID]
 
 def verifierToSynthetic(vtype):
-    assert(vtype.tag not in (None, '.address', '.new', '.init'))
+    assert vtype.tag not in (None, '.address', '.new', '.init')
     vtype = vtypes.withNoConst(vtype)
 
     if vtype in _verifierConvert:

@@ -20,14 +20,14 @@ DOUBLE_SIZE = 52,-1022,1023
 
 def flog(x):
     '''returns f such that 2**f <= x < 2**(f+1)'''
-    assert(x > 0)
+    assert x > 0
     return len(bin(x))-3
 
 def roundMag(size, mag):
     '''Round (unnormalized) magnitude to nearest representable magnitude with ties going to 0 lsb'''
     mbits, emin, emax = size
     m, e = mag
-    assert(m >= 1)
+    assert m >= 1
     f = flog(m)
 
     if e+f < emin: #subnormal

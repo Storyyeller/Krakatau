@@ -11,7 +11,7 @@ valid_tags = ['.'+_x for _x in 'int float double long obj new init address byte 
 valid_tags = frozenset([None] + valid_tags)
 
 def _makeinfo(tag, dim=0, extra=None, const=None):
-    assert(tag in valid_tags)
+    assert tag in valid_tags
     return fullinfo_t(tag, dim, extra, const)
 
 T_INVALID = _makeinfo(None)
@@ -36,14 +36,14 @@ def T_OBJECT(name):
     return _makeinfo('.obj', extra=name)
 
 def T_ARRAY(baset, newDimensions=1):
-    assert(0 <= baset.dim <= 255-newDimensions)
+    assert 0 <= baset.dim <= 255-newDimensions
     return _makeinfo(baset.tag, baset.dim+newDimensions, baset.extra)
 
 def T_UNINIT_OBJECT(origin):
     return _makeinfo('.new', extra=origin)
 
 def T_INT_CONST(val):
-    assert(-0x80000000 <= val < 0x80000000)
+    assert -0x80000000 <= val < 0x80000000
     return _makeinfo(T_INT.tag, const=val)
 
 OBJECT_INFO = T_OBJECT('java/lang/Object')
@@ -62,13 +62,13 @@ def unSynthesizeType(t):
 def decrementDim(fi):
     if fi == T_NULL:
         return T_NULL
-    assert(fi.dim)
+    assert fi.dim
 
     tag = unSynthesizeType(fi).tag if fi.dim <= 1 else fi.tag
     return _makeinfo(tag, fi.dim-1, fi.extra)
 
 def exactArrayFrom(fi, size):
-    assert(fi.dim > 0)
+    assert fi.dim > 0
     if size >= 0:
         return _makeinfo(fi.tag, fi.dim, fi.extra, size)
     return fi

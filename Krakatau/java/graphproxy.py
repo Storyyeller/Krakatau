@@ -93,13 +93,13 @@ def createGraphProxy(ssagraph):
 
     lookup = {}
     for n in nodes:
-        assert(len(intypes[n.bkey]) != 2) #should have been handled by graph.splitDualInedges()
+        assert len(intypes[n.bkey]) != 2 #should have been handled by graph.splitDualInedges()
 
         if False in intypes[n.bkey]:
             lookup[n.bkey, False] = n
         if True in intypes[n.bkey]:
             lookup[n.bkey, True] = n
-    assert(unique(lookup.values()))
+    assert unique(lookup.values())
 
     for n in nodes:
         n.blockdict = lookup
@@ -114,15 +114,15 @@ def createGraphProxy(ssagraph):
 
     #sanity check
     for n in allnodes:
-        assert((n.block is not None) == (n.num == 0))
-        assert((n is entryNode) == (len(n.predecessors) == 0))
-        assert(unique(n.predecessors))
-        assert(unique(n.successors))
+        assert (n.block is not None) == (n.num == 0)
+        assert (n is entryNode) == (len(n.predecessors) == 0)
+        assert unique(n.predecessors)
+        assert unique(n.successors)
         for pn in n.predecessors:
-            assert(n in pn.successors)
-        assert(set(n.outvars) == set(n.successors))
+            assert n in pn.successors
+        assert set(n.outvars) == set(n.successors)
         for sn in n.successors:
-            assert(n in sn.predecessors)
-            assert(len(n.outvars[sn]) == len(sn.invars))
+            assert n in sn.predecessors
+            assert len(n.outvars[sn]) == len(sn.invars)
 
     return entryNode, allnodes

@@ -226,7 +226,7 @@ class Class(object):
 
 
         cpdata, bsmdata = self.pool.write(error)
-        assert(len(bsmdata) < (1 << 32))
+        assert len(bsmdata) < (1 << 32)
 
         data = beforepool
         data += cpdata

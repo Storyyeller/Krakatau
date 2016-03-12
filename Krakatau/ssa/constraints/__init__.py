@@ -50,7 +50,7 @@ def fromVariable(env, var):
     try:
         return _bots[ssa_type]
     except KeyError:
-        assert(ssa_type == SSA_OBJECT)
+        assert ssa_type == SSA_OBJECT
         isnew = var.uninit_orig_num is not None
         if var.decltype is not None:
             if var.decltype == objtypes.NullTT:

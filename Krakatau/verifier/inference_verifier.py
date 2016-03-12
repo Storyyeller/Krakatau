@@ -54,12 +54,15 @@ class VerifierTypesState(object):
         self.stack = [(T_INVALID if v.tag == '.new' else v) for v in self.stack]
         self.locals = [(T_INVALID if v.tag == '.new' else v) for v in self.locals]
 
-    def returnTo(self, called, jsrstate):
+    def maskFor(self, called):
         self.masks = self.masks[:]
         target, mask = self.masks.pop()
         while target != called:
             target, mask = self.masks.pop()
+        return mask
 
+    def returnTo(self, called, jsrstate):
+        mask = self.maskFor(called)
         #merge locals using mask
         zipped = itertools.izip_longest(self.locals, jsrstate.locals, fillvalue=T_INVALID)
         self.locals = [(x if i in mask else y) for i,(x,y) in enumerate(zipped)]

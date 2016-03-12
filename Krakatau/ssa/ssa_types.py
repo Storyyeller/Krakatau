@@ -38,7 +38,7 @@ def verifierToSSAType(vtype):
 # handlers. Due to the use of SSA, we also require that there are no changes to the locals between the
 # first and last throwing instruction.
 class BasicBlock(object):
-    __slots__ = "key phis lines jump unaryConstraints predecessors inslots throwvars chpairs locals_at_first_except".split()
+    __slots__ = "key phis lines jump unaryConstraints predecessors inslots throwvars chpairs except_used locals_at_except".split()
 
     def __init__(self, key):
         self.key = key
@@ -56,7 +56,8 @@ class BasicBlock(object):
         self.inslots = None
         self.throwvars = []
         self.chpairs = None
-        self.locals_at_first_except = None
+        self.except_used = None
+        self.locals_at_except = None
 
     def filterVarConstraints(self, keepvars):
         self.unaryConstraints = {k:v for k,v in self.unaryConstraints.items() if k in keepvars}

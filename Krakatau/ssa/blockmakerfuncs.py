@@ -242,6 +242,7 @@ def _jsr(maker, input_, iNode):
     retnode = maker.iNodeD[iNode.returnedFrom]
     stack = [maker.parent.makeVarFromVtype(vt, {}) for vt in retnode.out_state.stack]
     newlocals = dict(enumerate(maker.parent.makeVarFromVtype(vt, {}) for vt in retnode.out_state.locals))
+    newlocals = maker.pruneUnused(retnode.key, newlocals)
     out_slots = slots_t(locals=newlocals, stack=stack)
 
     # Simply store the data for now and fix things up once all the blocks are created

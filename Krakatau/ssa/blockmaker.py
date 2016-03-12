@@ -1,4 +1,5 @@
-import collections, itertools
+import collections
+import operator
 
 from . import ssa_ops, ssa_jumps, objtypes, subproc
 from .. import opnames as vops
@@ -8,8 +9,52 @@ from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT
 from .ssa_types import slots_t, BasicBlock
 from .blockmakerfuncs import instructionHandlers
 
+def toBits(x): return [i for i in range(x.bit_length()) if x & (1 << i)]
+
 #keys for special blocks created at the cfg entry and exit. Negative keys ensures they don't collide
 ENTRY_KEY, RETURN_KEY, RETHROW_KEY = -1, -2, -3
+
+def getUsedLocals(iNodes, iNodeD, exceptions):
+    # For every instruction, find which locals at that point may be used in the future
+    old = collections.defaultdict(int)
+    while 1:
+        data = old.copy()
+        # Do one iteration
+        for node in reversed(iNodes):
+            used = reduce(operator.__or__, (data[key] for key in node.successors), 0)
+
+            if node.instruction[0] == vops.LOAD:
+                used |= 1 << node.instruction[2]
+            elif node.instruction[0] == vops.IINC:
+                used |= 1 << node.instruction[1]
+            elif node.instruction[0] == vops.STORE:
+                bits = 3 if node.instruction[1] in 'JD' else 1
+                used &= ~(bits << node.instruction[2])
+            elif node.instruction[0] == vops.RET:
+                # If local is not in mask, it will use the value from the jsr instead of the ret
+                mask = sum(1<<i for i in node.out_state.copy().maskFor(node.jsrTarget))
+                used &= mask
+            elif node.instruction[0] == vops.JSR and node.returnedFrom is not None:
+                retnode = iNodeD[node.returnedFrom]
+                assert node.successors == (retnode.jsrTarget,)
+                mask = sum(1<<i for i in iNodeD[node.returnedFrom].out_state.copy().maskFor(retnode.jsrTarget))
+
+                assert node.next_instruction is not None
+                used |= (data[node.next_instruction] & ~mask)
+
+            # Note, this must come after the step marking stores unused!
+            for (start, end, handler, index) in exceptions:
+                if start <= node.key < end:
+                    used |= data[handler]
+
+            assert used | data[node.key] == used
+            data[node.key] = used
+        if data == old:
+            break
+        old = data
+    # for entry point, every program argument is marked used so we can preserve input arguments for later
+    old[ENTRY_KEY] = (1 << len(iNodeD[0].state.locals)) - 1
+    return old
 
 def slotsRvals(inslots):
     stack = [(None if phi is None else phi.rval) for phi in inslots.stack]
@@ -24,8 +69,11 @@ class BlockMaker(object):
         self.blockd = {}
 
         self.iNodes = [n for n in iNodes if n.visited]
-        self.iNodeD = {n.key:n for n in self.iNodes}
+        self.iNodeD = {n.key: n for n in self.iNodes}
         exceptions = [eh for eh in except_raw if eh.handler in self.iNodeD]
+
+        # Calculate which locals are actually live at any point
+        self.used_locals = getUsedLocals(self.iNodes, self.iNodeD, exceptions)
 
         # create map of uninitialized -> initialized types so we can convert them
         self.initMap = {}
@@ -103,7 +151,8 @@ class BlockMaker(object):
             block.inslots = None
             block.throwvars = None
             block.chpairs = None
-            block.locals_at_first_except = None
+            block.except_used = None
+            block.locals_at_except = None
 
     def _canContinueBlock(self, node):
         return (node.key not in self.blockd) and self.current_block.jump is None #fallthrough goto left as None
@@ -124,13 +173,18 @@ class BlockMaker(object):
             if vals.jump:
                 return False
             if vals.line is not None and vals.line.outException is not None:
-                inslots = self.current_slots
-                if inslots.locals != block.locals_at_first_except:
-                    return False
                 chpairs = self._chPairsAt(address)
-                return chpairs == block.chpairs
+                if chpairs != block.chpairs:
+                    return False
+
+                newlocals = {i: self.current_slots.locals[i] for i in block.except_used}
+                return newlocals == block.locals_at_except
         assert block.jump is None
         return True
+
+    def pruneUnused(self, key, newlocals):
+        used = toBits(self.used_locals[key])
+        return {i: newlocals[i] for i in used}
 
     def _startNewBlock(self, key):
         ''' We can't continue appending to the current block, so start a new one (or use existing one at location) '''
@@ -172,7 +226,6 @@ class BlockMaker(object):
             if ivar and ivar.type == SSA_OBJECT and ivar.decltype is None:
                 parent.setObjVarData(ivar, iNode.state.locals[i], initMap)
 
-
         vals = instructionHandlers[instr[0]](self, inslots, iNode)
         newstack = vals.newstack if vals.newstack is not None else inslots.stack
         newlocals = vals.newlocals if vals.newlocals is not None else inslots.locals
@@ -187,7 +240,7 @@ class BlockMaker(object):
 
         assert block.jump is None
         block.jump = ssa_jumps.OnException(parent, ephi.outException, block.chpairs, fallthrough)
-        outslot_except = slots_t(locals=block.locals_at_first_except, stack=[ephi.outException])
+        outslot_except = slots_t(locals=block.locals_at_except, stack=[ephi.outException])
         for suc in block.jump.getExceptSuccessors():
             self.mergeIn((block, True), suc.key, outslot_except)
 
@@ -202,13 +255,13 @@ class BlockMaker(object):
 
         if line is not None and line.outException is not None:
             block.throwvars.append(line.outException)
-            chpairs = self._chPairsAt(iNode.key)
-            assert block.chpairs is None or block.chpairs == chpairs
-            block.chpairs = chpairs
-
             inslots = self.current_slots
-            assert block.locals_at_first_except is None or inslots.locals == block.locals_at_first_except
-            block.locals_at_first_except = inslots.locals
+
+            if block.chpairs is None:
+                block.chpairs = self._chPairsAt(iNode.key)
+                temp = (self.used_locals[h.key] for t, h in block.chpairs)
+                block.except_used = toBits(reduce(operator.__or__, temp, 0))
+                block.locals_at_except = {i: inslots.locals[i] for i in block.except_used}
 
             if check_terminate:
                 # Return and Throw must be immediately ended because they don't have normal fallthrough
@@ -233,6 +286,7 @@ class BlockMaker(object):
                 for suc in block.jump.getNormalSuccessors():
                     self.mergeIn((block, False), suc.key, outslot_norm)
         self.current_slots = unmerged_slots
+        assert (block.chpairs is None) == (block.except_used is None) == (block.locals_at_except is None)
 
     def mergeIn(self, from_key, target_key, outslots):
         inslots = self.blockd[target_key].inslots
@@ -261,6 +315,8 @@ class BlockMaker(object):
         #create inslot phis
         stack = [self._makePhiFromVType(block, vt) for vt in stack]
         newlocals = dict(enumerate(self._makePhiFromVType(block, vt) for vt in newlocals))
+        newlocals = self.pruneUnused(key, newlocals)
+
         block.inslots = slots_t(locals=newlocals, stack=stack)
         block.phis = [phi for phi in stack + block.inslots.localsAsList if phi is not None]
         return block

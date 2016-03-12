@@ -33,7 +33,6 @@ class ProcCallOp(ProcJumpBase):
         self.target = target
         self.input = inslots
         self.output = outslots
-        # self.debug_skipvars = None # keep track for debugging
 
         for var in self.output.stack + self.output.locals.values():
             if var is not None:

@@ -530,8 +530,6 @@ class SSA_Graph(object):
         #first we find any vars that bypass the proc since we have to pass them through the new blocks
         skipvars = [phi.get((jsrblock, False)) for phi in ftblock.phis]
         skipvars = [var for var in skipvars if var.origin is not jsrop]
-        #will need to change if we ever add a pass to create new skipvars
-        # assert set(skipvars) <= jsrop.debug_skipvars
 
         svarcopy = {(var, block):self._copyVar(var) for var, block in itertools.product(skipvars, region)}
         for var, block in itertools.product(skipvars, region):

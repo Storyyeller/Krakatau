@@ -10,7 +10,7 @@ NEWLINES = r'(?:{})?\n\s*'.format(COMMENT)
 
 HEX_DIGIT = r'[0-9a-fA-F]'
 ESCAPE_SEQUENCE = r'''\\(?:U00(?:10|0{hd}){hd}{{4}}|u{hd}{{4}}|x{hd}{{2}}|[btnfr'"\\0-7])'''.format(hd=HEX_DIGIT)
-# See http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705#5455705
+# See http://stackoverflow.com/questions/430759/regex-for-managing-escaped-characters-for-items-like-string-literals/5455705# 5455705
 STRING_LITERAL = r'''
 [bB]?(?:
     "

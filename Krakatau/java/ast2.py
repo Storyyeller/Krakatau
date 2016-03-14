@@ -103,7 +103,7 @@ class ClassDef(object):
             contents = '\n'.join(print_(x) for x in self.fields)
         if self.methods:
             if contents:
-                contents += '\n\n' #extra line to divide fields and methods
+                contents += '\n\n' # extra line to divide fields and methods
             contents += '\n\n'.join(print_(x) for x in self.methods)
 
         indented = ['    '+line for line in contents.splitlines()]

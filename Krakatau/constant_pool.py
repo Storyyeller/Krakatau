@@ -1,11 +1,11 @@
 import struct, collections
 
-#ConstantPool stores strings as strings or unicodes. They are automatically
-#converted to and from modified Utf16 when reading and writing to binary
+# ConstantPool stores strings as strings or unicodes. They are automatically
+# converted to and from modified Utf16 when reading and writing to binary
 
-#Floats and Doubles are internally stored as integers with the same bit pattern
-#Since using raw floats breaks equality testing for signed zeroes and NaNs
-#cpool.getArgs/getArgsCheck will automatically convert them into Python floats
+# Floats and Doubles are internally stored as integers with the same bit pattern
+# Since using raw floats breaks equality testing for signed zeroes and NaNs
+# cpool.getArgs/getArgsCheck will automatically convert them into Python floats
 
 def decodeStr(s):
     return s.replace('\xc0\x80','\0').decode('utf8'),
@@ -16,7 +16,7 @@ def strToBytes(args):
     return struct.pack('>H',len(s)) + s
 
 def decodeFloat(i):
-    return struct.unpack('>f', struct.pack('>i', i)) #Note: returns tuple
+    return struct.unpack('>f', struct.pack('>i', i)) # Note: returns tuple
 def decodeDouble(i):
     return struct.unpack('>d', struct.pack('>q', i))
 
@@ -100,7 +100,7 @@ class ConstPool(object):
                     val = decodeStr(*val)
                 self.pool.append((t.name, val))
 
-    def size(self): #Number of slots including gaps, not number of entries
+    def size(self): # Number of slots including gaps, not number of entries
         return len(self.pool)
     def getPoolIter(self):
         return (x for x in self.pool if x[0] is not None)
@@ -145,7 +145,7 @@ class ConstPool(object):
         else:
             temp = len(self.pool)
             if index >= temp:
-                #If desired slot is past the end of current range, add a bunch of placeholder slots
+                # If desired slot is past the end of current range, add a bunch of placeholder slots
                 self.pool += [(None,None)] * (index+1-temp)
                 self.available.update(range(temp,index))
                 self.available -= self.reserved
@@ -183,9 +183,9 @@ class ConstPool(object):
 
     ##################################################################################
     def fillPlaceholders(self):
-        #fill in all the placeholder slots with a dummy reference. Class and String items
-        #have the smallest size (3 bytes). There should always be an existing class item
-        #we can copy
+        # fill in all the placeholder slots with a dummy reference. Class and String items
+        # have the smallest size (3 bytes). There should always be an existing class item
+        # we can copy
         dummy = next(item for item in self.pool if item[0] == 'Class')
         for i in self.available:
             self.pool[i] = dummy

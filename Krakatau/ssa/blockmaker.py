@@ -11,7 +11,7 @@ from .blockmakerfuncs import instructionHandlers
 
 def toBits(x): return [i for i in range(x.bit_length()) if x & (1 << i)]
 
-#keys for special blocks created at the cfg entry and exit. Negative keys ensures they don't collide
+# keys for special blocks created at the cfg entry and exit. Negative keys ensures they don't collide
 ENTRY_KEY, RETURN_KEY, RETHROW_KEY = -1, -2, -3
 
 def getUsedLocals(iNodes, iNodeD, exceptions):
@@ -156,7 +156,7 @@ class BlockMaker(object):
             block.locals_at_except = None
 
     def _canContinueBlock(self, node):
-        return (node.key not in self.blockd) and self.current_block.jump is None #fallthrough goto left as None
+        return (node.key not in self.blockd) and self.current_block.jump is None # fallthrough goto left as None
 
     def _chPairsAt(self, address):
         chpairs = []
@@ -313,7 +313,7 @@ class BlockMaker(object):
         self.blocks.append(block)
         self.blockd[key] = block
 
-        #create inslot phis
+        # create inslot phis
         stack = [self._makePhiFromVType(block, vt) for vt in stack]
         newlocals = dict(enumerate(self._makePhiFromVType(block, vt) for vt in newlocals))
         newlocals = self.pruneUnused(key, newlocals)

@@ -10,7 +10,7 @@ def loadConstValue(cpool, index):
     entry_type = cpool.pool[index][0]
     args = cpool.getArgs(index)
 
-    #Note: field constant values cannot be class literals
+    # Note: field constant values cannot be class literals
     tt = {'Int':objtypes.IntTT, 'Long':objtypes.LongTT,
         'Float':objtypes.FloatTT, 'Double':objtypes.DoubleTT,
         'String':objtypes.StringTT}[entry_type]
@@ -61,7 +61,7 @@ def generateAST(cls, cb, skip_errors, method=None, add_throws=False):
     isInterface = 'INTERFACE' in cls.flags
 
     superc = cls.supername
-    interfaces = [cls.cpool.getArgsCheck('Class', index) for index in cls.interfaces_raw] #todo - change when class actually loads interfaces
+    interfaces = [cls.cpool.getArgsCheck('Class', index) for index in cls.interfaces_raw] # todo - change when class actually loads interfaces
 
     field_defs = [_getField(f) for f in cls.fields]
     method_defs = [_getMethod(m, cb, forbidden_identifiers, skip_errors) for m in methods]

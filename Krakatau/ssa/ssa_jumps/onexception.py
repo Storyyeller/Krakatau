@@ -78,6 +78,6 @@ class OnException(BaseJump):
                     return ObjectConstraint.fromTops(t.env, [objtypes.TypeTT(base,0) for base in ntops], [], nonnull=True),
             return propagateConstraints
         else:
-            #In fallthrough case, no exception so always return invalid
+            # In fallthrough case, no exception so always return invalid
             assert block == self.default
             return lambda arg:[None]

@@ -197,7 +197,7 @@ class Class(object):
         self.pool.cp.freezedefs(self.pool, error)
         self.pool.bs.freezedefs(self.pool, error)
 
-        #afterpool is the only part that can contain ldcs
+        # afterpool is the only part that can contain ldcs
         assert not beforepool.refu8phs
         assert not afterbs.refu8phs
         for _, ref in afterpool.refu8phs:

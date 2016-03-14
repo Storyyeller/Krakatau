@@ -2,7 +2,7 @@ from . import constant_pool, method, field
 from .attributes_raw import get_attributes_raw, fixAttributeNames
 
 cp_structFmts = {3: '>i',
-                4: '>i',    #floats and doubles internally represented as integers with same bit pattern
+                4: '>i',    # floats and doubles internally represented as integers with same bit pattern
                 5: '>q',
                 6: '>q',
                 7: '>H',
@@ -24,14 +24,14 @@ def get_cp_raw(bytestream):
 
     while len(pool) < const_count:
         tag = bytestream.get('B')
-        if tag == 1: #utf8
+        if tag == 1: # utf8
             length = bytestream.get('>H')
             data = bytestream.getRaw(length)
             val = tag, (data,)
         else:
             val = tag,bytestream.get(cp_structFmts[tag], True)
         pool.append(val)
-        #Longs and Doubles take up two spaces in the pool
+        # Longs and Doubles take up two spaces in the pool
         if tag == 5 or tag == 6:
             pool.append(placeholder)
     assert len(pool) == const_count
@@ -46,7 +46,7 @@ def get_fields_raw(bytestream):
     count = bytestream.get('>H')
     return [get_field_raw(bytestream) for _ in range(count)]
 
-#fields and methods have same raw format
+# fields and methods have same raw format
 get_method_raw = get_field_raw
 get_methods_raw = get_fields_raw
 

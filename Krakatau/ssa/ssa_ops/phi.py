@@ -5,7 +5,7 @@ class Phi(object):
     has_side_effects = False
 
     def __init__(self, block, rval):
-        self.block = block #used in constraint propagation
+        self.block = block # used in constraint propagation
         self.dict = {}
         self.rval = rval
         assert rval is not None and rval.origin is None

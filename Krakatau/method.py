@@ -12,7 +12,7 @@ class Code(object):
         self.method = method
         self.class_ = method.class_
 
-        #Old versions use shorter fields for stack, locals, and code length
+        # Old versions use shorter fields for stack, locals, and code length
         field_fmt = ">HHL" if self.class_.version > (45,2) else ">BBH"
         self.stack, self.locals, codelen = bytestream.get(field_fmt)
         # assert codelen > 0 and codelen < 65536
@@ -40,7 +40,7 @@ class Code(object):
         if keepRaw:
             self.attributes_raw = attributes_raw
 
-    #This is a callback passed to the bytecode parser to determine if a given method id represents a constructor
+    # This is a callback passed to the bytecode parser to determine if a given method id represents a constructor
     def isIdConstructor(self, methId):
         args = self.class_.cpool.getArgsCheck('Method', methId)
         return args[1] == '<init>'
@@ -89,7 +89,7 @@ class Method(object):
         self.abstract = 'ABSTRACT' in self.flags
         self.isConstructor = (self.name == '<init>')
 
-        #Prior to version 51.0, <clinit> is still valid even if it isn't marked static
+        # Prior to version 51.0, <clinit> is still valid even if it isn't marked static
         if self.class_.version < (51,0) and self.name == '<clinit>' and self.descriptor == '()V':
             self.static = True
 

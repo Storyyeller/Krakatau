@@ -1,6 +1,6 @@
 from . import objtypes
 
-#common exception types
+# common exception types
 Arithmetic = objtypes.TypeTT('java/lang/ArithmeticException', 0)
 ArrayOOB = objtypes.TypeTT('java/lang/ArrayIndexOutOfBoundsException', 0)
 ArrayStore = objtypes.TypeTT('java/lang/ArrayStoreException', 0)

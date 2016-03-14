@@ -9,7 +9,7 @@ def update(self, items):
 
 class SEBlockItem(object):
     def __init__(self, node):
-        self.successors = node.norm_suc_nl #don't include backedges or exceptional edges
+        self.successors = node.norm_suc_nl # don't include backedges or exceptional edges
         self.node = node
         self.nodes = frozenset([node])
         self.entryBlock = node
@@ -34,7 +34,7 @@ class SETry(object):
     def __init__(self, tryscope, catchscope, toptts, catchvar):
         self.scopes = tryscope, catchscope
         self.toptts = toptts
-        self.catchvar = catchvar #none if ignored
+        self.catchvar = catchvar # none if ignored
         update(self, self.scopes)
 
     def getScopes(self): return self.scopes

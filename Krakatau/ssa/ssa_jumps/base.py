@@ -14,4 +14,4 @@ class BaseJump(SSAFunctionBase):
     def getSuccessorPairs(self): return [(x,False) for x in self.getNormalSuccessors()] + [(x,True) for x in self.getExceptSuccessors()]
     def reduceSuccessors(self, pairsToRemove): return self
 
-    def clone(self): return copy.copy(self) #overriden by classes which need to do a deep copy
+    def clone(self): return copy.copy(self) # overriden by classes which need to do a deep copy

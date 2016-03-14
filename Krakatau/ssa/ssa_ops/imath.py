@@ -148,7 +148,7 @@ class IDiv(BaseOp):
         if y.min == 0 == y.max:
             return throw(excons)
 
-        #Calculate possible extremes for division, taking into account special case of intmin/-1
+        # Calculate possible extremes for division, taking into account special case of intmin/-1
         intmin = -1<<(x.width - 1)
         xvals = set([x.min, x.max])
         yvals = set([y.min, y.max])
@@ -165,7 +165,7 @@ class IDiv(BaseOp):
         for xv, yv in itertools.product(xvals, yvals):
             if xv == intmin and yv == -1:
                 vals.add(intmin)
-            elif xv*yv < 0: #Unlike Python, Java rounds to 0 so opposite sign case must be handled specially
+            elif xv*yv < 0: # Unlike Python, Java rounds to 0 so opposite sign case must be handled specially
                 vals.add(-(-xv//yv))
             else:
                 vals.add(xv//yv)
@@ -183,8 +183,8 @@ class IRem(BaseOp):
         excons = self.outExceptionCons if (y.min <= 0 <= y.max) else None
         if y.min == 0 == y.max:
             return throw(excons)
-        #only do an exact result if both values are constants, and otherwise
-        #just approximate the range as -(y-1) to (y-1) (or 0 to y-1 if it's positive)
+        # only do an exact result if both values are constants, and otherwise
+        # just approximate the range as -(y-1) to (y-1) (or 0 to y-1 if it's positive)
         if x.min == x.max and y.min == y.max:
             val = abs(x.min) % abs(y.min)
             val = val if x.min >= 0 else -val

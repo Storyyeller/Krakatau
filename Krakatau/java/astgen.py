@@ -5,7 +5,7 @@ from ..namegen import LabelGen
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 from .. import opnames
 
-#prefixes for name generation
+# prefixes for name generation
 _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',
             objtypes.FloatTT:'f', objtypes.DoubleTT:'d',
             objtypes.BoolTT:'b', objtypes.StringTT:'s'}
@@ -28,7 +28,7 @@ class VarInfo(object):
         for block in blocks:
             for var, uc in block.unaryConstraints.items():
                 if var.type == ssa_types.SSA_OBJECT:
-                    tt = uc.getSingleTType() #temp hack
+                    tt = uc.getSingleTType() # temp hack
                     if uc.types.isBoolOrByteArray():
                         tt = objtypes.TypeTT(objtypes.BExpr, objtypes.dim(tt)+1)
                         # assert (objtypes.BoolTT[0], tt[1]) in uc.types.exact
@@ -46,8 +46,8 @@ class VarInfo(object):
             return ast.Literal(tt, var.const)
 
         if var.name:
-            #important to not add num when it is 0, since we currently
-            #use var names to force 'this'
+            # important to not add num when it is 0, since we currently
+            # use var names to force 'this'
             temp = '{}_{}'.format(var.name, num) if num else var.name
             if isCast:
                 temp += 'c'
@@ -70,7 +70,7 @@ class VarInfo(object):
             self._vars[key] = new
             return new
 
-    def customVar(self, tt, prefix): #for use with ignored exceptions
+    def customVar(self, tt, prefix): # for use with ignored exceptions
         namefunc = lambda expr: self._namegen.getPrefix(prefix)
         return ast.Local(tt, namefunc)
 
@@ -84,7 +84,7 @@ def _convertJExpr(op, getExpr, clsname):
     assert None not in params
     expr = None
 
-    #Have to do this one seperately since it isn't an expression statement
+    # Have to do this one seperately since it isn't an expression statement
     if isinstance(op, ssa_ops.Throw):
         return ast.ThrowStatement(params[0])
 
@@ -116,8 +116,8 @@ def _convertJExpr(op, getExpr, clsname):
         dtype = objtypes.verifierToSynthetic(parseFieldDescriptor(op.desc, unsynthesize=False)[0])
 
         if op.instruction[0] in (opnames.GETSTATIC, opnames.PUTSTATIC):
-            printLeft = (op.target != clsname) #Don't print classname if it is a static field in current class
-            tt = objtypes.TypeTT(op.target, 0) #Doesn't handle arrays, but they don't have any fields anyway
+            printLeft = (op.target != clsname) # Don't print classname if it is a static field in current class
+            tt = objtypes.TypeTT(op.target, 0) # Doesn't handle arrays, but they don't have any fields anyway
             expr = ast.FieldAccess(ast.TypeName(tt), op.name, dtype, op, printLeft=printLeft)
         else:
             expr = ast.FieldAccess(params[0], op.name, dtype, op)
@@ -136,13 +136,13 @@ def _convertJExpr(op, getExpr, clsname):
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
         target_tt = op.target_tt
 
-        if objtypes.dim(target_tt) and op.name == "clone": #In Java, T[].clone returns T[] rather than Object
+        if objtypes.dim(target_tt) and op.name == "clone": # In Java, T[].clone returns T[] rather than Object
             ret_type = target_tt
 
         if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
             name = 'this' if (op.target == clsname) else 'super'
             expr = ast.MethodInvocation(None, name, tt_types, params[1:], op, ret_type)
-        elif op.instruction[0] == opnames.INVOKESTATIC: #TODO - fix this for special super calls
+        elif op.instruction[0] == opnames.INVOKESTATIC: # TODO - fix this for special super calls
             expr = ast.MethodInvocation(ast.TypeName(target_tt), op.name, [None]+tt_types, params, op, ret_type)
         else:
             expr = ast.MethodInvocation(params[0], op.name, [target_tt]+tt_types, params[1:], op, ret_type)
@@ -214,8 +214,8 @@ def _createASTBlock(info, endk, node):
         assert (n2 in node.outvars) != (n2 in node.eassigns)
         if n2 in node.eassigns:
             for outv, inv in zip(node.eassigns[n2], n2.invars):
-                if outv is None: #this is how we mark the thrown exception, which
-                    #obviously doesn't get an explicit assignment statement
+                if outv is None: # this is how we mark the thrown exception, which
+                    # obviously doesn't get an explicit assignment statement
                     continue
                 expr = ast.Assignment(info.var(n2, inv), info.var(node, outv))
                 if expr.params[0] != expr.params[1]:
@@ -249,9 +249,9 @@ def _createASTBlock(info, endk, node):
     elif len(norm_successors) == 0:
         assert isinstance(jump, ssa_jumps.OnException)
         breakKey, jumpKey = endk, None
-    elif len(norm_successors) == 1: #normal successors
+    elif len(norm_successors) == 1: # normal successors
         breakKey, jumpKey = endk, norm_successors[0]._key
-    else: #case of if and switch jumps handled in parent scope
+    else: # case of if and switch jumps handled in parent scope
         assert len(norm_successors) > 1
         breakKey, jumpKey = endk, endk
 
@@ -279,7 +279,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         catchnode = current.getScopes()[-1].entryBlock
         declt = ast.CatchTypeNames(info.env, current.toptts)
 
-        if current.catchvar is None: #exception is ignored and hence not referred to by the graph, so we need to make our own
+        if current.catchvar is None: # exception is ignored and hence not referred to by the graph, so we need to make our own
             catchvar = info.customVar(declt.dtype, 'ignoredException')
         else:
             catchvar = info.var(catchnode, current.catchvar)
@@ -287,8 +287,8 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         pairs = [(decl, parts[1])]
         return ast.TryStatement(info.labelgen, begink, endk, parts[0], pairs)
 
-    #Create a fake key to represent the beginning of the conditional statement itself
-    #doesn't matter what it is as long as it's unique
+    # Create a fake key to represent the beginning of the conditional statement itself
+    # doesn't matter what it is as long as it's unique
     midk = begink + (-1,)
     node = current.head.node
     jump = node.block.jump
@@ -304,13 +304,13 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         ftitems = current.ordered[1:] + [ftitem]
         parts = [_createASTSub(info, item, newft, True) for item, newft in zip(current.ordered, ftitems)]
         for part in parts:
-            part.breakKey = endk #createSub will assume break should be ft, which isn't the case with switch statements
+            part.breakKey = endk # createSub will assume break should be ft, which isn't the case with switch statements
 
         expr = info.var(node, jump.params[0])
         pairs = zip(current.ordered_keysets, parts)
         new = ast.SwitchStatement(info.labelgen, midk, endk, expr, pairs)
 
-    #bundle head and if together so we can return as single statement
+    # bundle head and if together so we can return as single statement
     headscope = _createASTBlock(info, midk, node)
     assert headscope.jumpKey is midk
     return ast.StatementBlock(info.labelgen, begink, endk, [headscope, new], endk)

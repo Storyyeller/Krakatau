@@ -1,6 +1,6 @@
 import collections
 
-#Define types for Inference
+# Define types for Inference
 nt = collections.namedtuple
 # Extra stores address for .new and .address and class name for object types
 # Const stores value for int constants and length for exact arrays. This isn't needed for normal verification but is
@@ -26,9 +26,9 @@ T_UNINIT_THIS = _makeinfo('.init')
 T_BYTE = _makeinfo('.byte')
 T_SHORT = _makeinfo('.short')
 T_CHAR = _makeinfo('.char')
-T_BOOL = _makeinfo('.boolean') #Hotspot doesn't have a bool type, but we can use this elsewhere
+T_BOOL = _makeinfo('.boolean') # Hotspot doesn't have a bool type, but we can use this elsewhere
 
-#types with arguments
+# types with arguments
 def T_ADDRESS(entry):
     return _makeinfo('.address', extra=entry)
 
@@ -51,7 +51,7 @@ CLONE_INFO = T_OBJECT('java/lang/Cloneable')
 SERIAL_INFO = T_OBJECT('java/io/Serializable')
 THROWABLE_INFO = T_OBJECT('java/lang/Throwable')
 
-def objOrArray(fi): #False on uninitialized
+def objOrArray(fi): # False on uninitialized
     return fi.tag == '.obj' or fi.dim > 0
 
 def unSynthesizeType(t):
@@ -93,7 +93,7 @@ def mergeTypes(env, t1, t2):
     if t1 == t2:
         return t1
 
-    #non objects must match exactly
+    # non objects must match exactly
     if not objOrArray(t1) or not objOrArray(t2):
         return T_INVALID
 
@@ -118,15 +118,15 @@ def mergeTypes(env, t1, t2):
         if t1.dim == t2.dim:
             res = mergeTypes(env, withNoDimension(t1), withNoDimension(t2))
             return res if res == T_INVALID else _makeinfo('.obj', t1.dim, res.extra)
-        else: #t1.dim < t2.dim
+        else: # t1.dim < t2.dim
             return t1 if withNoDimension(t1) in (CLONE_INFO, SERIAL_INFO) else T_ARRAY(OBJECT_INFO, t1.dim)
-    else: #neither is array
+    else: # neither is array
         if env.isInterface(t2.extra, forceCheck=True):
             return OBJECT_INFO
         return T_OBJECT(env.commonSuperclass(t1.extra, t2.extra))
 
 
-#Make verifier types printable for easy debugging
+# Make verifier types printable for easy debugging
 def vt_toStr(self):
     if self == T_INVALID:
         return '.none'

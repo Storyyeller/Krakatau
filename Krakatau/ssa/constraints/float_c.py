@@ -29,7 +29,7 @@ class FloatConstraint(ValueType):
 
     def _key(self): return self.finite, self.spec
 
-    def join(*cons): #more precise (intersection)
+    def join(*cons): # more precise (intersection)
         spec = frozenset.intersection(*[c.spec for c in cons])
         ranges = [c.finite for c in cons]
 

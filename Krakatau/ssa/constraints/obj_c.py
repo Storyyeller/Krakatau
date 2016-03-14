@@ -24,7 +24,7 @@ class TypeConstraint(ValueType):
     def __nonzero__(self): return bool(self.supers or self.exact)
 
     def getSingleTType(self):
-        #comSuper doesn't care about order so we can freely pass in nondeterministic order
+        # comSuper doesn't care about order so we can freely pass in nondeterministic order
         return objtypes.commonSupertype(self.env, list(self.supers) + list(self.exact))
 
     def isBoolOrByteArray(self):
@@ -49,13 +49,13 @@ class TypeConstraint(ValueType):
         assert len(set(map(type, cons))) == 1
         env = cons[0].env
 
-        #optimize for the common case of joining with itself or with bot
+        # optimize for the common case of joining with itself or with bot
         cons = set(c for c in cons if not c.isBot)
         if not cons:
             return TypeConstraint(env, obj_fset, [])
         elif len(cons) == 1:
             return cons.pop()
-        assert(len(cons) == 2) #joining more than 2 not currently supported
+        assert(len(cons) == 2) # joining more than 2 not currently supported
 
         supers_l, exact_l = zip(*(c._key() for c in cons))
 
@@ -65,7 +65,7 @@ class TypeConstraint(ValueType):
                 newsupers.add(t1)
             elif objtypes.isSubtype(env, t2, t1):
                 newsupers.add(t2)
-            else: #TODO: need to add special handling for interfaces here
+            else: # TODO: need to add special handling for interfaces here
                 pass
 
         newexact = frozenset.union(*exact_l)

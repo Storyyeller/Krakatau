@@ -1,13 +1,13 @@
-#double quote, backslash, and newlines are forbidden
+# double quote, backslash, and newlines are forbidden
 ok_chars =  " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 ok_chars = frozenset(ok_chars)
 
-#these characters cannot use unicode escape codes due to the way Java escaping works
+# these characters cannot use unicode escape codes due to the way Java escaping works
 late_escape = {u'\u0009':r'\t', u'\u000a':r'\n', u'\u000d':r'\r', u'\u0022':r'\"', u'\u005c':r'\\'}
 
 def escapeString(u):
     if set(u) <= ok_chars:
-        return u 
+        return u
 
     escaped = []
     for c in u:

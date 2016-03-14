@@ -14,21 +14,21 @@ def tarjanSCC(roots, getChildren):
     removed = set()
     subtree = []
 
-    #Use iterative version to avoid stack limits for large datasets
+    # Use iterative version to avoid stack limits for large datasets
     stack = [(node, 0) for node in roots]
     while stack:
         current, state = stack.pop()
-        if state == 0: #before recursing
-            if current not in index: #if it's in index, it was already visited (possibly earlier on the current search stack)
+        if state == 0: # before recursing
+            if current not in index: # if it's in index, it was already visited (possibly earlier on the current search stack)
                 lowlink[current] = index[current] = next(indexCounter)
                 subtree.append(current)
 
                 stack.append((current, 1))
                 stack.extend((child, 0) for child in getChildren(current) if child not in removed)
-        else: #after recursing
+        else: # after recursing
             children = [child for child in getChildren(current) if child not in removed]
             for child in children:
-                if index[child] <= index[current]: #backedge (or selfedge)
+                if index[child] <= index[current]: # backedge (or selfedge)
                     lowlink[current] = min(lowlink[current], index[child])
                 else:
                     lowlink[current] = min(lowlink[current], lowlink[child])
@@ -53,16 +53,16 @@ def topologicalSort(roots, getParents):
     results = []
     visited = set()
 
-    #Use iterative version to avoid stack limits for large datasets
+    # Use iterative version to avoid stack limits for large datasets
     stack = [(node,0) for node in roots]
     while stack:
         current, state = stack.pop()
-        if state == 0: #before recursing
+        if state == 0: # before recursing
             if current not in visited:
                 visited.add(current)
                 stack.append((current,1))
                 stack.extend((parent,0) for parent in getParents(current))
-        else: #after recursing
+        else: # after recursing
             assert current in visited
             results.append(current)
     return results

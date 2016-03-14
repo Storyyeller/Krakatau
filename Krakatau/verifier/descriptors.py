@@ -32,13 +32,13 @@ def parseFieldDescriptors(desc_str, unsynthesize=True):
             desc_str = desc_str[1:]
 
         if dim:
-            #Hotspot considers byte[] and bool[] identical for type checking purposes
+            # Hotspot considers byte[] and bool[] identical for type checking purposes
             if unsynthesize and baset == T_BOOL:
                 baset = T_BYTE
             baset = T_ARRAY(baset, dim)
         elif unsynthesize:
-            #synthetics are only meaningful as basetype of an array
-            #if they are by themselves, convert to int.
+            # synthetics are only meaningful as basetype of an array
+            # if they are by themselves, convert to int.
             baset = unSynthesizeType(baset)
 
         fields.append(baset)
@@ -46,7 +46,7 @@ def parseFieldDescriptors(desc_str, unsynthesize=True):
             fields.append(T_INVALID)
     return fields
 
-#get a single descriptor
+# get a single descriptor
 def parseFieldDescriptor(desc_str, unsynthesize=True):
     rval = parseFieldDescriptors(desc_str, unsynthesize)
 
@@ -55,16 +55,16 @@ def parseFieldDescriptor(desc_str, unsynthesize=True):
         raise ValueError('Incorrect number of fields in descriptor, expected {} but found {}'.format(cat, len(rval)))
     return rval
 
-#Parse a string to get a Java Method Descriptor
+# Parse a string to get a Java Method Descriptor
 def parseMethodDescriptor(desc_str, unsynthesize=True):
     if not desc_str.startswith('('):
         raise ValueError('Method descriptor does not start with (')
 
-    #we need to split apart the argument list and return value
-    #this is greatly complicated by the fact that ) is a legal
-    #character that can appear in class names
+    # we need to split apart the argument list and return value
+    # this is greatly complicated by the fact that ) is a legal
+    # character that can appear in class names
 
-    lp_pos = desc_str.rfind(')') #this case will work if return type is not an object
+    lp_pos = desc_str.rfind(')') # this case will work if return type is not an object
     if desc_str.endswith(';'):
         lbound = max(desc_str.rfind(';', 1, -1), 1)
         lp_pos = desc_str.find(')', lbound, -1)
@@ -78,7 +78,7 @@ def parseMethodDescriptor(desc_str, unsynthesize=True):
     rval = [] if rval_str == 'V' else parseFieldDescriptor(rval_str, unsynthesize)
     return args, rval
 
-#Adds self argument for nonstatic. Constructors must be handled seperately
+# Adds self argument for nonstatic. Constructors must be handled seperately
 def parseUnboundMethodDescriptor(desc_str, target, isstatic):
     args, rval = parseMethodDescriptor(desc_str)
     if not isstatic:

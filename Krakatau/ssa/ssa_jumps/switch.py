@@ -10,7 +10,7 @@ class Switch(BaseJump):
     def __init__(self, parent, default, table, arguments):
         super(Switch, self).__init__(parent, arguments)
 
-        #get ordered successors since our map will be unordered. Default is always first successor
+        # get ordered successors since our map will be unordered. Default is always first successor
         if not table:
             ordered = [default]
         else:

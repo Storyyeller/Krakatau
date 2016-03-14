@@ -18,7 +18,7 @@ def findJRE():
             if os.path.isfile(path):
                 return path
 
-            #For macs
+            # For macs
             path = os.path.join(home, 'bundle', 'Classes', 'classes.jar')
             if os.path.isfile(path):
                 return path
@@ -69,8 +69,8 @@ def makeGraph(opts, m):
     return s
 
 def deleteUnusued(cls):
-    #Delete attributes we aren't going to use
-    #pretty hackish, but it does help when decompiling large jars
+    # Delete attributes we aren't going to use
+    # pretty hackish, but it does help when decompiling large jars
     for e in cls.fields + cls.methods:
         del e.class_, e.attributes, e.static
     for m in cls.methods:
@@ -108,7 +108,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
                     print traceback.format_exc()
                 continue
 
-            #The single class decompiler doesn't add package declaration currently so we add it here
+            # The single class decompiler doesn't add package declaration currently so we add it here
             if '/' in target:
                 package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
                 source = package + source

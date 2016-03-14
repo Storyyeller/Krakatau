@@ -9,7 +9,7 @@ slots_t = nt('slots_t', ('locals', 'stack'))
 def _localsAsList(self): return [t[1] for t in sorted(self.locals.items())]
 slots_t.localsAsList = property(_localsAsList)
 
-#types
+# types
 SSA_INT = 'int', 32
 SSA_LONG = 'int', 64
 SSA_FLOAT = 'float', fu.FLOAT_SIZE
@@ -21,7 +21,7 @@ def verifierToSSAType(vtype):
                 vtypes.T_LONG:SSA_LONG,
                 vtypes.T_FLOAT:SSA_FLOAT,
                 vtypes.T_DOUBLE:SSA_DOUBLE}
-    #These should never be passed in here
+    # These should never be passed in here
     assert vtype.tag not in ('.new','.init')
     vtype = vtypes.withNoConst(vtype)
     if vtypes.objOrArray(vtype):
@@ -52,7 +52,7 @@ class BasicBlock(object):
         # List of predecessor pairs in deterministic order
         self.predecessors = []
 
-        #temp vars used during graph creation
+        # temp vars used during graph creation
         self.inslots = None
         self.throwvars = []
         self.chpairs = None

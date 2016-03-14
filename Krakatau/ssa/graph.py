@@ -15,10 +15,10 @@ class SSA_Variable(object):
         self.origin = origin
         self.name = name
         self.const = None
-        self.decltype = None #for objects, the inferred type from the verifier if any
-        self.uninit_orig_num = None #if uninitialized, the bytecode offset of the new instr
+        self.decltype = None # for objects, the inferred type from the verifier if any
+        self.uninit_orig_num = None # if uninitialized, the bytecode offset of the new instr
 
-    #for debugging
+    # for debugging
     def __str__(self):
         return self.name if self.name else super(SSA_Variable, self).__str__()
 
@@ -26,23 +26,23 @@ class SSA_Variable(object):
         name =  self.name if self.name else "@" + hex(id(self))
         return "Var {}".format(name)
 
-#This class is the main IR for bytecode level methods. It consists of a control
-#flow graph (CFG) in static single assignment form (SSA). Each node in the
-#graph is a BasicBlock. This consists of a list of phi statements representing
-#inputs, a list of operations, and a jump statement. Exceptions are represented
-#explicitly in the graph with the OnException jump. Each block also keeps track
-#of the unary constraints on the variables in that block.
+# This class is the main IR for bytecode level methods. It consists of a control
+# flow graph (CFG) in static single assignment form (SSA). Each node in the
+# graph is a BasicBlock. This consists of a list of phi statements representing
+# inputs, a list of operations, and a jump statement. Exceptions are represented
+# explicitly in the graph with the OnException jump. Each block also keeps track
+# of the unary constraints on the variables in that block.
 
-#Handling of subprocedures is rather annoying. Each complete subproc has an associated
-#ProcInfo while jsrs and rets are represented by ProcCallOp and DummyRet respectively.
-#The jsrblock has the target and fallthrough as successors, while the fallthrough has
-#the jsrblock as predecessor, but not the retblock. Control flow paths where the proc
-#never returns are represented by ordinary jumps from blocks in the procedure to outside
-#Successful completion of the proc is represented by the fallthrough edge. The fallthrough
-#block gets its variables from the jsrblock, including skip vars which don't depend on the
-#proc, and variables from jsr.output which represent what would have been returned from ret
-#Every proc has a reachable retblock. Jsrs with no associated ret are simply turned
-#into gotos during the initial basic block creation.
+# Handling of subprocedures is rather annoying. Each complete subproc has an associated
+# ProcInfo while jsrs and rets are represented by ProcCallOp and DummyRet respectively.
+# The jsrblock has the target and fallthrough as successors, while the fallthrough has
+# the jsrblock as predecessor, but not the retblock. Control flow paths where the proc
+# never returns are represented by ordinary jumps from blocks in the procedure to outside
+# Successful completion of the proc is represented by the fallthrough edge. The fallthrough
+# block gets its variables from the jsrblock, including skip vars which don't depend on the
+# proc, and variables from jsr.output which represent what would have been returned from ret
+# Every proc has a reachable retblock. Jsrs with no associated ret are simply turned
+# into gotos during the initial basic block creation.
 
 class SSA_Graph(object):
     entryKey = blockmaker.ENTRY_KEY
@@ -55,7 +55,7 @@ class SSA_Graph(object):
         self.inputArgs = None
         self.entryBlock = None
         self.blocks = None
-        self.procs = None #used to store information on subprocedues (from the JSR instructions)
+        self.procs = None # used to store information on subprocedues (from the JSR instructions)
 
         self.block_numberer = itertools.count(-4,-1)
 
@@ -93,7 +93,7 @@ class SSA_Graph(object):
         def filterOps(oldops):
             newops = []
             for op in oldops:
-                #if any of the params is being removed due to being unreachable, we can assume the whole function can be removed
+                # if any of the params is being removed due to being unreachable, we can assume the whole function can be removed
                 keep = keepset.issuperset(op.params) and (op.has_side_effects or not keepset.isdisjoint(op.getOutputs()))
                 if keep:
                     newops.append(op)
@@ -141,7 +141,7 @@ class SSA_Graph(object):
                 jump2.replaceVars(replace)
                 block.jump = jump2
 
-                #remember to update phis of blocks referring to old child!
+                # remember to update phis of blocks referring to old child!
                 for successor, t in block.jump.getSuccessorPairs():
                     successor.replacePredPair((block2, t), (block, t))
                     for phi in successor.phis:
@@ -424,7 +424,7 @@ class SSA_Graph(object):
 
     def _copyVar(self, var, vard=None):
         v = copy.copy(var)
-        v.name = v.origin = None #TODO - generate new names?
+        v.name = v.origin = None # TODO - generate new names?
         if vard is not None:
             vard[var] = v
         return v
@@ -463,7 +463,7 @@ class SSA_Graph(object):
             block.jump = oldb.jump.clone()
             block.jump.replaceVars(vard)
 
-            #Fix up blocks outside the region that jump into the region.
+            # Fix up blocks outside the region that jump into the region.
             for key in oldb.predecessors[:]:
                 pred = key[0]
                 if pred not in excludedPreds:
@@ -473,20 +473,20 @@ class SSA_Graph(object):
                     oldb.predecessors.remove(key)
                     block.predecessors.append(key)
 
-        #fix up jump targets of newly created blocks
+        # fix up jump targets of newly created blocks
         for oldb, block in blockd.items():
             block.jump.replaceBlocks(blockd)
             for suc, t in block.jump.getSuccessorPairs():
                 suc.predecessors.append((block, t))
 
-        #update the jump targets of predecessor blocks
+        # update the jump targets of predecessor blocks
         for block in outsideBlocks:
             block.jump.replaceBlocks(blockd)
 
         for old, new in vard.items():
             assert type(old.origin) == type(new.origin)
 
-        #Fill in phi args in successors of new blocks
+        # Fill in phi args in successors of new blocks
         for oldb, block in blockd.items():
             for oldc, t in oldb.jump.getSuccessorPairs():
                 child = blockd.get(oldc, oldc)
@@ -498,10 +498,10 @@ class SSA_Graph(object):
         return blockd
 
     def _splitSubProc(self, proc):
-        #Splits a proc into two, with one callsite using the new proc instead
-        #this involves duplicating the body of the procedure
-        #the new proc is appended to the list of procs so it can work properly
-        #with the stack processing in inlineSubprocs
+        # Splits a proc into two, with one callsite using the new proc instead
+        # this involves duplicating the body of the procedure
+        # the new proc is appended to the list of procs so it can work properly
+        # with the stack processing in inlineSubprocs
         assert len(proc.jsrblocks) > 1
         target, retblock = proc.target, proc.retblock
         region = self._region(proc)
@@ -511,14 +511,14 @@ class SSA_Graph(object):
 
         newproc = subproc.ProcInfo(blockd[proc.retblock], blockd[proc.target])
         newproc.jsrblocks = split_jsrs
-        #Sanity check
+        # Sanity check
         for temp in self.procs + [newproc]:
             for jsr in temp.jsrblocks:
                 assert jsr.jump.target == temp.target
         return newproc
 
     def _inlineSubProc(self, proc):
-        #Inline a proc with single callsite inplace
+        # Inline a proc with single callsite inplace
         assert len(proc.jsrblocks) == 1
         target, retblock = proc.target, proc.retblock
         region = self._region(proc)
@@ -527,7 +527,7 @@ class SSA_Graph(object):
         jsrop = jsrblock.jump
         ftblock = jsrop.fallthrough
 
-        #first we find any vars that bypass the proc since we have to pass them through the new blocks
+        # first we find any vars that bypass the proc since we have to pass them through the new blocks
         skipvars = [phi.get((jsrblock, False)) for phi in ftblock.phis]
         skipvars = [var for var in skipvars if var.origin is not jsrop]
 
@@ -547,7 +547,7 @@ class SSA_Graph(object):
 
         outreplace = {jv:rv for jv, rv in zip(jsrblock.jump.output.stack, retblock.jump.input.stack) if jv is not None}
         outreplace.update({jv:retblock.jump.input.locals[i] for i, jv in jsrblock.jump.output.locals.items() if jv is not None})
-        for var in outreplace: #don't need jsrop's out vars anymore
+        for var in outreplace: # don't need jsrop's out vars anymore
             del jsrblock.unaryConstraints[var]
 
         for var in skipvars:
@@ -564,7 +564,7 @@ class SSA_Graph(object):
         if not self.procs:
             return
 
-        #establish DAG of subproc callstacks if we're doing nontrivial inlining, since we can only inline leaf procs
+        # establish DAG of subproc callstacks if we're doing nontrivial inlining, since we can only inline leaf procs
         regions = {proc:frozenset(self._region(proc)) for proc in self.procs}
         parents = {proc:[] for proc in self.procs}
         for x,y in itertools.product(self.procs, repeat=2):
@@ -576,12 +576,12 @@ class SSA_Graph(object):
             print 'Warning, nesting subprocedures detected! This method may take a long time to decompile.'
         print 'Subprocedures for', self.code.method.name + ':', self.procs
 
-        #now inline the procs
+        # now inline the procs
         while self.procs:
             proc = self.procs.pop()
             while len(proc.jsrblocks) > 1:
                 print 'splitting', proc
-                #push new subproc onto stack
+                # push new subproc onto stack
                 self.procs.append(self._splitSubProc(proc))
                 assert self._conscheck() is None
             # When a subprocedure has only one call point, it can just be inlined instead of splitted
@@ -649,7 +649,7 @@ class SSA_Graph(object):
                 if len(entries) <= 1:
                     head = entries[0]
                 else:
-                    #if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
+                    # if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
                     print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
                     print '({} entry points, {} blocks)'.format(len(entries), len(scc))
                     def loopSuccessors(head, block):
@@ -687,7 +687,7 @@ class SSA_Graph(object):
         tt = objtypes.verifierToSynthetic(vtype2)
         assert var.decltype is None or var.decltype == tt
         var.decltype = tt
-        #if uninitialized, record the offset of originating new instruction for later
+        # if uninitialized, record the offset of originating new instruction for later
         if vtype.tag == '.new':
             assert var.uninit_orig_num is None or var.uninit_orig_num == vtype.extra
             var.uninit_orig_num = vtype.extra
@@ -720,7 +720,7 @@ def ssaFromVerified(code, iNodes, opts):
     parent.inputArgs = data.inputArgs
     assert parent.entryBlock in blocks
 
-    #create subproc info
+    # create subproc info
     procd = {block.jump.target: subproc.ProcInfo(block, block.jump.target) for block in blocks if isinstance(block.jump, subproc.DummyRet)}
     for block in blocks:
         if isinstance(block.jump, subproc.ProcCallOp):
@@ -736,12 +736,12 @@ def ssaFromVerified(code, iNodes, opts):
             _cache[key] = temp = constraints.fromVariable(parent.env, var)
             return temp
 
-    #create unary constraints for each variable
+    # create unary constraints for each variable
     for block in blocks:
         bvars = []
         if isinstance(block.jump, subproc.ProcCallOp):
             bvars += block.jump.flatOutput()
-        #entry block has no phis
+        # entry block has no phis
         if block is parent.entryBlock:
             bvars += parent.inputArgs
 

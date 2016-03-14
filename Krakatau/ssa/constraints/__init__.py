@@ -8,9 +8,9 @@ from .obj_c import ObjectConstraint
 
 from ..ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT
 
-#joins become more precise (intersection), meets become more general (union)
-#Join currently supports joining a max of two constraints
-#Meet assumes all inputs are not None
+# joins become more precise (intersection), meets become more general (union)
+# Join currently supports joining a max of two constraints
+# Meet assumes all inputs are not None
 def join(*cons):
     if None in cons:
         return None

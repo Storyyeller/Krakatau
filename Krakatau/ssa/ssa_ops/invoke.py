@@ -14,7 +14,7 @@ class Invoke(BaseOp):
 
         self.instruction = instr
         self.target, self.name, self.desc = info
-        self.isThisCtor = isThisCtor #whether this is a ctor call for the current class
+        self.isThisCtor = isThisCtor # whether this is a ctor call for the current class
         self.target_tt = target_tt
         vtypes = parseMethodDescriptor(self.desc)[1]
 

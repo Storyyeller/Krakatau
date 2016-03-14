@@ -50,7 +50,7 @@ def _floatOrIntMath(fop, iop):
 def _intMath(op, isShift):
     def math2(maker, input_, iNode):
         cat = getCategory(iNode.instruction[1])
-        #some ops (i.e. shifts) always take int as second argument
+        # some ops (i.e. shifts) always take int as second argument
         size = cat+1 if isShift else cat+cat
         args = input_.stack[-size::cat]
         line = op(maker.parent, args)
@@ -275,7 +275,7 @@ def _ldc(maker, input_, iNode):
     elif entry_type == 'Class':
         var = makeConstVar(maker.parent, SSA_OBJECT, parseArrOrClassName(args[0]))
         var.decltype = objtypes.ClassTT
-    #Todo - handle MethodTypes and MethodHandles?
+    # Todo - handle MethodTypes and MethodHandles?
 
     assert var
     newstack = input_.stack + [var] + [None]*(cat-1)
@@ -309,7 +309,7 @@ def _neg(maker, input_, iNode):
 
     if (iNode.instruction[1] in 'DF'):
         line = ssa_ops.FNeg(maker.parent, [arg])
-    else: #for integers, we can just write -x as 0 - x
+    else: # for integers, we can just write -x as 0 - x
         zero = makeConstVar(maker.parent, arg.type, 0)
         line = ssa_ops.ISub(maker.parent, [zero,arg])
 
@@ -340,7 +340,7 @@ def _ret(maker, input_, iNode):
     return ResultDict(jump=jump)
 
 def _return(maker, input_, iNode):
-    #Our special return block expects only the return values on the stack
+    # Our special return block expects only the return values on the stack
     rtype = iNode.instruction[1]
     if rtype is None:
         newstack = []
@@ -411,7 +411,7 @@ instructionHandlers = {
                         vops.GETFIELD: _field_access,
                         vops.GOTO: _goto,
                         vops.IF_A: _if_a,
-                        vops.IF_ACMP: _if_cmp, #cmp works on ints or objs
+                        vops.IF_ACMP: _if_cmp, # cmp works on ints or objs
                         vops.IF_I: _if_i,
                         vops.IF_ICMP: _if_cmp,
                         vops.IINC: _iinc,

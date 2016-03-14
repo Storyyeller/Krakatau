@@ -72,7 +72,7 @@ class If(BaseJump):
                 if cmp_t == 'ge' or cmp_t == 'gt':
                     x1, x2, y1, y2 = y1, y2, x1, x2
 
-                #treat greater like less than swap before and afterwards
+                # treat greater like less than swap before and afterwards
                 if cmp_t == 'lt' or cmp_t == 'gt':
                     x2 = min(x2, y2-1)
                     y1 = max(x1+1, y1)

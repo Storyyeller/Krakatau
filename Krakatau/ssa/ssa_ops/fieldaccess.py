@@ -15,7 +15,7 @@ _short_constraints = {
         objtypes.IntTT: IntConstraint.bot(32)
     }
 _short_constraints[objtypes.BoolTT] = _short_constraints[objtypes.ByteTT]
-#Assume no linkage errors occur, so only exception that can be thrown is NPE
+# Assume no linkage errors occur, so only exception that can be thrown is NPE
 class FieldAccess(BaseOp):
     has_side_effects = True
 
@@ -29,7 +29,7 @@ class FieldAccess(BaseOp):
         if 'get' in instr[0]:
             vtypes = parseFieldDescriptor(self.desc)
             stype = verifierToSSAType(vtypes[0])
-            dtype = objtypes.verifierToSynthetic(vtypes[0]) #todo, find way to merge this with Invoke code?
+            dtype = objtypes.verifierToSynthetic(vtypes[0]) # todo, find way to merge this with Invoke code?
             cat = len(vtypes)
 
             self.rval = parent.makeVariable(stype, origin=self)
@@ -37,8 +37,8 @@ class FieldAccess(BaseOp):
         else:
             self.returned = []
 
-        #just use a fixed constraint until we can do interprocedural analysis
-        #output order is rval, exception, defined by BaseOp.getOutputs
+        # just use a fixed constraint until we can do interprocedural analysis
+        # output order is rval, exception, defined by BaseOp.getOutputs
         env = parent.env
         self.eout = ObjectConstraint.fromTops(env, [excepttypes.NullPtr], [], nonnull=True)
         if self.rval is not None:
@@ -53,7 +53,7 @@ class FieldAccess(BaseOp):
             self.rout = None
 
     def propagateConstraints(self, *incons):
-        eout = None #no NPE
+        eout = None # no NPE
         if 'field' in self.instruction[0] and incons[0].null:
             eout = self.eout
             if incons[0].isConstNull():

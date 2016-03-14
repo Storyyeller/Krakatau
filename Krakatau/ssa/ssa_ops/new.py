@@ -54,7 +54,7 @@ class MultiNewArray(BaseOp):
 
     def propagateConstraints(self, *dims):
         for i in dims:
-            if i.max < 0: #ignore possibility of OOM here
+            if i.max < 0: # ignore possibility of OOM here
                 eout = ObjectConstraint.fromTops(self.env, [], (excepttypes.NegArrSize,), nonnull=True)
                 return throw(eout)
 

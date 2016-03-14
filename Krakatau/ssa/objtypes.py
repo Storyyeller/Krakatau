@@ -1,8 +1,8 @@
 from ..verifier import verifier_types as vtypes
 from ..error import ClassLoaderError
 
-#types are represented by classname, dimension
-#primative types are .int, etc since these cannot be valid classnames since periods are forbidden
+# types are represented by classname, dimension
+# primative types are .int, etc since these cannot be valid classnames since periods are forbidden
 def TypeTT(baset, dim):
     assert dim >= 0
     return baset, dim
@@ -26,7 +26,7 @@ ByteTT = TypeTT('.byte', 0)
 CharTT = TypeTT('.char', 0)
 ShortTT = TypeTT('.short', 0)
 
-BExpr = '.bexpr' #bool or byte
+BExpr = '.bexpr' # bool or byte
 
 def baset(tt): return tt[0]
 def dim(tt): return tt[1]
@@ -49,14 +49,14 @@ def isSubtype(env, x, y):
     yname, ydim = baset(y), dim(y)
     if ydim > xdim:
         return False
-    elif xdim > ydim: #TODO - these constants should be defined in one place to reduce risk of typos
+    elif xdim > ydim: # TODO - these constants should be defined in one place to reduce risk of typos
         return yname in ('java/lang/Object','java/lang/Cloneable','java/io/Serializable')
     else:
         return isBaseTClass(x) and isBaseTClass(y) and env.isSubclass(xname, yname)
 
-#Will not return interface unless all inputs are same interface or null
+# Will not return interface unless all inputs are same interface or null
 def commonSupertype(env, tts):
-    assert(hasattr(env, 'getClass')) #catch common errors where we forget the env argument
+    assert(hasattr(env, 'getClass')) # catch common errors where we forget the env argument
 
     tts = set(tts)
     tts.discard(NullTT)
@@ -101,17 +101,17 @@ def verifierToSynthetic(vtype):
 
     return TypeTT(vtype.extra, vtype.dim)
 
-#returns supers, exacts
+# returns supers, exacts
 def declTypeToActual(env, decltype):
     name, newdim = baset(decltype), dim(decltype)
 
-    #Verifier treats bool[]s and byte[]s as interchangeable, so it could really be either
+    # Verifier treats bool[]s and byte[]s as interchangeable, so it could really be either
     if newdim and (name == baset(ByteTT) or name == baset(BoolTT)):
         return [], [withDimInc(ByteTT, newdim), withDimInc(BoolTT, newdim)]
-    elif not isBaseTClass(decltype): #primative types can't be subclassed anyway
+    elif not isBaseTClass(decltype): # primative types can't be subclassed anyway
         return [], [decltype]
 
-    #Verifier doesn't fully verify interfaces so they could be anything
+    # Verifier doesn't fully verify interfaces so they could be anything
     if env.isInterface(name):
         return [withDimInc(ObjectTT, newdim)], []
     # If class is final, return it as exact, not super

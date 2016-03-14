@@ -5,9 +5,9 @@ def split_pow2ranges(x,y):
     '''split given range into power of two ranges of form [x, x+2^k)'''
     out = []
     while x<=y:
-        #The largest power of two range of the form x,k
-        #has k min of number of zeros at end of x
-        #and the largest power of two that fits in y-x
+        # The largest power of two range of the form x,k
+        # has k min of number of zeros at end of x
+        # and the largest power of two that fits in y-x
         bx = bin(x)
         numzeroes = float('inf') if x==0 else (len(bx)-bx.rindex('1')-1)
         k = min(numzeroes, (y-x+1).bit_length()-1)

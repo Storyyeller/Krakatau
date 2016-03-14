@@ -26,7 +26,7 @@ def findVarDeclInfo(root, predeclared):
             left, right = expr.params
             info[left].defs.append(right)
         elif isinstance(expr, (ast.Local, ast.Literal)):
-            #this would be so much nicer if we had Ordered defaultdicts
+            # this would be so much nicer if we had Ordered defaultdicts
             info.setdefault(expr, DeclInfo())
             info[expr].scope = ast.StatementBlock.join(info[expr].scope, scope)
 
@@ -45,7 +45,7 @@ def findVarDeclInfo(root, predeclared):
             stack.extend((stmt,sub) for sub in stmt.statements)
         else:
             stack.extend((subscope,subscope) for subscope in stmt.getScopes())
-            #temp hack
+            # temp hack
             if stmt.expr is not None:
                 visit(scope, stmt.expr)
             if isinstance(stmt, ast.TryStatement):
@@ -61,7 +61,7 @@ def reverseBoolExpr(expr):
         if expr.opstr in symbols:
             sym2 = symbols[symbols.index(expr.opstr) ^ 1]
             left, right = expr.params
-            #be sure not to reverse floating point comparisons since it's not equivalent for NaN
+            # be sure not to reverse floating point comparisons since it's not equivalent for NaN
             if expr.opstr in symbols[:2] or (left.dtype not in floatts and right.dtype not in floatts):
                 return ast.BinaryInfix(sym2, [left, right], objtypes.BoolTT)
     elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
@@ -82,12 +82,12 @@ def mayBreakTo(root, forbidden):
     assert None not in forbidden
     for scope in getSubscopeIter(root):
         if scope.jumpKey in forbidden:
-            #We return true if scope has forbidden jump and is reachable
-            #We assume there is no unreachable code, so in order for a scope
-            #jump to be unreachable, it must end in a return, throw, or a
-            #compound statement, all of which are not reachable or do not
-            #break out of the statement. We omit adding last.breakKey to
-            #forbidden since it should always match scope.jumpKey anyway
+            # We return true if scope has forbidden jump and is reachable
+            # We assume there is no unreachable code, so in order for a scope
+            # jump to be unreachable, it must end in a return, throw, or a
+            # compound statement, all of which are not reachable or do not
+            # break out of the statement. We omit adding last.breakKey to
+            # forbidden since it should always match scope.jumpKey anyway
             if not scope.statements:
                 return True
             last = scope.statements[-1]
@@ -95,8 +95,8 @@ def mayBreakTo(root, forbidden):
                 if not isinstance(last, (ast.ReturnStatement, ast.ThrowStatement)):
                     return True
             else:
-                #If and switch statements may allow fallthrough
-                #A while statement with condition may break implicitly
+                # If and switch statements may allow fallthrough
+                # A while statement with condition may break implicitly
                 if isinstance(last, ast.IfStatement) and len(last.getScopes()) == 1:
                     return True
                 if isinstance(last, ast.SwitchStatement) and not last.hasDefault():
@@ -115,8 +115,8 @@ def replaceKeys(top, replace):
 
     if top.getScopes():
         if isinstance(top, ast.StatementBlock) and get(top.breakKey) is None:
-            #breakKey can be None with non-None jumpKey when we're a scope in a switch statement that falls through
-            #and the end of the switch statement is unreachable
+            # breakKey can be None with non-None jumpKey when we're a scope in a switch statement that falls through
+            # and the end of the switch statement is unreachable
             assert get(top.jumpKey) is None or not top.labelable
 
         top.breakKey = get(top.breakKey)
@@ -142,13 +142,13 @@ def _preorder(scope, func):
 
 def _fixObjectCreations(scope, item):
     '''Combines new/invokeinit pairs into Java constructor calls'''
-    #Thanks to the uninitialized variable merging prior to AST generation,
-    #we can safely assume there are no copies to worry about
+    # Thanks to the uninitialized variable merging prior to AST generation,
+    # we can safely assume there are no copies to worry about
     expr = item.expr
     if isinstance(expr, ast.Assignment):
         left, right = expr.params
         if isinstance(right, ast.Dummy) and right.isNew:
-            return [] #remove item
+            return [] # remove item
     elif isinstance(expr, ast.MethodInvocation) and expr.name == '<init>':
         left = expr.params[0]
         newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
@@ -180,7 +180,7 @@ def _pruneIfElse_cb(item):
     if len(item.scopes) > 1:
         tblock, fblock = item.scopes
 
-        #if true block is empty, swap it with false so we can remove it
+        # if true block is empty, swap it with false so we can remove it
         if not tblock.statements and tblock.doesFallthrough():
             item.expr = reverseBoolExpr(item.expr)
             tblock, fblock = item.scopes = fblock, tblock
@@ -233,7 +233,7 @@ def _pruneIfElse_cb(item):
 def _whileCondition_cb(item):
     '''Convert while(true) {if(A) {B break;} else {C} D} to while(!A) {{C} D} {B}
         and while(A) {if(B) {break;} else {C} D} to while(A && !B) {{C} D}'''
-    failure = [], item #what to return if we didn't inline
+    failure = [], item # what to return if we didn't inline
     body = item.getScopes()[0]
     if not body.statements or not isinstance(body.statements[0], ast.IfStatement):
         return failure
@@ -242,7 +242,7 @@ def _whileCondition_cb(item):
     cond = head.expr
     trueb, falseb = (head.getScopes() + (None,))[:2]
 
-    #Make sure it doesn't continue the loop or break out of the if statement
+    # Make sure it doesn't continue the loop or break out of the if statement
     badjumps1 = frozenset([head.breakKey, item.continueKey]) - NONE_SET
     if mayBreakTo(trueb, badjumps1):
         if falseb is not None and not mayBreakTo(falseb, badjumps1):
@@ -254,12 +254,12 @@ def _whileCondition_cb(item):
 
 
     trivial = not trueb.statements and trueb.jumpKey == item.breakKey
-    #If we already have a condition, only a simple break is allowed
+    # If we already have a condition, only a simple break is allowed
     if not trivial and item.expr != ast.Literal.TRUE:
         return failure
 
-    #If break body is nontrival, we can't insert this after the end of the loop unless
-    #We're sure that nothing else in the loop breaks out
+    # If break body is nontrival, we can't insert this after the end of the loop unless
+    # We're sure that nothing else in the loop breaks out
     badjumps2 = frozenset([item.breakKey]) - NONE_SET
     if not trivial:
         restloop = [falseb] if falseb is not None else []
@@ -267,7 +267,7 @@ def _whileCondition_cb(item):
         if body.jumpKey == item.breakKey or any(mayBreakTo(s, badjumps2) for s in restloop):
             return failure
 
-    #Now inline everything
+    # Now inline everything
     item.expr = _simplifyExpressions(ast.BinaryInfix('&&', [item.expr, reverseBoolExpr(cond)]))
     if falseb is None:
         body.continueKey = body.statements.pop(0).breakKey
@@ -277,7 +277,7 @@ def _whileCondition_cb(item):
         falseb.labelable = True
     trueb.labelable = True
 
-    if item.breakKey is None: #Make sure to maintain invariant that bkey=None -> jkey=None
+    if item.breakKey is None: # Make sure to maintain invariant that bkey=None -> jkey=None
         assert trueb.doesFallthrough()
         trueb.jumpKey = trueb.breakKey = None
     trueb.breakKey = item.breakKey
@@ -285,9 +285,9 @@ def _whileCondition_cb(item):
     if not trivial:
         item.breakKey = trueb.continueKey
 
-    #Trueb doesn't break to head.bkey but there might be unreacahble jumps, so we replace
-    #it too. We don't replace item.ckey because it should never appear, even as an
-    #unreachable jump
+    # Trueb doesn't break to head.bkey but there might be unreacahble jumps, so we replace
+    # it too. We don't replace item.ckey because it should never appear, even as an
+    # unreachable jump
     replaceKeys(trueb, {head.breakKey:trueb.breakKey, item.breakKey:trueb.breakKey})
     return [item], trueb
 
@@ -302,12 +302,12 @@ def _simplifyBlocksSub(scope, item, isLast):
 
     if isinstance(item, ast.StatementBlock):
         assert item.breakKey is not None or item.jumpKey is None
-        #If bkey is None, it can't be broken to
-        #If contents can also break to enclosing scope, it's always safe to inline
+        # If bkey is None, it can't be broken to
+        # If contents can also break to enclosing scope, it's always safe to inline
         bkey = item.breakKey
         if bkey is None or (bkey == scope.breakKey and scope.labelable):
             rest, item.statements = rest + item.statements, []
-        #Now inline statements at the beginning of the scope that don't need to break to it
+        # Now inline statements at the beginning of the scope that don't need to break to it
         for sub in item.statements[:]:
             if sub.getScopes() and sub.breakKey != bkey and mayBreakTo(sub, frozenset([bkey])):
                 break
@@ -324,7 +324,7 @@ def _simplifyBlocksSub(scope, item, isLast):
 def _simplifyBlocks(scope):
     newitems = []
     for item in reversed(scope.statements):
-        isLast = not newitems #may be true if all subsequent items pruned
+        isLast = not newitems # may be true if all subsequent items pruned
         if isLast and item.getScopes():
             if item.breakKey != scope.jumpKey:# and item.breakKey is not None:
                 replaceKeys(item, {item.breakKey: scope.jumpKey})
@@ -398,7 +398,7 @@ def _simplifyExpressions(expr):
             # la cmp lb -> result (i.e. constant propagation on literal comparisons)
             if isinstance(left, ast.Literal):
                 if op in ('==','!='):
-                    #these could be string or class literals, but those are always nonnull so it still works
+                    # these could be string or class literals, but those are always nonnull so it still works
                     res = (left == right) == (op == '==')
                 else:
                     assert left.dtype == right.dtype
@@ -414,7 +414,7 @@ def _simplifyExpressions(expr):
     # a ? false : b -> !a && b
     if isinstance(expr, ast.Ternary) and expr.dtype == objtypes.BoolTT:
         cond, val1, val2 = expr.params
-        if not isinstance(val1, ast.Literal): #try to get bool literal to the front
+        if not isinstance(val1, ast.Literal): # try to get bool literal to the front
             cond, val1, val2 = reverseBoolExpr(cond), val2, val1
 
         if val1 == TRUE:
@@ -442,7 +442,7 @@ def _simplifyExpressions(expr):
     # a == false -> !a
     if isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==, !=') and expr.params[0].dtype == objtypes.BoolTT:
         left, right = expr.params
-        if not isinstance(left, ast.Literal): #try to get bool literal to the front
+        if not isinstance(left, ast.Literal): # try to get bool literal to the front
             left, right = right, left
         if isinstance(left, ast.Literal):
             flip = (left == TRUE) != (expr.opstr == '==')
@@ -472,10 +472,10 @@ def _setScopeParents(scope):
             _setScopeParents(sub)
 
 def _replaceExpressions(scope, item, rdict):
-    #Must be done before local declarations are created since it doesn't touch/remove them
+    # Must be done before local declarations are created since it doesn't touch/remove them
     if item.expr is not None:
         item.expr = item.expr.replaceSubExprs(rdict)
-    #remove redundant assignments i.e. x=x;
+    # remove redundant assignments i.e. x=x;
     if isinstance(item.expr, ast.Assignment):
         assert isinstance(item, ast.ExpressionStatement)
         left, right = item.expr.params
@@ -489,7 +489,7 @@ def _oldMergeVariables(root, predeclared):
 
     lvars = [expr for expr in info if isinstance(expr, ast.Local)]
     forbidden = set()
-    #If var has any defs which aren't a literal or local, mark it as a leaf node (it can't be merged into something)
+    # If var has any defs which aren't a literal or local, mark it as a leaf node (it can't be merged into something)
     for var in lvars:
         if not all(isinstance(expr, (ast.Local, ast.Literal)) for expr in info[var].defs):
             forbidden.add(var)
@@ -497,7 +497,7 @@ def _oldMergeVariables(root, predeclared):
             forbidden.add(var)
 
     sccs = graph_util.tarjanSCC(lvars, lambda var:([] if var in forbidden else info[var].defs))
-    #the sccs will be in topolgical order
+    # the sccs will be in topolgical order
     varmap = {}
     for scc in sccs:
         if forbidden.isdisjoint(scc):
@@ -510,13 +510,13 @@ def _oldMergeVariables(root, predeclared):
                 target = alldefs[0]
                 if all(var.dtype == target.dtype for var in scc):
                     scope = ast.StatementBlock.join(*(info[var].scope for var in scc))
-                    scope = ast.StatementBlock.join(scope, info[target].declScope) #scope is unchanged if declScope is none like usual
+                    scope = ast.StatementBlock.join(scope, info[target].declScope) # scope is unchanged if declScope is none like usual
                     if info[target].declScope is None or info[target].declScope == scope:
                         for var in scc:
                             varmap[var] = target
                         info[target].scope = ast.StatementBlock.join(scope, info[target].scope)
                         continue
-        #fallthrough if merging is impossible
+        # fallthrough if merging is impossible
         for var in scc:
             varmap[var] = var
             if len(info[var].defs) > 1:
@@ -533,7 +533,7 @@ _oktypes = ast.BinaryInfix, ast.Local, ast.Literal, ast.Parenthesis, ast.Ternary
 def hasSideEffects(expr):
     if not isinstance(expr, _oktypes):
         return True
-    #check for division by 0. If it's a float or dividing by nonzero literal, it's ok
+    # check for division by 0. If it's a float or dividing by nonzero literal, it's ok
     elif isinstance(expr, ast.BinaryInfix) and expr.opstr in ('/','%'):
         if expr.dtype not in (objtypes.FloatTT, objtypes.DoubleTT):
             divisor = expr.params[-1]
@@ -542,7 +542,7 @@ def hasSideEffects(expr):
     return False
 
 def _inlineVariables(root):
-    #first find all variables with a single def and use
+    # first find all variables with a single def and use
     defs = collections.defaultdict(list)
     uses = collections.defaultdict(int)
 
@@ -561,7 +561,7 @@ def _inlineVariables(root):
                 stack.extend(expr.params)
 
     _preorder(root, visitFindDefs)
-    #These should have 2 uses since the initial assignment also counts
+    # These should have 2 uses since the initial assignment also counts
     replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
     def doReplacement(item, pairs):
         old, new = item.expr.params
@@ -574,16 +574,16 @@ def _inlineVariables(root):
                 canReplace, parent, expr = args
                 stack.append((False, expr))
 
-                #For ternaries, we don't want to replace into the conditionally
-                #evaluated part, but we still need to check those parts for
-                #barriers. For both ternaries and short circuit operators, the
-                #first param is always evaluated, so it is safe
+                # For ternaries, we don't want to replace into the conditionally
+                # evaluated part, but we still need to check those parts for
+                # barriers. For both ternaries and short circuit operators, the
+                # first param is always evaluated, so it is safe
                 if isinstance(expr, ast.Ternary) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&&','||'):
                     for param in reversed(expr.params[1:]):
                         stack.append((True, (False, expr, param)))
                     stack.append((True, (canReplace, expr, expr.params[0])))
-                #For assignments, we unroll the LHS arguments, because if assigning
-                #to an array or field, we don't want that to serve as a barrier
+                # For assignments, we unroll the LHS arguments, because if assigning
+                # to an array or field, we don't want that to serve as a barrier
                 elif isinstance(expr, ast.Assignment):
                     left, right = expr.params
                     stack.append((True, (canReplace, expr, right)))
@@ -601,7 +601,7 @@ def _inlineVariables(root):
                         if isinstance(parent, ast.JavaExpression):
                             params = parent.params = list(parent.params)
                             params[params.index(old)] = new
-                        else: #replacing in a top level statement
+                        else: # replacing in a top level statement
                             assert parent.expr == old
                             parent.expr = new
                     return canReplace
@@ -620,7 +620,7 @@ def _inlineVariables(root):
             if isinstance(item.expr, ast.Assignment) and item.expr.params[0] in replacevars:
                 expr_roots = []
                 for item2 in newstatements:
-                    #Don't inline into a while condition as it may be evaluated more than once
+                    # Don't inline into a while condition as it may be evaluated more than once
                     if not isinstance(item2, ast.WhileStatement):
                         expr_roots.append((item2, item2.expr))
                     if item2.getScopes():
@@ -641,10 +641,10 @@ def _createDeclarations(root, predeclared):
 
     def mdVisitVarUse(var):
         decl = ast.VariableDeclarator(ast.TypeName(var.dtype), var)
-        #The compiler treats statements as if they can throw any exception at any time, so
-        #it may think variables are not definitely assigned even when they really are.
-        #Therefore, we give an unused initial value to every variable declaration
-        #TODO - find a better way to handle this
+        # The compiler treats statements as if they can throw any exception at any time, so
+        # it may think variables are not definitely assigned even when they really are.
+        # Therefore, we give an unused initial value to every variable declaration
+        # TODO - find a better way to handle this
         right = ast.dummyLiteral(var.dtype)
         localdefs[info[var].scope].append(ast.LocalDeclarationStatement(decl, right))
         remaining.remove(var)
@@ -835,7 +835,7 @@ def generateAST(method, graph, forbidden_identifiers):
 
         decls = [ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in disp_args]
         ################################################################################################
-        ast_root.bases = (ast_root,) #needed for our setScopeParents later
+        ast_root.bases = (ast_root,) # needed for our setScopeParents later
 
         assert _generateJumps(ast_root, set(), dryRun=True) is None
         _preorder(ast_root, _fixObjectCreations)
@@ -859,13 +859,13 @@ def generateAST(method, graph, forbidden_identifiers):
         _preorder(ast_root, partial(_addCastsAndParens, env=env))
         _generateJumps(ast_root, set())
         _pruneVoidReturn(ast_root)
-    else: #abstract or native method
+    else: # abstract or native method
         ast_root = None
         argsources = [ast.Local(tt, lambda expr:namegen.getPrefix('arg')) for tt in tts]
         decls = [ast.VariableDeclarator(ast.TypeName(expr.dtype), expr) for expr in argsources]
 
     flags = method.flags - set(['BRIDGE','SYNTHETIC','VARARGS'])
-    if method.name == '<init>': #More arbtirary restrictions. Yay!
+    if method.name == '<init>': # More arbtirary restrictions. Yay!
         flags = flags - set(['ABSTRACT','STATIC','FINAL','NATIVE','STRICTFP','SYNCHRONIZED'])
 
     flagstr = ' '.join(map(str.lower, sorted(flags)))

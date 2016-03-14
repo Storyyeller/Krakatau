@@ -69,14 +69,14 @@ class Environment(object):
         for place in self.path:
             try:
                 archive = self._open[place]
-            except KeyError: #plain folder
+            except KeyError: # plain folder
                 try:
                     path = os.path.join(place, name)
                     with open(path, 'rb') as file_:
                         return file_.read()
                 except IOError:
                     print 'failed to open', path.encode('utf8')
-            else: #zip archive
+            else: # zip archive
                 try:
                     return archive.read(name)
                 except KeyError:
@@ -95,7 +95,7 @@ class Environment(object):
         self.classes[new.name] = new
         return new
 
-    #Context Manager methods to manager our zipfiles
+    # Context Manager methods to manager our zipfiles
     def __enter__(self):
         assert not self._open
         for place in self.path:

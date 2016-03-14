@@ -27,7 +27,7 @@ class EqualityData(object):
 
     def _newval(self): return object()
 
-    def initialize(self): #initialize to bottom value (all variables unequal)
+    def initialize(self): # initialize to bottom value (all variables unequal)
         assert self.d is None
         self.d = {}
 
@@ -126,13 +126,13 @@ class VarMergeInfo(object):
     def __init__(self, graph, methodparams, isstatic):
         self.info = {}
         self.final, self.unmergeable, self.external = set(), set(), set()
-        self.equality = None #to be calculated later
+        self.equality = None # to be calculated later
         self.graph = graph
 
         self.pending_graph_replaces = {}
         self.touched_vars = set()
 
-        #initialize variables and assignment data
+        # initialize variables and assignment data
         for var in methodparams:
             self._addvar(var)
         self.external.update(methodparams)
@@ -148,7 +148,7 @@ class VarMergeInfo(object):
                 self.external.add(caught)
                 self.unmergeable.add(caught)
 
-    #initialization helper funcs
+    # initialization helper funcs
     def _addvar(self, v):
         return self.info.setdefault(v, VarInfo(len(self.info)))
 
@@ -160,7 +160,7 @@ class VarMergeInfo(object):
         else:
             info.extracount += 1
 
-    #process helper funcs
+    # process helper funcs
     def iseq(self, block, index, v1, v2):
         return self.equality[block][index].iseq(v1, v2)
 
@@ -200,7 +200,7 @@ class VarMergeInfo(object):
                     elif line_t == 'canthrow':
                         e_out &= cur
             else:
-                #v1 and v2 not touched in this block, so there is nothing to do
+                # v1 and v2 not touched in this block, so there is nothing to do
                 e_out = cur
 
             for out, successors in [(e_out, block.e_successors), (cur, block.n_successors)]:
@@ -230,12 +230,12 @@ class VarMergeInfo(object):
             candidates = sorted(candidates, key=lambda v:d[v].key)
             assert cur not in candidates
 
-            #find first candidate that is actually compatible
+            # find first candidate that is actually compatible
             for parent in candidates:
                 if self.compat(cur, parent, doeq):
                     break
             else:
-                continue #no candidates found
+                continue # no candidates found
 
             replace[cur] = parent
             self.pending_graph_replaces[cur] = parent
@@ -243,7 +243,7 @@ class VarMergeInfo(object):
             self.touched_vars.add(parent)
 
             infc, infp = d[cur], d[parent]
-            #Be careful, there could be a loop with cur in parent.defs
+            # Be careful, there could be a loop with cur in parent.defs
             infc.defs.remove(parent)
             infc.rdefs.discard(parent)
             infp.rdefs.remove(cur)
@@ -274,7 +274,7 @@ class VarMergeInfo(object):
 
 ###############################################################################
 def mergeVariables(root, isstatic, parameters):
-    #first, create CFG from the Java AST
+    # first, create CFG from the Java AST
     graph = makeGraph(root)
     mergeinfo = VarMergeInfo(graph, parameters, isstatic)
 

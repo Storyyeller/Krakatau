@@ -50,7 +50,7 @@ if __name__== "__main__":
     if jar is None and args.target.endswith('.jar'):
         jar = args.target
 
-    #allow reading files from a jar if target is specified as a jar
+    # allow reading files from a jar if target is specified as a jar
     if jar:
         def readArchive(name):
             with zipfile.ZipFile(jar, 'r') as archive:

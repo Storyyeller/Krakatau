@@ -19,7 +19,7 @@ class BlockProxy(object):
         self.predecessors = []
         self.successors = []
         self.outvars = {}
-        self.eassigns = {} #exception edge assignments, used after try constraint creation
+        self.eassigns = {} # exception edge assignments, used after try constraint creation
         self._key = self.bkey, self.num
 
         # to be assigned later
@@ -36,7 +36,7 @@ class BlockProxy(object):
             d1 = self.blockdict
             self.blockdict = {(b.key,t):update(d1[b.key,t]) for (b,t) in self.block.jump.getSuccessorPairs()}
 
-    def newIndirect(self): #for use during graph creation
+    def newIndirect(self): # for use during graph creation
         new = BlockProxy(self.bkey, self.counter)
         new.invars = self.invars
         new.outvars = {self:new.invars}
@@ -45,7 +45,7 @@ class BlockProxy(object):
         self.predecessors.append(new)
         return new
 
-    def newDuplicate(self): #for use by structuring.structure return inlining
+    def newDuplicate(self): # for use by structuring.structure return inlining
         new = BlockProxy(self.bkey, self.counter, self.block)
         new.invars = self.invars
         new.outvars = self.outvars.copy()
@@ -54,7 +54,7 @@ class BlockProxy(object):
         return new
 
     def indirectEdges(self, edges):
-        #Should only be called once graph is completely set up. newIndirect is used during graph creation
+        # Should only be called once graph is completely set up. newIndirect is used during graph creation
         new = self.newIndirect()
         for parent in edges:
             self.predecessors.remove(parent)
@@ -62,7 +62,7 @@ class BlockProxy(object):
             parent.replaceSuccessors({self:new})
         return new
 
-    def normalSuccessors(self): #only works once try constraints have been created
+    def normalSuccessors(self): # only works once try constraints have been created
         return [x for x in self.successors if x in self.outvars]
 
     def __str__(self):
@@ -72,10 +72,10 @@ class BlockProxy(object):
 
 
 def createGraphProxy(ssagraph):
-    assert(not ssagraph.procs) #should have already been inlined
+    assert(not ssagraph.procs) # should have already been inlined
 
     nodes = [BlockProxy(b.key, itertools.count(), block=b) for b in ssagraph.blocks]
-    allnodes = nodes[:] #will also contain indirected nodes
+    allnodes = nodes[:] # will also contain indirected nodes
 
     entryNode = None
     intypes = ddict(set)
@@ -85,15 +85,15 @@ def createGraphProxy(ssagraph):
             intypes[b.key].add(t)
 
         if n.bkey == ssagraph.entryKey:
-            assert(not entryNode and not invars) #shouldn't have more than one entryBlock and entryBlock shouldn't have phis
+            assert(not entryNode and not invars) # shouldn't have more than one entryBlock and entryBlock shouldn't have phis
             entryNode = n
-            invars = ssagraph.inputArgs #store them in the node so we don't have to keep track seperately
-            invars = [x for x in invars if x is not None] #will have None placeholders for Long and Double arguments
+            invars = ssagraph.inputArgs # store them in the node so we don't have to keep track seperately
+            invars = [x for x in invars if x is not None] # will have None placeholders for Long and Double arguments
         n.invars = invars
 
     lookup = {}
     for n in nodes:
-        assert len(intypes[n.bkey]) != 2 #should have been handled by graph.splitDualInedges()
+        assert len(intypes[n.bkey]) != 2 # should have been handled by graph.splitDualInedges()
 
         if False in intypes[n.bkey]:
             lookup[n.bkey, False] = n
@@ -112,7 +112,7 @@ def createGraphProxy(ssagraph):
             n.successors.append(n2)
             n2.predecessors.append(n)
 
-    #sanity check
+    # sanity check
     for n in allnodes:
         assert (n.block is not None) == (n.num == 0)
         assert (n is entryNode) == (len(n.predecessors) == 0)

@@ -7,9 +7,9 @@ class CatchSetManager(object):
         self.env, self.sets, self.mask = env, sets, mask
         assert not self._conscheck()
 
-    @staticmethod #factory
+    @staticmethod # factory
     def new(env, chpairs):
-        sets = collections.OrderedDict() #make this ordered since OnException relies on it
+        sets = collections.OrderedDict() # make this ordered since OnException relies on it
         sofar = empty = ExceptionSet.EMPTY
         for catchtype, handler in chpairs:
             old = sets.get(handler, empty)
@@ -45,22 +45,22 @@ class CatchSetManager(object):
 
 class ExceptionSet(ValueType):
     __slots__ = "env pairs".split()
-    def __init__(self, env, pairs): #assumes arguments are in reduced form
+    def __init__(self, env, pairs): # assumes arguments are in reduced form
         self.env = env
         self.pairs = frozenset([(x,frozenset(y)) for x,y in pairs])
 
-        #We allow env to be None for the empty set so we can construct empty sets easily
-        #Any operation resulting in a nonempty set will get its env from the nonempty argument
+        # We allow env to be None for the empty set so we can construct empty sets easily
+        # Any operation resulting in a nonempty set will get its env from the nonempty argument
         assert self.empty() or self.env is not None
 
-        #make sure set is fully reduced
+        # make sure set is fully reduced
         parts = []
         for t, holes in pairs:
             parts.append(t)
             parts.extend(holes)
         assert len(set(parts)) == len(parts)
 
-    @staticmethod #factory
+    @staticmethod # factory
     def fromTops(env, *tops):
         return ExceptionSet(env, [(x, frozenset()) for x in tops])
 
@@ -68,8 +68,8 @@ class ExceptionSet(ValueType):
     def empty(self): return not self.pairs
     def __nonzero__(self): return bool(self.pairs)
 
-    def getSingleTType(self): #todo - update SSA printer
-        #comSuper doesn't care about order so we can freely pass in nondeterministic order
+    def getSingleTType(self): # todo - update SSA printer
+        # comSuper doesn't care about order so we can freely pass in nondeterministic order
         return objtypes.commonSupertype(self.env, [objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
     def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
@@ -85,9 +85,9 @@ class ExceptionSet(ValueType):
         pairs = self.pairs
 
         for pair2 in other.pairs:
-            #Warning, due to a bug in Python, TypeErrors raised inside the gen expr will give an incorect error message
-            #TypeError: type object argument after * must be a sequence, not generator
-            #This can be worked around by using a list comprehension instead of a genexpr after the *
+            # Warning, due to a bug in Python, TypeErrors raised inside the gen expr will give an incorect error message
+            # TypeError: type object argument after * must be a sequence, not generator
+            # This can be worked around by using a list comprehension instead of a genexpr after the *
             pairs = itertools.chain(*[ExceptionSet.diffPair(subtest, pair1, pair2) for pair1 in pairs])
         return ExceptionSet.reduce(self.env, pairs)
 
@@ -113,11 +113,11 @@ class ExceptionSet(ValueType):
     __repr__ = __str__
 
     @staticmethod
-    def diffPair(subtest, pair1, pair2): #subtract pair2 from pair1. Returns a list of new pairs
-        #todo - find way to make this less ugly
+    def diffPair(subtest, pair1, pair2): # subtract pair2 from pair1. Returns a list of new pairs
+        # todo - find way to make this less ugly
         t1, holes1 = pair1
         t2, holes2 = pair2
-        if subtest(t1,t2): #t2 >= t1
+        if subtest(t1,t2): # t2 >= t1
             if any(subtest(t1, h) for h in holes2):
                 return pair1,
             else:
@@ -128,7 +128,7 @@ class ExceptionSet(ValueType):
                     newholes = [h2 for h2 in holes1 if subtest(h2, h)]
                     newpairs.append((h, newholes))
                 return newpairs
-        elif subtest(t2,t1): #t2 < t1
+        elif subtest(t2,t1): # t2 < t1
             if any(subtest(t2, h) for h in holes1):
                 return pair1,
             else:
@@ -143,7 +143,7 @@ class ExceptionSet(ValueType):
             return pair1,
 
     @staticmethod
-    def mergePair(subtest, pair1, pair2): #merge pair2 into pair1 and return the union
+    def mergePair(subtest, pair1, pair2): # merge pair2 into pair1 and return the union
         t1, holes1 = pair1
         t2, holes2 = pair2
         assert subtest(t2,t1)
@@ -153,7 +153,7 @@ class ExceptionSet(ValueType):
             holes1.remove(t2)
             return t1, holes1 + list(holes2)
 
-        #TODO - this can probably be made more efficient
+        # TODO - this can probably be made more efficient
         holes1a = set(h for h in holes1 if not subtest(h, t2))
         holes1b = [h for h in holes1 if h not in holes1a]
 
@@ -181,26 +181,26 @@ class ExceptionSet(ValueType):
     @staticmethod
     def reduce(env, pairs):
         subtest = env.isSubclass
-        pairs = [pair for pair in pairs if pair[0] not in pair[1]] #remove all degenerate pairs
+        pairs = [pair for pair in pairs if pair[0] not in pair[1]] # remove all degenerate pairs
 
         newpairs = []
         while pairs:
             top, holes = pair = pairs.pop()
 
-            #look for an existing top to merge into
+            # look for an existing top to merge into
             for epair in newpairs[:]:
                 etop, eholes = epair
-                #new pair can be merged into existing pair
+                # new pair can be merged into existing pair
                 if subtest(top, etop) and (top in eholes or not any(subtest(top, ehole) for ehole in eholes)):
                     new = ExceptionSet.mergePair(subtest, epair, pair)
                     newpairs, pairs = [new], [p for p in newpairs if p is not epair] + pairs
                     break
-                #existing pair can be merged into new pair
+                # existing pair can be merged into new pair
                 elif subtest(etop, top) and (etop in holes or not any(subtest(etop, hole) for hole in holes)):
                     new = ExceptionSet.mergePair(subtest, pair, epair)
                     newpairs, pairs = [new], [p for p in newpairs if p is not epair] + pairs
                     break
-            #pair is incomparable to all existing pairs
+            # pair is incomparable to all existing pairs
             else:
                 holes = ExceptionSet.reduceHoles(subtest, holes)
                 newpairs.append((top,holes))

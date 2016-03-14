@@ -4,7 +4,7 @@ import platform, os, os.path, zipfile, errno
 import collections, hashlib
 from functools import partial
 
-#Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
+# Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
 
 copyright = '''Krakatau  Copyright (C) 2012-16  Robert Grosse
 This program is provided as open source under the GNU General Public License.
@@ -32,13 +32,13 @@ def normalizeClassname(name):
     # Replacing backslashes is ugly since they can be in valid classnames too, but this seems the best option
     return name.replace('\\','/').replace('.','/')
 
-#Windows stuff
+# Windows stuff
 illegal_win_chars = frozenset('<>;:|?*\\/"')
 pref_disp_chars = frozenset('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$0123456789')
 
-#Prevent creating filename parts matching the legacy device filenames. While Krakatau can create these files
-#just fine thanks to using \\?\ paths, the resulting files are impossible to open or delete in Windows Explorer
-#or with similar tools, so they are a huge pain to deal with. Therefore, we don't generate them at all.
+# Prevent creating filename parts matching the legacy device filenames. While Krakatau can create these files
+# just fine thanks to using \\?\ paths, the resulting files are impossible to open or delete in Windows Explorer
+# or with similar tools, so they are a huge pain to deal with. Therefore, we don't generate them at all.
 illegal_parts = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8',
     'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']
 
@@ -49,7 +49,7 @@ def isPartOk(s, prev):
         return False
     if s.lower() in prev:
         return prev[s.lower()] == s
-    #avoid collision with hashed parts
+    # avoid collision with hashed parts
     if len(s) >= 34 and s[-34:-32] == '__':
         return False
 
@@ -64,7 +64,7 @@ def isPathOk(s, prevs):
     return 0 < len(parts) < 750
 
 def sanitizePart(s, suffix, prev):
-    #make sure that suffix is never in any parts so we don't get a collision after adding it
+    # make sure that suffix is never in any parts so we don't get a collision after adding it
     if isPartOk(s, prev) and suffix not in s:
         return s
     ok = ''.join(c for c in s if c in pref_disp_chars)
@@ -95,7 +95,7 @@ class DirectoryWriter(object):
 
         osname = platform.system().lower()
         if 'win' in osname and 'darwin' not in osname and 'cygwin' not in osname:
-            prevs = collections.defaultdict(dict) #keep track of previous paths to detect case-insensitive collisions
+            prevs = collections.defaultdict(dict) # keep track of previous paths to detect case-insensitive collisions
             self.makepath = partial(winSanitizePath, base_path, suffix, prevs)
         else:
             self.makepath = partial(otherMakePath, base_path, suffix)

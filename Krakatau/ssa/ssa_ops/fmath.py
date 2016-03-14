@@ -23,7 +23,7 @@ class FSub(BaseOp):
         BaseOp.__init__(self, parent, args)
         self.rval = parent.makeVariable(args[0].type, origin=self)
 
-#Unary, unlike the others
+# Unary, unlike the others
 class FNeg(BaseOp):
     def __init__(self, parent, args):
         BaseOp.__init__(self, parent, args)

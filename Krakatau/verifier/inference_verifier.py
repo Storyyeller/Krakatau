@@ -63,7 +63,7 @@ class VerifierTypesState(object):
 
     def returnTo(self, called, jsrstate):
         mask = self.maskFor(called)
-        #merge locals using mask
+        # merge locals using mask
         zipped = itertools.izip_longest(self.locals, jsrstate.locals, fillvalue=T_INVALID)
         self.locals = [(x if i in mask else y) for i,(x,y) in enumerate(zipped)]
 
@@ -75,7 +75,7 @@ class VerifierTypesState(object):
         while self.locals and self.locals[-1] == T_INVALID:
             self.locals.pop()
 
-        #Merge Masks
+        # Merge Masks
         last_match = -1
         mergedmasks = []
         for entry1, mask1 in self.masks:
@@ -103,7 +103,7 @@ def _loadMethodDesc(cpool, ind):
 
 def _indexToCFMInfo(cpool, ind, typen):
     actual = cpool.getType(ind)
-    #JVM_GetCPMethodClassNameUTF accepts both
+    # JVM_GetCPMethodClassNameUTF accepts both
     assert actual == typen or actual == 'InterfaceMethod' and typen == 'Method'
 
     cname = cpool.getArgs(ind)[0]
@@ -266,7 +266,7 @@ class InstructionNode(object):
 
     def __init__(self, code, offsetToIndex, indexToOffset, key):
         self.key = key
-        assert(self.key is not None) #if it is this will cause problems with origin tracking
+        assert(self.key is not None) # if it is this will cause problems with origin tracking
 
         self.code = code
         self.env = code.class_.env
@@ -277,7 +277,7 @@ class InstructionNode(object):
         self.op = self.instruction[0]
 
         self.visited, self.changed = False, False
-        #store for usage calculating JSRs, finding successor instructions and the like
+        # store for usage calculating JSRs, finding successor instructions and the like
         self.offsetToIndex = offsetToIndex
         self.indexToOffset = indexToOffset
 
@@ -296,7 +296,7 @@ class InstructionNode(object):
         # for blockmaker
         self.target_type = None
         self.isThisCtor = False
-        self.out_state = None #store out state for JSR/RET instructions
+        self.out_state = None # store out state for JSR/RET instructions
 
         self._precomputeValues()
 
@@ -306,14 +306,14 @@ class InstructionNode(object):
         return vt
 
     def _precomputeValues(self):
-        #parsed_desc, successors
+        # parsed_desc, successors
         off_i = self.offsetToIndex[self.key]
-        self.next_instruction = self.indexToOffset[off_i+1] #None if end of code
+        self.next_instruction = self.indexToOffset[off_i+1] # None if end of code
         op = self.instruction[0]
 
         self.pop_amount = _getPopAmount(self.cpool, self.instruction, self.code.method)
 
-        #cache these, since they're not state dependent
+        # cache these, since they're not state dependent
         result = _getStackResult(self.cpool, self.instruction, self.key)
         # temporary hack
         if op == ops.CHECKCAST:
@@ -330,7 +330,7 @@ class InstructionNode(object):
         if op == ops.NEW:
             self.target_type = _indexToCFMInfo(self.cpool, self.instruction[1], 'Class')
 
-        #Now get successors
+        # Now get successors
         next_ = self.next_instruction
         if op in (ops.IF_A, ops.IF_I, ops.IF_ICMP, ops.IF_ACMP):
             self.successors = next_, self.instruction[2]
@@ -339,7 +339,7 @@ class InstructionNode(object):
         elif op in (ops.RETURN, ops.THROW):
             self.successors = ()
         elif op == ops.RET:
-            self.successors = None #calculate it when the node is reached
+            self.successors = None # calculate it when the node is reached
         elif op == ops.SWITCH:
             opname, default, jumps = self.instruction
             targets = (default,)
@@ -397,7 +397,7 @@ class InstructionNode(object):
 
         if self.op in (ops.RET, ops.JSR):
             state.invalidateNews()
-            self.out_state = state #store for later convienence
+            self.out_state = state # store for later convienence
 
         assert all(isinstance(vt, fullinfo_t) for vt in state.stack)
         assert all(isinstance(vt, fullinfo_t) for vt in state.locals)
@@ -405,12 +405,12 @@ class InstructionNode(object):
 
     def _mergeSingleSuccessor(self, other, newstate, iNodes, isException):
         if self.op == ops.RET and not isException:
-            #Get the instruction before other
+            # Get the instruction before other
             off_i = self.offsetToIndex[other.key]
             jsrnode = iNodes[self.indexToOffset[off_i-1]]
             jsrnode.returnedFrom = self.key
 
-            if jsrnode.visited: #if not, skip for later
+            if jsrnode.visited: # if not, skip for later
                 newstate = newstate.copy()
                 newstate.returnTo(jsrnode.instruction[1], jsrnode.state)
             else:
@@ -437,16 +437,16 @@ class InstructionNode(object):
             called = self.state.local(self.instruction[1]).extra
             temp = [n.next_instruction for n in iNodes.values() if (n.op == ops.JSR and n.instruction[1] == called)]
             successors = self.successors = tuple(temp)
-            self.jsrTarget = called #store for later use in ssa creation
+            self.jsrTarget = called # store for later use in ssa creation
 
-        #Merge into exception handlers first
+        # Merge into exception handlers first
         for (start, end, handler, except_info) in exceptions:
             if start <= self.key < end:
                 self._mergeSingleSuccessor(handler, self.state.withExcept(except_info), iNodes, True)
-                if self.op == ops.INVOKEINIT: #two cases since the ctor may suceed or fail before throwing
+                if self.op == ops.INVOKEINIT: # two cases since the ctor may suceed or fail before throwing
                     self._mergeSingleSuccessor(handler, newstate.withExcept(except_info), iNodes, True)
 
-        #Now regular successors
+        # Now regular successors
         for k in self.successors:
             self._mergeSingleSuccessor(iNodes[k], newstate, iNodes, False)
 
@@ -467,7 +467,7 @@ def verifyBytecode(code):
     args, rval = parseUnboundMethodDescriptor(method.descriptor, class_.name, method.static)
     env = class_.env
 
-    #Object has no superclass to construct, so it doesn't get an uninit this
+    # Object has no superclass to construct, so it doesn't get an uninit this
     if method.isConstructor and class_.name != 'java/lang/Object':
         assert args[0] == T_OBJECT(class_.name)
         args[0] = T_UNINIT_THIS

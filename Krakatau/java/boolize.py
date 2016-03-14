@@ -5,8 +5,8 @@ from ..ssa import objtypes
 from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
 from . import ast
 
-#Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
-#Also, booleans are forced to be seperate roots
+# Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
+# Also, booleans are forced to be seperate roots
 FORCED_ROOTS = True, False
 class UnionFind(object):
     def __init__(self):
@@ -52,7 +52,7 @@ def boolizeVars(root, arg_vars):
     sets = UnionFind()
 
     def visitExpr(expr, forceExact=False):
-        #see if we have to merge
+        # see if we have to merge
         if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!=','&','|','^'):
             subs = [visitExpr(param) for param in expr.params]
             sets.union(*subs) # these operators can work on either type but need the same type on each side
@@ -73,7 +73,7 @@ def boolizeVars(root, arg_vars):
         elif isinstance(expr, ast.Literal):
             if expr.dtype == IntTT and expr.val not in (0,1):
                 return False
-            return None #if val is 0 or 1, or the literal is a null, it is freely convertable
+            return None # if val is 0 or 1, or the literal is a null, it is freely convertable
         elif isinstance(expr, ast.Assignment) or (isinstance(expr, ast.BinaryInfix) and expr.opstr in ('&','|','^')):
             return subs[0]
         elif isinstance(expr, (ast.ArrayAccess, ast.Parenthesis, ast.UnaryPrefix)):
@@ -94,17 +94,17 @@ def boolizeVars(root, arg_vars):
         visitExpr(expr, forceExact=True)
     visitStatementTree(root, callback=visitStatement)
 
-    #Fix the propagated types
+    # Fix the propagated types
     for var in set(varlist):
         tag, dim = objtypes.baset(var.dtype), objtypes.dim(var.dtype)
         assert tag in int_tags or (dim>0 and tag == BExpr)
-        #make everything bool which is not forced to int
+        # make everything bool which is not forced to int
         if sets.find(var) != False:
             var.dtype = objtypes.withDimInc(BoolTT, dim)
         elif dim > 0:
             var.dtype = objtypes.withDimInc(ByteTT, dim)
 
-    #Fix everything else back up
+    # Fix everything else back up
     def fixExpr(item, expr):
         for param in expr.params:
             fixExpr(None, param)
@@ -116,7 +116,7 @@ def boolizeVars(root, arg_vars):
                     expr.params = [left, ast.makeCastExpr(left.dtype, right)]
         elif isinstance(expr, ast.BinaryInfix):
             a, b = expr.params
-            #shouldn't need to do anything here for arrays
+            # shouldn't need to do anything here for arrays
             if expr.opstr in '== != & | ^' and a.dtype == BoolTT or b.dtype == BoolTT:
                 expr.params = [ast.makeCastExpr(BoolTT, v) for v in expr.params]
     visitStatementTree(root, callback=fixExpr)

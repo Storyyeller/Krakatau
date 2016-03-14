@@ -10,7 +10,7 @@ def parseInstructions(bytestream, isConstructor):
         address = data.off
         inst = getNextInstruction(data, address)
 
-        #replace constructor invocations with synthetic op invokeinit to simplfy things later
+        # replace constructor invocations with synthetic op invokeinit to simplfy things later
         if inst[0] == opnames.INVOKESPECIAL and isConstructor(inst[1]):
             inst = (opnames.INVOKEINIT,) + inst[1:]
 
@@ -32,7 +32,7 @@ singleIndexOps = {0xb2:opnames.GETSTATIC,0xb3:opnames.PUTSTATIC,0xb4:opnames.GET
 def getNextInstruction(data, address):
     byte = data.get('>B')
 
-    #typecode - B,C,S, and Bool are only used for array types and sign extension
+    # typecode - B,C,S, and Bool are only used for array types and sign extension
     A,B,C,D,F,I,L,S = "ABCDFIJS"
     Bool = "Z"
 
@@ -74,7 +74,7 @@ def getNextInstruction(data, address):
     elif byte <= 0x35:
         op = opnames.ARRLOAD
         t = [I,L,F,D,A,B,C,S][byte - 0x2e]
-        inst = (op, t) if t != A else (opnames.ARRLOAD_OBJ,) #split object case into seperate op name to simplify things later
+        inst = (op, t) if t != A else (opnames.ARRLOAD_OBJ,) # split object case into seperate op name to simplify things later
     elif byte <= 0x4e:
         op = opnames.STORE
         if byte <= 0x3a:
@@ -88,7 +88,7 @@ def getNextInstruction(data, address):
     elif byte <= 0x56:
         op = opnames.ARRSTORE
         t = [I,L,F,D,A,B,C,S][byte - 0x4f]
-        inst = (op, t) if t != A else (opnames.ARRSTORE_OBJ,) #split object case into seperate op name to simplify things later
+        inst = (op, t) if t != A else (opnames.ARRSTORE_OBJ,) # split object case into seperate op name to simplify things later
     elif byte <= 0x77:
         temp = byte - 0x60
         opt = (opnames.ADD,opnames.SUB,opnames.MUL,opnames.DIV,opnames.REM,opnames.NEG)[temp//4]
@@ -138,7 +138,7 @@ def getNextInstruction(data, address):
         inst = opnames.JSR, data.get('>h') + address
     elif byte == 0xa9:
         inst = opnames.RET, data.get('>B')
-    elif byte == 0xaa: #Table Switch
+    elif byte == 0xaa: # Table Switch
         padding = data.getRaw((3-address) % 4)
         default = data.get('>i') + address
         low = data.get('>i')
@@ -148,7 +148,7 @@ def getNextInstruction(data, address):
         offsets = [data.get('>i') + address for _ in range(numpairs)]
         jumps = zip(range(low, high+1), offsets)
         inst = opnames.SWITCH, default, jumps
-    elif byte == 0xab: #Lookup Switch
+    elif byte == 0xab: # Lookup Switch
         padding = data.getRaw((3-address) % 4)
         default = data.get('>i') + address
         numpairs = data.get('>i')
@@ -175,7 +175,7 @@ def getNextInstruction(data, address):
         types = {4:Bool, 5:C, 6:F, 7:D, 8:B, 9:S, 10:I, 11:L}
         t = types.get(typecode)
         inst = opnames.NEWARRAY, t
-    elif byte == 0xc4: #wide
+    elif byte == 0xc4: # wide
         realbyte = data.get('>B')
         if realbyte >= 0x15 and realbyte < 0x1a:
             t = [I,L,F,D,A][realbyte - 0x15]

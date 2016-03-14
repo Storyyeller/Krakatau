@@ -8,7 +8,7 @@ class OnException(BaseJump):
     def __init__(self, parent, throwvar, chpairs, fallthrough=None):
         super(OnException, self).__init__(parent, [throwvar])
         self.default = fallthrough
-        self.cs = CatchSetManager(parent.env, chpairs)
+        self.cs = CatchSetManager.new(parent.env, chpairs)
         self.cs.pruneKeys()
 
     def replaceExceptTarget(self, old, new):

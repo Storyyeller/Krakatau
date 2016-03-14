@@ -3,22 +3,20 @@ from . import objtypes
 from .mixin import ValueType
 
 class CatchSetManager(object):
-    def __init__(self, env, chpairs, attributes=None):
-        if attributes is not None:
-            self.env, self.sets, self.mask = attributes
-        else:
-            self.env = env
-            self.sets = collections.OrderedDict() #make this ordered since OnException relies on it
-
-            sofar = empty = ExceptionSet.EMPTY
-            for catchtype, handler in chpairs:
-                old = self.sets.get(handler, empty)
-                new = ExceptionSet.fromTops(env, catchtype)
-                self.sets[handler] = old | (new - sofar)
-                sofar = sofar | new
-            self.mask = sofar
-            self.pruneKeys()
+    def __init__(self, env, sets, mask):
+        self.env, self.sets, self.mask = env, sets, mask
         assert not self._conscheck()
+
+    @staticmethod #factory
+    def new(env, chpairs):
+        sets = collections.OrderedDict() #make this ordered since OnException relies on it
+        sofar = empty = ExceptionSet.EMPTY
+        for catchtype, handler in chpairs:
+            old = sets.get(handler, empty)
+            new = ExceptionSet.fromTops(env, catchtype)
+            sets[handler] = old | (new - sofar)
+            sofar = sofar | new
+        return CatchSetManager(env, sets, sofar)
 
     def newMask(self, mask):
         for k in self.sets:
@@ -32,7 +30,7 @@ class CatchSetManager(object):
                 del self.sets[handler]
 
     def copy(self):
-        return CatchSetManager(0,0,(self.env, self.sets.copy(), self.mask))
+        return CatchSetManager(self.env, self.sets.copy(), self.mask)
 
     def replaceKeys(self, replace):
         self.sets = collections.OrderedDict((replace.get(key,key), val) for key, val in self.sets.items())

@@ -574,6 +574,10 @@ def _inlineVariables(root):
                 canReplace, parent, expr = args
                 stack.append((False, expr))
 
+                # TODO - fix this for real
+                if expr.complexity() > 30:
+                    canReplace = False
+
                 # For ternaries, we don't want to replace into the conditionally
                 # evaluated part, but we still need to check those parts for
                 # barriers. For both ternaries and short circuit operators, the

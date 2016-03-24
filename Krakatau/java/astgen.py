@@ -42,7 +42,7 @@ class VarInfo(object):
 
     def _newVar(self, var, num, isCast):
         tt = self._tts[var]
-        if var.const is not None:
+        if var.const is not None and not isCast:
             return ast.Literal(tt, var.const)
 
         if var.name:

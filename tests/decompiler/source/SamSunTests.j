@@ -8,10 +8,11 @@
     .code stack 10 locals 10
         aload_0
         dup
-        dup
+        dup2
         invokestatic [cls] exceptionVerificationUsesOldLocalsState ([Ljava/lang/String;)V
         invokestatic [cls] castToInterface ([Ljava/lang/String;)V
         invokestatic [cls] castFromInterface ([Ljava/lang/String;)V
+        invokestatic [cls] castStringLiteral ([Ljava/lang/String;)V
         return
     .end code
 .end method
@@ -114,6 +115,25 @@ L2:
         aload_0
         invokevirtual Method java/io/PrintStream println (Ljava/lang/Object;)V
         return
+    .end code
+.end method
+
+.method public static castStringLiteral : ([Ljava/lang/String;)V
+    .code stack 10 locals 10
+    .catch java/lang/Exception from L1 to L2 using L3
+    ldc "\n\n\n"
+    getstatic java/lang/System out Ljava/io/PrintStream;
+    swap
+L1:
+    checkcast java/lang/Exception
+    goto L4
+L2:
+L3:
+    getstatic java/lang/System out Ljava/io/PrintStream;
+    swap
+L4:
+    invokevirtual Method java/io/PrintStream println (Ljava/lang/Object;)V
+    return
     .end code
 .end method
 

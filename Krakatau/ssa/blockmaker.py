@@ -7,7 +7,7 @@ from ..verifier import verifier_types
 from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
 from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT
 from .ssa_types import slots_t, BasicBlock
-from .blockmakerfuncs import instructionHandlers
+from .blockmakerfuncs import instructionHandlers, ResultDict
 
 def toBits(x): return [i for i in range(x.bit_length()) if x & (1 << i)]
 

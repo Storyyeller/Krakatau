@@ -1,9 +1,9 @@
 import collections
+from collections import namedtuple as nt
 
 from .. import floatutil as fu
 from ..verifier import verifier_types as vtypes
 
-nt = collections.namedtuple
 slots_t = nt('slots_t', ('locals', 'stack'))
 
 def _localsAsList(self): return [t[1] for t in sorted(self.locals.items())]

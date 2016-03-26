@@ -1,7 +1,7 @@
 import collections
+from collections import namedtuple as nt
 
 # Define types for Inference
-nt = collections.namedtuple
 # Extra stores address for .new and .address and class name for object types
 # Const stores value for int constants and length for exact arrays. This isn't needed for normal verification but is
 # useful for optimizing the code later.

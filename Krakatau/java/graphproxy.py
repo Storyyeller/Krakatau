@@ -1,5 +1,5 @@
 import collections, itertools
-ddict = collections.defaultdict
+from collections import defaultdict as ddict
 
 from ..ssa import ssa_types
 def unique(seq): return len(set(seq)) == len(seq)

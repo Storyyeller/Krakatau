@@ -1,5 +1,5 @@
 import collections, itertools, functools
-ddict = collections.defaultdict
+from collections import defaultdict as ddict
 
 from .. import graph_util
 from . import graphproxy

@@ -1,9 +1,8 @@
-from .base import BaseOp
+from .. import excepttypes, objtypes
+from ..constraints import IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
 from ..ssa_types import SSA_OBJECT
 
-from .. import excepttypes, objtypes
-from ..constraints import ObjectConstraint, IntConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
+from .base import BaseOp
 
 class New(BaseOp):
     has_side_effects = True

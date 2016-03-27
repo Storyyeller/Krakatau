@@ -1,7 +1,7 @@
-from .base import BaseOp
-from ..constraints import IntConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
+from ..constraints import IntConstraint, maybeThrow, returnOrThrow, return_, throw
+
 from . import bitwise_util
+from .base import BaseOp
 
 class Truncate(BaseOp):
     def __init__(self, parent, arg, signed, width):

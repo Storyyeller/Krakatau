@@ -1,8 +1,10 @@
-import itertools, math
+import itertools
+import math
 
 from ..ssa import objtypes
-from .stringescape import escapeString
+
 from . import visitor
+from .stringescape import escapeString
 
 # Explicitly cast parameters to the desired type in order to avoid potential issues with overloaded methods
 ALWAYS_CAST_PARAMS = 1

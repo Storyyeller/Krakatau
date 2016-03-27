@@ -1,4 +1,4 @@
-from .base import BaseOp # for exceptionphi, as regular phi doesn't inherit from op
+from .base import BaseOp
 
 class Phi(object):
     __slots__ = 'block dict rval'.split()

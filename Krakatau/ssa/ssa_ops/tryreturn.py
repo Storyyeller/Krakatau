@@ -1,7 +1,7 @@
-from .base import BaseOp
 from .. import excepttypes
-from ..constraints import ObjectConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
+from ..constraints import ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+
+from .base import BaseOp
 
 class TryReturn(BaseOp):
     def __init__(self, parent, canthrow=True):

@@ -1,5 +1,6 @@
-from ..mixin import ValueType
 from ... import floatutil as fu
+
+from ..mixin import ValueType
 
 SPECIALS = frozenset((fu.NAN, fu.INF, fu.NINF, fu.ZERO, fu.NZERO))
 

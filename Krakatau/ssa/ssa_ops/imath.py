@@ -1,10 +1,10 @@
-from .base import BaseOp
-from .. import ssa_types, excepttypes
-from ..constraints import IntConstraint, ObjectConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
-from . import bitwise_util
-
 import itertools
+
+from .. import excepttypes, ssa_types
+from ..constraints import IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+
+from . import bitwise_util
+from .base import BaseOp
 
 def getNewRange(w, zmin, zmax):
     HN = 1 << w-1

@@ -1,11 +1,9 @@
 import itertools
 
-from .. import error as error_types
-from .. import opnames as ops
-from .. import bytecode
-from .verifier_types import T_ADDRESS, T_ARRAY, T_BYTE, T_CHAR, T_DOUBLE, T_FLOAT, T_INT, T_INVALID, T_LONG, T_NULL, T_OBJECT, T_SHORT, T_UNINIT_OBJECT, T_UNINIT_THIS, T_INT_CONST
-from .verifier_types import OBJECT_INFO, decrementDim, fullinfo_t, mergeTypes, objOrArray, exactArrayFrom
+from .. import bytecode, error as error_types, opnames as ops
+
 from .descriptors import parseFieldDescriptor, parseMethodDescriptor, parseUnboundMethodDescriptor
+from .verifier_types import OBJECT_INFO, T_ADDRESS, T_ARRAY, T_BYTE, T_CHAR, T_DOUBLE, T_FLOAT, T_INT, T_INT_CONST, T_INVALID, T_LONG, T_NULL, T_OBJECT, T_SHORT, T_UNINIT_OBJECT, T_UNINIT_THIS, decrementDim, exactArrayFrom, fullinfo_t, mergeTypes, objOrArray
 
 class VerifierTypesState(object):
     def __init__(self, stack, locals, masks):

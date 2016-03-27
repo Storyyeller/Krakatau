@@ -1,5 +1,6 @@
-from ..functionbase import SSAFunctionBase
 import copy
+
+from ..functionbase import SSAFunctionBase
 
 class BaseJump(SSAFunctionBase):
     def __init__(self, parent, arguments=()):

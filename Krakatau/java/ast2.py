@@ -1,6 +1,7 @@
+from ..ssa import objtypes
+
 from . import ast
 from .stringescape import escapeString as escape
-from ..ssa import objtypes
 
 class Comments(object):
     def __init__(self):

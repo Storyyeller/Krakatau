@@ -1,11 +1,13 @@
-import re, math
+import math
+import re
 
-from ..classfileformat import mutf8, classdata
+from ..classfileformat import classdata, mutf8
 from ..classfileformat.reader import Reader
 from ..util.thunk import thunk
+
 from . import codes, token_regexes
 from .flags import FLAGS, RFLAGS, RFLAGS_M
-from .instructions import OP_NONE, OP_SHORT, OP_LBL, OP_CLS, OP_FMIM, OPNAMES
+from .instructions import OPNAMES, OP_CLS, OP_FMIM, OP_LBL, OP_NONE, OP_SHORT
 
 MAX_INLINE_SIZE = 300
 MAX_INDENT = 20

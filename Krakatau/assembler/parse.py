@@ -1,11 +1,13 @@
-import ast, struct
+import ast
+import struct
 
 from ..classfileformat import mutf8
 from ..util.thunk import thunk
+
 from . import assembly, codes, pool
 from .flags import FLAGS
-from .instructions import OP_NONE, OP_SHORT, OP_LBL, OP_CLS, OP_FMIM_TO_GUESS, OPNAME_TO_BYTE
-from .tokenize import Tokenizer, AsssemblerError
+from .instructions import OPNAME_TO_BYTE, OP_CLS, OP_FMIM_TO_GUESS, OP_LBL, OP_NONE, OP_SHORT
+from .tokenize import AsssemblerError, Tokenizer
 from .writer import Writer
 
 def unique(vals):

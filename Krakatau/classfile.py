@@ -1,5 +1,5 @@
-from . import constant_pool, method, field
-from .attributes_raw import get_attributes_raw, fixAttributeNames
+from . import constant_pool, field, method
+from .attributes_raw import fixAttributeNames, get_attributes_raw
 
 cp_structFmts = {3: '>i',
                 4: '>i',    # floats and doubles internally represented as integers with same bit pattern

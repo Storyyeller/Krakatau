@@ -1,4 +1,6 @@
-import struct, itertools, collections
+import collections
+import itertools
+import struct
 
 class Writer(object):
     def __init__(self):

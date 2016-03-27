@@ -1,9 +1,10 @@
-from . import ast
-from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
-from ..ssa import ssa_types, ssa_ops, ssa_jumps, objtypes
-from ..namegen import LabelGen
-from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 from .. import opnames
+from ..namegen import LabelGen
+from ..ssa import objtypes, ssa_jumps, ssa_ops, ssa_types
+from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
+
+from . import ast
+from .setree import SEBlockItem, SEIf, SEScope, SESwitch, SETry, SEWhile
 
 # prefixes for name generation
 _prefix_map = {objtypes.IntTT:'i', objtypes.LongTT:'j',

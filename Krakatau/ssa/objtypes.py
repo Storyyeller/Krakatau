@@ -1,5 +1,5 @@
-from ..verifier import verifier_types as vtypes
 from ..error import ClassLoaderError
+from ..verifier import verifier_types as vtypes
 
 # types are represented by classname, dimension
 # primative types are .int, etc since these cannot be valid classnames since periods are forbidden

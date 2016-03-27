@@ -1,7 +1,7 @@
+from .. import excepttypes, objtypes
+from ..constraints import ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+
 from .base import BaseOp
-from .. import objtypes, excepttypes
-from ..constraints import ObjectConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
 
 class Throw(BaseOp):
     def __init__(self, parent, args):

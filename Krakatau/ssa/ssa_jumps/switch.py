@@ -1,10 +1,11 @@
 import collections
 
-from .base import BaseJump
-from .ifcmp import If
-from .goto import Goto
 from ..constraints import IntConstraint
 from ..ssa_types import SSA_INT
+
+from .base import BaseJump
+from .goto import Goto
+from .ifcmp import If
 
 class Switch(BaseJump):
     def __init__(self, parent, default, table, arguments):

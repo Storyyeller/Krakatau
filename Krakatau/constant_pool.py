@@ -1,4 +1,5 @@
-import struct, collections
+import collections
+import struct
 
 # ConstantPool stores strings as strings or unicodes. They are automatically
 # converted to and from modified Utf16 when reading and writing to binary

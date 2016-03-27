@@ -1,7 +1,7 @@
 import collections
 
 from . import bytecode
-from .attributes_raw import get_attributes_raw, fixAttributeNames
+from .attributes_raw import fixAttributeNames, get_attributes_raw
 from .classfileformat.reader import Reader
 
 exceptionHandlerRaw = collections.namedtuple("exceptionHandlerRaw",

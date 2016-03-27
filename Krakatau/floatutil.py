@@ -1,4 +1,5 @@
 import math
+
 INF_MAG = 1, None
 ZERO_MAG = 0, None
 

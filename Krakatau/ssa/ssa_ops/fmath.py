@@ -1,6 +1,7 @@
+from .. import ssa_types
+from ..constraints import IntConstraint, return_
+
 from .base import BaseOp
-from ..constraints import IntConstraint
-from ..constraints import return_
 
 class FAdd(BaseOp):
     def __init__(self, parent, args):
@@ -29,7 +30,6 @@ class FNeg(BaseOp):
         BaseOp.__init__(self, parent, args)
         self.rval = parent.makeVariable(args[0].type, origin=self)
 
-from .. import ssa_types
 class FCmp(BaseOp):
     def __init__(self, parent, args, NaN_val):
         BaseOp.__init__(self, parent, args)

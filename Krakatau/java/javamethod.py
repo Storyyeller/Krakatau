@@ -1,14 +1,13 @@
 import collections
-import operator
 from functools import partial
+import operator
 
-from ..ssa import objtypes
 from .. import graph_util
 from ..namegen import NameGen
+from ..ssa import objtypes
 from ..verifier.descriptors import parseMethodDescriptor
 
-from . import ast, ast2, boolize
-from . import graphproxy, structuring, astgen, mergevariables
+from . import ast, ast2, astgen, boolize, graphproxy, mergevariables, structuring
 
 class DeclInfo(object):
     __slots__ = "declScope scope defs".split()

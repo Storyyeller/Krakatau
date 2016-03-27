@@ -1,6 +1,6 @@
 import heapq
 
-from .cfg import makeGraph, flattenDict
+from .cfg import flattenDict, makeGraph
 
 # Variables x and y can safely be merged when it is true that for any use of y (respectively x)
 # that sees a definition of y, either there are no intervening definitions of x, or x was known

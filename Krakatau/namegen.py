@@ -1,4 +1,5 @@
-import itertools, collections
+import collections
+import itertools
 
 class NameGen(object):
     def __init__(self, reserved=frozenset()):

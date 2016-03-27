@@ -1,9 +1,8 @@
-from .base import BaseOp
+from .. import excepttypes, objtypes
+from ..constraints import FloatConstraint, IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
 from ..ssa_types import SSA_INT
 
-from .. import excepttypes, objtypes
-from ..constraints import IntConstraint, FloatConstraint, ObjectConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
+from .base import BaseOp
 
 def getElementTypes(env, tops):
     types = [objtypes.withDimInc(tt, -1) for tt in tops]

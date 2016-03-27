@@ -1,4 +1,3 @@
-
 def thunk(initial):
     stack = [initial]
     while stack:

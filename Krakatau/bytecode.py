@@ -1,4 +1,5 @@
 from __future__ import division
+
 from . import opnames
 
 def parseInstructions(bytestream, isConstructor):

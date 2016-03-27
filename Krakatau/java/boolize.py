@@ -2,7 +2,8 @@ import collections
 
 from .. import graph_util
 from ..ssa import objtypes
-from ..ssa.objtypes import IntTT, ShortTT, CharTT, ByteTT, BoolTT, BExpr
+from ..ssa.objtypes import BExpr, BoolTT, ByteTT, CharTT, IntTT, ShortTT
+
 from . import ast
 
 # Class union-find data structure except that we don't bother with weighting trees and singletons are implicit

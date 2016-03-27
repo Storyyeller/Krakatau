@@ -1,8 +1,13 @@
 from __future__ import print_function
 
-import platform, os, os.path, zipfile, errno
-import collections, hashlib
+import collections
+import errno
 from functools import partial
+import hashlib
+import os
+import os.path
+import platform
+import zipfile
 
 # Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
 

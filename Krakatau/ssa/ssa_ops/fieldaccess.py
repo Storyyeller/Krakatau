@@ -1,10 +1,10 @@
-from .base import BaseOp
 from ...verifier.descriptors import parseFieldDescriptor
-from ..ssa_types import verifierToSSAType, SSA_OBJECT, SSA_INT
 
-from .. import objtypes, constraints, excepttypes
-from ..constraints import IntConstraint, ObjectConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
+from .. import constraints, excepttypes, objtypes
+from ..constraints import IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..ssa_types import SSA_INT, SSA_OBJECT, verifierToSSAType
+
+from .base import BaseOp
 
 # Empirically, Hotspot does enfore size restrictions on short fields
 # Except that bool is still a byte

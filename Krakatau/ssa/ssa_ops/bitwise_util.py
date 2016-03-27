@@ -1,5 +1,7 @@
+import itertools
+import operator
+
 from ..constraints import IntConstraint
-import itertools, operator
 
 def split_pow2ranges(x,y):
     '''split given range into power of two ranges of form [x, x+2^k)'''

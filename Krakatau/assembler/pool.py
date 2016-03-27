@@ -1,4 +1,5 @@
-import itertools, collections
+import collections
+import itertools
 
 from .writer import Writer
 

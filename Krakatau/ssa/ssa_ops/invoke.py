@@ -1,10 +1,10 @@
-from .base import BaseOp
 from ...verifier.descriptors import parseMethodDescriptor
-from ..ssa_types import verifierToSSAType, SSA_OBJECT
 
-from .. import objtypes, constraints, excepttypes
-from ..constraints import ObjectConstraint
-from ..constraints import returnOrThrow, maybeThrow, throw, return_
+from .. import constraints, excepttypes, objtypes
+from ..constraints import ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..ssa_types import SSA_OBJECT, verifierToSSAType
+
+from .base import BaseOp
 
 class Invoke(BaseOp):
     has_side_effects = True

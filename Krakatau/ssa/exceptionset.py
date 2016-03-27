@@ -1,4 +1,6 @@
-import collections, itertools
+import collections
+import itertools
+
 from . import objtypes
 from .mixin import ValueType
 

@@ -1,11 +1,12 @@
-import collections, itertools
+import collections
+import itertools
 
-from . import ssa_ops, ssa_jumps, objtypes, subproc
 from .. import opnames as vops
 from ..verifier import verifier_types
-from ..verifier.descriptors import parseMethodDescriptor, parseFieldDescriptor
-from .ssa_types import SSA_INT, SSA_LONG, SSA_FLOAT, SSA_DOUBLE, SSA_OBJECT
-from .ssa_types import slots_t, BasicBlock
+from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
+
+from . import objtypes, ssa_jumps, ssa_ops, subproc
+from .ssa_types import BasicBlock, SSA_DOUBLE, SSA_FLOAT, SSA_INT, SSA_LONG, SSA_OBJECT, slots_t
 
 
 _charToSSAType = {'D':SSA_DOUBLE, 'F':SSA_FLOAT, 'I':SSA_INT, 'J':SSA_LONG,

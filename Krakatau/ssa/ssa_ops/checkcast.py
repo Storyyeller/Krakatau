@@ -1,7 +1,7 @@
+from .. import excepttypes, objtypes, ssa_types
+from ..constraints import IntConstraint, ObjectConstraint, join, maybeThrow, return_, throw
+
 from .base import BaseOp
-from .. import objtypes, excepttypes, ssa_types
-from ..constraints import ObjectConstraint, IntConstraint
-from ..constraints import join, maybeThrow, throw, return_
 
 class CheckCast(BaseOp):
     def __init__(self, parent, target, args):

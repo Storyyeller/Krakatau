@@ -1,8 +1,8 @@
-import zipfile
 import os.path
+import zipfile
 
-from .classfileformat.reader import Reader
 from .classfile import ClassFile
+from .classfileformat.reader import Reader
 from .error import ClassLoaderError
 
 class Environment(object):

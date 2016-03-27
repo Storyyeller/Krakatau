@@ -1,8 +1,9 @@
 from collections import defaultdict as ddict
 
-from . import ast
-from ..ssa import objtypes
 from .. import graph_util
+from ..ssa import objtypes
+
+from . import ast
 
 def flattenDict(replace):
     for k in list(replace):

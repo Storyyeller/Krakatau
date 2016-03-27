@@ -1,5 +1,6 @@
-from . import ast
 from ..ssa import objtypes
+
+from . import ast
 
 # A simple throws declaration inferrer that only considers throw statements within the method
 # this is mostly just useful to make sure the ExceptionHandlers test compiles

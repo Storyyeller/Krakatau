@@ -1,11 +1,13 @@
-import itertools, collections, copy, functools
+import collections
+import copy
+import functools
+import itertools
 
-from . import blockmaker, constraints, objtypes, subproc
-from . import ssa_jumps, ssa_ops, constraints
-from ..verifier.descriptors import parseUnboundMethodDescriptor
 from .. import graph_util
+from ..verifier.descriptors import parseUnboundMethodDescriptor
 
-from .ssa_types import SSA_OBJECT, BasicBlock, verifierToSSAType
+from . import blockmaker, constraints, objtypes, ssa_jumps, ssa_ops, subproc
+from .ssa_types import BasicBlock, SSA_OBJECT, verifierToSSAType
 
 class SSA_Variable(object):
     __slots__ = 'type','origin','name','const','decltype','uninit_orig_num'

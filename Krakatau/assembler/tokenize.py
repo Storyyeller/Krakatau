@@ -1,6 +1,8 @@
 from __future__ import print_function
+
 import collections
-import re, sys
+import re
+import sys
 
 from . import token_regexes as res
 

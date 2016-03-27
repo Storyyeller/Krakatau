@@ -1,6 +1,8 @@
-import struct, itertools, collections
+import collections
+import itertools
+import struct
 
-from .pool import utf, Pool
+from .pool import Pool, utf
 from .writer import Writer
 
 Label = collections.namedtuple('Label', ['tok', 'sym'])

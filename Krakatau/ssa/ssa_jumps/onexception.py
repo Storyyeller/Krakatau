@@ -1,8 +1,9 @@
+from .. import objtypes
+from ..constraints import ObjectConstraint
+from ..exceptionset import CatchSetManager, ExceptionSet
+
 from .base import BaseJump
 from .goto import Goto
-from .. import objtypes
-from ..exceptionset import  CatchSetManager, ExceptionSet
-from ..constraints import ObjectConstraint
 
 class OnException(BaseJump):
     def __init__(self, parent, throwvar, chpairs, fallthrough=None):

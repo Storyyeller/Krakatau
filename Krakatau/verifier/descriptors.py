@@ -1,5 +1,4 @@
-from .verifier_types import T_BYTE, T_CHAR, T_DOUBLE, T_FLOAT, T_INT, T_LONG, T_SHORT, T_BOOL, T_OBJECT, T_ARRAY, T_INVALID
-from .verifier_types import unSynthesizeType
+from .verifier_types import T_ARRAY, T_BOOL, T_BYTE, T_CHAR, T_DOUBLE, T_FLOAT, T_INT, T_INVALID, T_LONG, T_OBJECT, T_SHORT, unSynthesizeType
 
 _cat2tops = T_LONG, T_DOUBLE
 

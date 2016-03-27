@@ -1,12 +1,14 @@
-import collections, itertools, functools
+import collections
 from collections import defaultdict as ddict
+import functools
+import itertools
 
 from .. import graph_util
-from . import graphproxy
-
-from ..ssa import ssa_jumps, objtypes
+from ..ssa import objtypes, ssa_jumps
 from ..ssa.exceptionset import ExceptionSet
-from .setree import SEBlockItem, SEScope, SEIf, SESwitch, SETry, SEWhile
+
+from . import graphproxy
+from .setree import SEBlockItem, SEIf, SEScope, SESwitch, SETry, SEWhile
 
 # This module is responsible for transforming an arbitrary control flow graph into a tree
 # of nested structures corresponding to Java control flow statements. This occurs in

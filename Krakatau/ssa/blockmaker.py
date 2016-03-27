@@ -3,11 +3,10 @@ import operator
 
 from .. import opnames as vops
 from ..verifier import verifier_types
-from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 
-from . import objtypes, ssa_jumps, ssa_ops, subproc
+from . import ssa_jumps, ssa_ops, subproc
 from .blockmakerfuncs import ResultDict, instructionHandlers
-from .ssa_types import BasicBlock, SSA_DOUBLE, SSA_FLOAT, SSA_INT, SSA_LONG, SSA_OBJECT, slots_t
+from .ssa_types import BasicBlock, SSA_OBJECT, slots_t
 
 def toBits(x): return [i for i in range(x.bit_length()) if x & (1 << i)]
 

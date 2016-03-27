@@ -1,7 +1,7 @@
 import itertools
 
 from .. import excepttypes, ssa_types
-from ..constraints import IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..constraints import IntConstraint, ObjectConstraint, returnOrThrow, return_, throw
 
 from . import bitwise_util
 from .base import BaseOp

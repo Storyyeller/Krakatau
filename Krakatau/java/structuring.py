@@ -1,13 +1,11 @@
 import collections
 from collections import defaultdict as ddict
-import functools
 import itertools
 
 from .. import graph_util
 from ..ssa import objtypes, ssa_jumps
 from ..ssa.exceptionset import ExceptionSet
 
-from . import graphproxy
 from .setree import SEBlockItem, SEIf, SEScope, SESwitch, SETry, SEWhile
 
 # This module is responsible for transforming an arbitrary control flow graph into a tree

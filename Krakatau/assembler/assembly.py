@@ -1,6 +1,4 @@
 import collections
-import itertools
-import struct
 
 from .pool import Pool, utf
 from .writer import Writer

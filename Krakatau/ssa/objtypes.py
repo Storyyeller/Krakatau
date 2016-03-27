@@ -1,4 +1,3 @@
-from ..error import ClassLoaderError
 from ..verifier import verifier_types as vtypes
 
 # types are represented by classname, dimension

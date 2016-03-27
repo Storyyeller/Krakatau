@@ -1,5 +1,3 @@
-import collections
-import itertools
 import struct
 
 class Writer(object):

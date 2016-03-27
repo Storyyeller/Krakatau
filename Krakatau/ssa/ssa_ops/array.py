@@ -1,5 +1,5 @@
 from .. import excepttypes, objtypes
-from ..constraints import FloatConstraint, IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..constraints import FloatConstraint, IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, throw
 from ..ssa_types import SSA_INT
 
 from .base import BaseOp

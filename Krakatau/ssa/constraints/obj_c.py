@@ -3,8 +3,6 @@ import itertools
 from .. import objtypes
 from ..mixin import ValueType
 
-from .int_c import IntConstraint
-
 array_supers = 'java/lang/Object','java/lang/Cloneable','java/io/Serializable'
 obj_fset = frozenset([objtypes.ObjectTT])
 

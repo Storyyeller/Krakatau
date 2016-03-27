@@ -1,5 +1,5 @@
 from .. import excepttypes
-from ..constraints import ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..constraints import ObjectConstraint, maybeThrow
 
 from .base import BaseOp
 

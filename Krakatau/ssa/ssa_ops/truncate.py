@@ -1,4 +1,4 @@
-from ..constraints import IntConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..constraints import IntConstraint, return_
 
 from . import bitwise_util
 from .base import BaseOp

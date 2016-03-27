@@ -1,7 +1,7 @@
 from ...verifier.descriptors import parseFieldDescriptor
 
 from .. import constraints, excepttypes, objtypes
-from ..constraints import IntConstraint, ObjectConstraint, maybeThrow, returnOrThrow, return_, throw
+from ..constraints import IntConstraint, ObjectConstraint, returnOrThrow, throw
 from ..ssa_types import SSA_INT, SSA_OBJECT, verifierToSSAType
 
 from .base import BaseOp

@@ -12,6 +12,7 @@
     invokestatic JSRTests skipJSR ([Ljava/lang/String;)V
     invokestatic JSRTests nestedJSRs ([Ljava/lang/String;)V
     invokestatic JSRTests doubleJumpRet ()V
+    invokestatic JSRTests retWithStack ()V
     return
 .end method
 
@@ -221,3 +222,22 @@ Lproc1:
         return
     .end code
 .end method
+
+.method public static retWithStack : ()V
+    .code stack 21 locals 3
+        jsr Lproc
+        invokestatic JSRTests print (Ljava/lang/String;)V
+        invokestatic JSRTests print (Ljava/lang/String;)V
+        invokestatic JSRTests print (Ljava/lang/String;)V
+        return
+Lproc:
+        dup
+        astore_0
+        ldc 'str 1'
+        ldc 'str 2'
+        ldc 'str 3'
+        ret 0
+    .end code
+.end method
+
+

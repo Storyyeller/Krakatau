@@ -291,6 +291,7 @@ class BlockMaker(object):
     def mergeIn(self, from_key, target_key, outslots):
         inslots = self.blockd[target_key].inslots
 
+        assert len(inslots.stack) == len(outslots.stack)
         for i, phi in enumerate(inslots.stack):
             if phi is not None:
                 phi.add(from_key, outslots.stack[i])
@@ -354,6 +355,6 @@ class BlockMaker(object):
         merged = {i: (skiplocs.get(i) if i in mask else retlocs.get(i)) for i in (mask | frozenset(retlocs))}
         # jump.debug_skipvars = set(merged) - set(locals)
 
-        outslot_merged = slots_t(locals=merged, stack=outslot_norm.stack)
+        outslot_merged = slots_t(locals=merged, stack=fromcall.stack)
         # merge merged outputs with fallthrough
         self.mergeIn((block, False), ft_key, outslot_merged)

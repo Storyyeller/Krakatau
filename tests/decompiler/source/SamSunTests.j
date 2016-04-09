@@ -11,8 +11,11 @@
         dup2
         invokestatic [cls] exceptionVerificationUsesOldLocalsState ([Ljava/lang/String;)V
         invokestatic [cls] castToInterface ([Ljava/lang/String;)V
+        dup2
         invokestatic [cls] castFromInterface ([Ljava/lang/String;)V
         invokestatic [cls] castStringLiteral ([Ljava/lang/String;)V
+        dup2
+        invokestatic [cls] returnFromJSRWithSingleValueOnStack ([Ljava/lang/String;)V
         return
     .end code
 .end method
@@ -134,6 +137,18 @@ L3:
 L4:
     invokevirtual Method java/io/PrintStream println (Ljava/lang/Object;)V
     return
+    .end code
+.end method
+
+.method public static returnFromJSRWithSingleValueOnStack : ([Ljava/lang/String;)V
+    .code stack 1024 locals 10
+    jsr Lret
+    return
+Lret:
+    astore 5
+    ldc "Hi"
+    invokevirtual Method java/lang/String toCharArray ()[C
+    ret 5
     .end code
 .end method
 

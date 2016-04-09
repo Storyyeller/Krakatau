@@ -191,6 +191,8 @@ stack_map_table: ".stackmaptable"
 
 Note: The content of a StackMapTable attribute is automatically filled in based on the stack directives in the enclosing code attribute. If this attribute’s contents are nonempty and the attribute isn’t specified explicitly, one will be added implicitly. This means that you generally don’t have to specify it. It’s only useful if you care about the exact binary layout of the classfile.
 
+Note: The StackMapTable attribute depends entirely on the .stack directives specified. Krakatau will not calculate a new stack map for you from bytecode that does not have any stack information. If you want to do this, you should try using ASM.
+
 synthetic: ".synthetic"
 
 Code

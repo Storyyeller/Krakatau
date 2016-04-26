@@ -360,9 +360,9 @@ class SSA_Graph(object):
         for block in self.blocks:
             if not isinstance(block.jump, ssa_jumps.OnException) or len(block.jump.getSuccessorPairs()) != 1:
                 continue
-            if block.unaryConstraints[block.jump.params[0]].null:
-                continue
             if len(block.lines[-1].params) != 1 or not isinstance(block.lines[-2], ssa_ops.Throw):
+                continue
+            if block.unaryConstraints[block.lines[-2].params[0]].null:
                 continue
 
             candidates[block.jump.getExceptSuccessors()[0]].append(block)

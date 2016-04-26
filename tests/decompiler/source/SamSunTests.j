@@ -152,5 +152,17 @@ Lret:
     .end code
 .end method
 
+.method public static soleCatchOfNon$Non$NullThrow : ([Ljava/lang/String;)V
+    .code stack 1024 locals 10
+    .catch [0] from Lb to Lc using Ld
+Lb:
+        aconst_null
+        athrow
+Lc:
+Ld:
+        athrow
+        return
+    .end code
+.end method
 .end class
 

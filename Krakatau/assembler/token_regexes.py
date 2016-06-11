@@ -1,5 +1,5 @@
 DIRECTIVE = r'\.[a-z]+'
-WORD = r'(?:[a-zA-Z_$\(<]|\[[A-Z\[])[\w$;\/\[\(\)<>]*'
+WORD = r'(?:[a-zA-Z_$\(<]|\[[A-Z\[])[\w$;\/\[\(\)<>*+-]*'
 FOLLOWED_BY_WHITESPACE = r'(?=\s|\Z)'
 REF = r'\[[a-z0-9_:]+\]'
 LABEL_DEF = r'L\w+:'

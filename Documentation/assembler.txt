@@ -40,7 +40,10 @@ Labels refer to a position within in a method’s bytecode. The assembler will a
 
 Note: Labels refer to positions in the bytecode of the enclosing Code attribute where they appear. They may not appear outside of a Code attribute.
 
-Word: A nonempty string of the following ascii characters: a-z, A-Z, 0-9, _, $, (, ), <, >, ;, /, [. Furthermore, they cannot begin with 0-9, ), >, /, or ;. If the first character is a [, it must be followed by another [ or a capital letter (A-Z).
+Word: A string beginning with a word_start_character, followed by zero or more word_start_character or word_rest_characters. Furthermore, if the first character is a [, it must be followed by another [ or a capital letter (A-Z).
+
+word_start_character: a-z, A-Z, _, $, (, <, [
+word_rest_character: 0-9, ), >, /, ;, *, +, -
 
 Words are used to specify names, identifiers, descriptors, and so on. If you need to specify a name that can’t be represented as a word (such as using forbidden characters), a string literal can be used instead. Words are represented in the grammar by the terminal WORD.
 

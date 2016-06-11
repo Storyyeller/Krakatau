@@ -1,4 +1,5 @@
 2016.06.10: 
+	Allow +, -, * to be used in WORDS, except at the beginning of a WORD. This allows all signature values to be specified without quotes.
 	Allow argument count of invokeinterface to be omitted when descriptor is specified inline.
 
 2015.12.23: (Backwards incompatible)

@@ -240,7 +240,7 @@ class Parser(object):
         while len(words) < 3 and a.hastype('WORD'):
             words.append((a.tok, a.word()))
 
-        if len(words) <= 2 and a.hastype('REF'): # Krakatau v0
+        if 1 <= len(words) <= 2 and a.hastype('REF'): # Krakatau v0
             cls = pool.single('Class', *words[0])
             if len(words) == 2:
                 name = pool.utf(*words[1])

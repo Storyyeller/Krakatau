@@ -26,7 +26,10 @@ TOKENS = [
     ('LEGACY_COLON_HACK', r'[0-9a-z]\w*:'),
 ]
 REGEX = re.compile('|'.join('(?P<{}>{})'.format(*pair) for pair in TOKENS), re.VERBOSE)
+# For error detection
 STRING_START_REGEX = re.compile(res.STRING_START)
+WORD_LIKE_REGEX = re.compile(r'\S+')
+
 MAXLINELEN = 80
 
 class Tokenizer(object):
@@ -84,7 +87,11 @@ class Tokenizer(object):
                 str_match = STRING_START_REGEX.match(self.s, self.pos)
                 if str_match is not None:
                     self.error('Invalid escape sequence or character in string literal', str_match.end())
-                self.error('Unexpected token', self.pos)
+
+                word_match = WORD_LIKE_REGEX.match(self.s, self.pos)
+                if word_match and '"' not in word_match.group() and "'" not in word_match.group():
+                    self.error('Invalid token. Did you mean to use quotes?', self.pos, word_match.end())
+                self.error('Invalid token', self.pos)
         assert match.start() == match.pos == self.pos
 
         # Hack to support invalid syntax

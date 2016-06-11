@@ -1,0 +1,5 @@
+2016.06.10: 
+	Allow argument count of invokeinterface to be omitted when descriptor is specified inline.
+
+2015.12.23: (Backwards incompatible)
+	Complete rewrite of the assembler. To many changes to list.

@@ -533,7 +533,38 @@ class Parser(object):
         elif a.hasany(OP_FMIM_TO_GUESS):
             w.u8(OPNAME_TO_BYTE[a.consume().val]), w.ref(a.fmimref(OP_FMIM_TO_GUESS[op]))
         elif a.hasv('invokeinterface'):
-            w.u8(OPNAME_TO_BYTE[a.consume().val]), w.ref(a.fmimref('InterfaceMethod')), w.u8(a.u8()), w.u8(0)
+            w.u8(OPNAME_TO_BYTE[a.consume().val])
+            ref = a.fmimref('InterfaceMethod')
+            w.ref(ref)
+
+            if a.hastype('INT_LITERAL'):
+                w.u8(a.u8()), 
+            else:
+                a.asserttype('NEWLINES') # print more helpful error for malformed refs
+                if ref.israw() or ref.issym():
+                    a.error('Method descriptor must be specified inline when argument count is omitted.', ref.tok)
+                ref = ref.refs[1] # NAT
+                if ref.israw() or ref.issym():
+                    a.error('Method descriptor must be specified inline when argument count is omitted.', ref.tok)
+                ref = ref.refs[1] # utf
+                if ref.israw() or ref.issym():
+                    a.error('Method descriptor must be specified inline when argument count is omitted.', ref.tok)
+                desc = ref.data.lstrip(b'([')
+                count = 1
+                while desc:
+                    if desc.startswith(b'J') or desc.startswith(b'D'):
+                        count += 1
+                    
+                    if desc.startswith(b'L'):
+                        _, _, desc = desc.partition(b';') 
+                    elif desc.startswith(b')'):
+                        break
+                    else:
+                        desc = desc[1:]
+                    count += 1
+                w.u8(count & 255)
+            w.u8(0)
+
         elif a.hasv('invokedynamic'):
             w.u8(OPNAME_TO_BYTE[a.consume().val]), w.ref(a.ref_or_tagged_const(invokedynamic=True)), w.u16(0)
         elif a.hasany(['ldc', 'ldc_w', 'ldc2_w']):

@@ -1,4 +1,5 @@
-Krakatau Assembly Syntax version 1
+Krakatau Assembly Syntax
+For a list of previous changes to the assembly syntax, see changelog.txt
 
 Note: This documents the officially supported syntax of the assembler. The assembler accepts some files that don't fully conform to this syntax, but this behavior may change without warning in the future.
 

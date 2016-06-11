@@ -549,12 +549,14 @@ class Parser(object):
                 ref = ref.refs[1] # utf
                 if ref.israw() or ref.issym():
                     a.error('Method descriptor must be specified inline when argument count is omitted.', ref.tok)
-                desc = ref.data.lstrip(b'([')
+                desc = ref.data.lstrip(b'(')
                 count = 1
                 while desc:
                     if desc.startswith(b'J') or desc.startswith(b'D'):
                         count += 1
-                    
+                    else:
+                        desc = desc.lstrip(b'[')
+
                     if desc.startswith(b'L'):
                         _, _, desc = desc.partition(b';') 
                     elif desc.startswith(b')'):
@@ -562,7 +564,6 @@ class Parser(object):
                     else:
                         desc = desc[1:]
                     count += 1
-                    desc = desc.lstrip(b'[')
                 w.u8(count & 255)
             w.u8(0)
 

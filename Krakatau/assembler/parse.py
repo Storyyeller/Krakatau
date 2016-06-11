@@ -562,6 +562,7 @@ class Parser(object):
                     else:
                         desc = desc[1:]
                     count += 1
+                    desc = desc.lstrip(b'[')
                 w.u8(count & 255)
             w.u8(0)
 

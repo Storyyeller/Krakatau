@@ -20,6 +20,10 @@ public final strictfp class OddsAndEnds {
     }
 
     public static void main(String args[]){
+        System.out.println("u\\\'''\"\"\"\t\b\n\r\f\0\7\00\000\07\077\377\123" + 
+            "uUu\uuuuuuuuuuuu00fF\u0100\uFfFFUuU\n");
+        System.out.println("b\\'''\"\"\"\t"
+            + "\ud800\uudc00\udbff\udfff\uD800\uDFFF\uDBFF\uDC00\n");
 
         if (args != null) {
             Object x = args;

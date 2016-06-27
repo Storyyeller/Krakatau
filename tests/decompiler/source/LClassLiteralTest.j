@@ -52,6 +52,11 @@ LENDIF2:
     .limit stack 2
     .limit locals 1
 
+    aload 0
+    checkcast java/lang/Object
+    checkcast Ljava/lang/Object;
+    astore 0
+
     getstatic java/lang/System out Ljava/io/PrintStream;
     aload_0
     invokevirtual java/lang/Object toString ()Ljava/lang/String;

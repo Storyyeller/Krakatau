@@ -105,7 +105,7 @@ def _indexToCFMInfo(cpool, ind, typen):
     assert actual == typen or actual == 'InterfaceMethod' and typen == 'Method'
 
     cname = cpool.getArgs(ind)[0]
-    if cname.startswith('['):
+    if cname.startswith('[') or cname.endswith(';'):
         try:
             return parseFieldDescriptor(cname)[0]
         except ValueError as e:

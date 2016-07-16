@@ -7,6 +7,7 @@ import Krakatau.ssa
 from Krakatau.error import ClassLoaderError
 from Krakatau.environment import Environment
 from Krakatau.java import javaclass, visitor
+from Krakatau.java.stringescape import escapeString
 from Krakatau.verifier.inference_verifier import verifyBytecode
 from Krakatau import script_util
 
@@ -110,10 +111,10 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
 
             # The single class decompiler doesn't add package declaration currently so we add it here
             if '/' in target:
-                package = 'package {};\n\n'.format(target.replace('/','.').rpartition('.')[0])
+                package = 'package {};\n\n'.format(escapeString(target.replace('/','.').rpartition('.')[0]))
                 source = package + source
 
-            filename = out.write(c.name, source)
+            filename = out.write(c.name.encode('utf8'), source)
             print 'Class written to', filename.encode('utf8')
             print time.time() - start_time, ' seconds elapsed'
             deleteUnusued(c)

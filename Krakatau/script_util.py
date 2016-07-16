@@ -65,7 +65,7 @@ class PathSanitizer(object):
 
     def hash(self, s, suffix):
         left = ''.join(c for c in s if c in pref_disp_chars)
-        right = '__' + hashlib.md5(s.encode('utf8')).hexdigest() + suffix
+        right = '__' + hashlib.md5(s).hexdigest() + suffix
         return left[:self.MAX_PART_LEN - len(right)] + right
 
     def sanitize(self, path):

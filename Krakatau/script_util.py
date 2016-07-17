@@ -19,7 +19,7 @@ See LICENSE.TXT for more details.
 def findFiles(target, recursive, prefix):
     if target.endswith('.jar'):
         with zipfile.ZipFile(target, 'r') as archive:
-            targets = [name for name in archive.namelist() if name.endswith(prefix)]
+            targets = [name.encode('utf8') for name in archive.namelist() if name.endswith(prefix)]
     else:
         if recursive:
             assert os.path.isdir(target)

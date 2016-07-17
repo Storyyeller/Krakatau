@@ -83,7 +83,7 @@ class Environment(object):
                     pass
 
     def _loadClass(self, name):
-        print "Loading", name.encode('utf8')[:70]
+        print "Loading", name[:70]
         data = self._searchForFile(name)
 
         if data is None:

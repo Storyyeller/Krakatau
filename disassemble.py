@@ -18,7 +18,7 @@ def disassembleClass(readTarget, targets=None, outpath=None, roundtrip=False):
     start_time = time.time()
     with out:
         for i, target in enumerate(targets):
-            print 'processing target {}, {}/{} remaining'.format(target.encode('utf8'), len(targets)-i, len(targets))
+            print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
 
             data = readTarget(target)
             clsdata = ClassData(Reader(data))
@@ -29,7 +29,7 @@ def disassembleClass(readTarget, targets=None, outpath=None, roundtrip=False):
             Disassembler(clsdata, output.write, roundtrip=roundtrip).disassemble()
 
             filename = out.write(name, output.getvalue())
-            print 'Class written to', filename.encode('utf8')
+            print 'Class written to', filename
             print time.time() - start_time, ' seconds elapsed'
 
 if __name__== "__main__":
@@ -54,7 +54,7 @@ if __name__== "__main__":
     if jar:
         def readArchive(name):
             with zipfile.ZipFile(jar, 'r') as archive:
-                with archive.open(name) as f:
+                with archive.open(name.decode('utf8')) as f:
                     return f.read()
         readTarget = readArchive
     else:

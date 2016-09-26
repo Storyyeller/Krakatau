@@ -188,7 +188,7 @@ LEND:
 		L6
 		L6b
 		L7
-		default: LDEF
+		default : LDEF
 
 L1:
     new java/lang/Throwable

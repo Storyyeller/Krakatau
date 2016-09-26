@@ -61,7 +61,7 @@ L0:
         dup
         tableswitch 0
             L0
-            default: L4
+            default : L4
 L4:
         return
     .end code

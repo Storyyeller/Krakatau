@@ -70,7 +70,7 @@ LIF:
 		LS1
 		LS2
 		LS1
-		default: LS2
+		default : LS2
 
 LS1:
 	iinc 0 4

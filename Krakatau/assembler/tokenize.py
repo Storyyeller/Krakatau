@@ -23,7 +23,6 @@ TOKENS = [
     ('INT_LITERAL', res.INT_LITERAL + res.FOLLOWED_BY_WHITESPACE),
     ('DOUBLE_LITERAL', res.FLOAT_LITERAL),
     ('STRING_LITERAL', res.STRING_LITERAL),
-    ('LEGACY_COLON_HACK', r'[0-9a-z]\w*:'),
 ]
 REGEX = re.compile('|'.join('(?P<{}>{})'.format(*pair) for pair in TOKENS), re.VERBOSE)
 # For error detection
@@ -93,13 +92,6 @@ class Tokenizer(object):
                     self.error('Invalid token. Did you mean to use quotes?', self.pos, word_match.end())
                 self.error('Invalid token', self.pos)
         assert match.start() == match.pos == self.pos
-
-        # Hack to support invalid syntax
-        if match.lastgroup == 'LEGACY_COLON_HACK':
-            self.pos = match.end() - 1
-            val = match.group()[:-1]
-            type_ = 'INT_LITERAL' if re.match(res.INT_LITERAL, val) else 'WORD'
-            return Token(type_, val, match.start())
 
         self.pos = match.end()
         return Token(match.lastgroup, match.group(), match.start())

@@ -29,6 +29,7 @@ def disassembleClass(readTarget, targets=None, outpath=None, roundtrip=False):
             Disassembler(clsdata, output.write, roundtrip=roundtrip).disassemble()
 
             filename = out.write(name, output.getvalue())
+            # filename = out.write(target.replace('.class', ''), output.getvalue())
             print 'Class written to', filename
             print time.time() - start_time, ' seconds elapsed'
 

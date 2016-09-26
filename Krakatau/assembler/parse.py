@@ -287,7 +287,7 @@ class Parser(object):
         if a.hasany(codes.handle_codes):
             code = codes.handle_codes[a.consume().val]
             return pool.Ref(tok, type='MethodHandle', data=code, refs=[a.ref_or_tagged_const()])
-        fail()
+        a.fail()
 
     def tagged_const(a, methodhandle=False, invokedynamic=False):
         tok = a.tok
@@ -538,7 +538,7 @@ class Parser(object):
             w.ref(ref)
 
             if a.hastype('INT_LITERAL'):
-                w.u8(a.u8()), 
+                w.u8(a.u8()),
             else:
                 a.asserttype('NEWLINES') # print more helpful error for malformed refs
                 if ref.israw() or ref.issym():
@@ -558,7 +558,7 @@ class Parser(object):
                         desc = desc.lstrip(b'[')
 
                     if desc.startswith(b'L'):
-                        _, _, desc = desc.partition(b';') 
+                        _, _, desc = desc.partition(b';')
                     elif desc.startswith(b')'):
                         break
                     else:

@@ -148,12 +148,12 @@ def preprocess(source, fname):
             m = RANGE_RE.match(source, dstart, dend)
             pattern = source[m.end():dend]
             for i in range(*ast.literal_eval(m.group(1))):
-                buf += pattern.format(i)
+                buf += pattern.format(i, ip1=i+1)
             pos = dend + 3
             dstart = source.find(b'###range', pos)
         buf += source[pos:]
         source = str(buf)
-        # with open(fname + '.out', 'wb') as f:
+        # with open('temp/' + os.path.basename(fname), 'wb') as f:
         #     f.write(source)
     return source.decode('utf8')
 

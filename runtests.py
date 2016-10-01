@@ -1,7 +1,9 @@
+import ast
 import hashlib
 import json
 import multiprocessing
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -132,11 +134,39 @@ def runDisassemblerTest(target, testcases):
     runJavaAndCompare(target, testcases, good_fname, new_fname)
     shutil.rmtree(tdir)
 
+PP_MARKER = b'###preprocess###\n'
+RANGE_RE = re.compile(br'###range(\([^)]+\)):')
+def preprocess(source, fname):
+    if source.startswith(PP_MARKER):
+        print 'Preprocessing', fname
+        buf = bytearray()
+        pos = len(PP_MARKER)
+        dstart = source.find(b'###range', pos)
+        while dstart != -1:
+            buf += source[pos:dstart]
+            dend = source.find(b'###', dstart + 3)
+            m = RANGE_RE.match(source, dstart, dend)
+            pattern = source[m.end():dend]
+            for i in range(*ast.literal_eval(m.group(1))):
+                buf += pattern.format(i)
+            pos = dend + 3
+            dstart = source.find(b'###range', pos)
+        buf += source[pos:]
+        source = str(buf)
+        # with open(fname + '.out', 'wb') as f:
+        #     f.write(source)
+    return source.decode('utf8')
+
 def runAssemblerTest(fname, exceptFailure):
-    print 'Running assembler test', os.path.basename(fname)
+    basename = os.path.basename(fname)
+    print 'Running assembler test', basename
+    with open(fname, 'r') as f: # not unicode
+        source = f.read()
+    source = preprocess(source, fname)
+
     error = False
     try:
-        assemble.assembleClass(fname, fatal=True)
+        assemble.assembleSource(source, basename, fatal=True)
     except AsssemblerError:
         error = True
     assert error == exceptFailure

@@ -5,12 +5,15 @@ import Krakatau
 from Krakatau.assembler import parse
 from Krakatau import script_util
 
-def assembleClass(filename, fatal=False):
+def assembleSource(source, basename, fatal=False):
+    source = source.replace('\t', '  ') + '\n'
+    return list(parse.assemble(source, basename, fatal=fatal))
+
+def assembleClass(filename):
     basename = os.path.basename(filename)
     with open(filename, 'rU') as f:
         source = f.read()
-    source = source.replace('\t', '  ') + '\n'
-    return list(parse.assemble(source, basename, fatal=fatal))
+    return assembleSource(source, basename)
 
 if __name__== "__main__":
     import argparse

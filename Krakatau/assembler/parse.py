@@ -204,7 +204,6 @@ class Parser(object):
             return pool.Ref(tok, index=index, isbs=bootstrap)
         except ValueError:
             return pool.Ref(tok, symbol=val, isbs=bootstrap)
-        a.error('Invalid reference', tok)
 
     def utfref(a):
         if a.hastype('REF'):

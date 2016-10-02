@@ -50,7 +50,7 @@ class Tokenizer(object):
 
         try:
             end = self.s.index('\n', start) + 1
-        except ValueError:
+        except ValueError:    # pragma: no cover
             end = len(self.s) + 1
 
         # Find an 80 char section of the line around the point of interest to display

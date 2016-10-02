@@ -46,7 +46,7 @@ class Ref(object):
             assert self.resolved_index is not None
         return self.resolved_index
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         prefix = 'bs:' if self.isbs else ''
         if self.israw():
             return '[{}{}]'.format(prefix, self.index)

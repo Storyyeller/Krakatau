@@ -101,7 +101,7 @@ class Writer(object):
                     error('Label offset must fit in signed 32 bit int. (offset is {})'.format(offset), tok)
                 self.setph32(pos, offset % (1<<32))
             else:
-                assert 0
+                assert 0    # pragma: no cover
         self.lblphs = []
         return self
 

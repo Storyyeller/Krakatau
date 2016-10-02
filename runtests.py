@@ -124,9 +124,10 @@ def runDecompilerTest(target, testcases):
     runJavaAndCompare(target, testcases, good_fname, new_fname)
     shutil.rmtree(tdir)
 
-def _readTestContents(target):
-    classloc = os.path.join(dis_class_location, target + '.class')
-    jarloc = os.path.join(dis_class_location, target + '.jar')
+def _readTestContents(disonly, target):
+    base = dis_class_location if disonly else dec_class_location
+    classloc = os.path.join(base, target + '.class')
+    jarloc = os.path.join(base, target + '.jar')
     isjar = not os.path.exists(classloc)
 
     contents = collections.OrderedDict()
@@ -161,11 +162,11 @@ def _assemble(disassembled):
             assembled[name] = data
     return assembled
 
-def runDisassemblerTest(target, testcases):
+def runDisassemblerTest(disonly, target, testcases):
     print 'Running disassembler test {}...'.format(target)
     tdir = tempfile.mkdtemp()
 
-    contents, good_fname, isjar = _readTestContents(target)
+    contents, good_fname, isjar = _readTestContents(disonly, target)
     # roundtrip test
     disassembled = _disassemble(contents, True)
     assembled = _assemble(disassembled)
@@ -248,7 +249,12 @@ if __name__ == '__main__':
     do_decompile = 'd' in sys.argv[1] if len(sys.argv) > 1 else True
     do_disassemble = 's' in sys.argv[1] if len(sys.argv) > 1 else True
     do_assemble = 'a' in sys.argv[1] if len(sys.argv) > 1 else True
-    specified_target = sys.argv[2] if len(sys.argv) > 2 else None
+
+    if len(sys.argv) > 2:
+        def target_filter(x):
+            return x[0] == sys.argv[2]
+    else:
+        target_filter = lambda x: True
 
     try:
         os.mkdir(cache_location)
@@ -259,12 +265,13 @@ if __name__ == '__main__':
     testlist = []
 
     if do_decompile:
-        for target, testcases in sorted(tests.decompiler.registry.items()):
+        for target, testcases in filter(target_filter, sorted(tests.decompiler.registry.items())):
             testlist.append(('decompiler', target, map(tuple, testcases)))
     if do_disassemble:
-        for target, testcases in sorted(tests.disassembler.registry.items()):
-            if specified_target is None or specified_target == target:
-                testlist.append(('disassembler', target, map(tuple, testcases)))
+        for target, testcases in filter(target_filter, sorted(tests.disassembler.registry.items())):
+            testlist.append(('disassembler', True, target, map(tuple, testcases)))
+        for target, testcases in filter(target_filter, sorted(tests.decompiler.registry.items())):
+            testlist.append(('disassembler', False, target, map(tuple, testcases)))
 
     if do_assemble:
         test_base = os.path.join(krakatau_root, 'tests')

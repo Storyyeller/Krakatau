@@ -130,7 +130,7 @@ class ClosedSet(object):
     def union(*sets):
         return reduce(ClosedSet.__or__, sets, ClosedSet.EMPTY)
 
-    def __str__(self): # for debugging
+    def __str__(self):   # pragma: no cover
         return 'set{} ({} nodes)'.format(self.head, len(self.nodes))
     __repr__ = __str__
 
@@ -165,7 +165,8 @@ class CompoundConstraint(object):
             assert head in self.lbound.nodes and head in self.ubound.nodes
         assert self.ubound >= self.lbound
 
-    def __str__(self): return self.tag+str(self.id)
+    def __str__(self):    # pragma: no cover
+        return self.tag+str(self.id)
     __repr__ = __str__
 
 def WhileCon(dom, head):

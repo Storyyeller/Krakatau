@@ -64,7 +64,7 @@ class BlockProxy(object):
     def normalSuccessors(self): # only works once try constraints have been created
         return [x for x in self.successors if x in self.outvars]
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         fmt = 'PB {}x{}' if self.num else 'PB {0}'
         return fmt.format(self.bkey, self.num)
     __repr__ = __str__

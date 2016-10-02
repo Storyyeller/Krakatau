@@ -72,6 +72,6 @@ class BasicBlock(object):
             phi.dict[newp] = phi.dict[oldp]
             del phi.dict[oldp]
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         return 'Block ' + str(self.key)
     __repr__ = __str__

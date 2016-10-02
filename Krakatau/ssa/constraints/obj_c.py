@@ -116,7 +116,7 @@ class ObjectConstraint(ValueType):
         types = TypeConstraint.meet(*(c.types for c in cons))
         return  ObjectConstraint(null, types)
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         if not self.types:
             return 'Obj(null)'
         return 'Obj({}, {}, {})'.format(self.null, sorted(self.types.supers), sorted(self.types.exact))

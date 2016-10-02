@@ -21,10 +21,10 @@ class SSA_Variable(object):
         self.uninit_orig_num = None # if uninitialized, the bytecode offset of the new instr
 
     # for debugging
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         return self.name if self.name else super(SSA_Variable, self).__str__()
 
-    def __repr__(self):
+    def __repr__(self):   # pragma: no cover
         name =  self.name if self.name else "@" + hex(id(self))
         return "Var {}".format(name)
 

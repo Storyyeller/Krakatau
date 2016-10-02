@@ -126,7 +126,7 @@ def mergeTypes(env, t1, t2):
 
 
 # Make verifier types printable for easy debugging
-def vt_toStr(self):
+def vt_toStr(self):   # pragma: no cover
     if self == T_INVALID:
         return '.none'
     elif self == T_NULL:

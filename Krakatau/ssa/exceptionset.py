@@ -109,7 +109,7 @@ class ExceptionSet(ValueType):
     def isdisjoint(self, other):
         return (self-other) == self
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         parts = [('{} - [{}]'.format(top, ', '.join(sorted(holes))) if holes else top) for top, holes in self.pairs]
         return 'ES[{}]'.format(', '.join(parts))
     __repr__ = __str__

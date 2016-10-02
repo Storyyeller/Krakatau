@@ -9,7 +9,8 @@ class ProcInfo(object):
         self.jsrblocks = []
         assert target is retblock.jump.target
 
-    def __str__(self): return 'Proc{}<{}>'.format(self.target.key, ', '.join(str(b.key) for b in self.jsrblocks))
+    def __str__(self):   # pragma: no cover
+        return 'Proc{}<{}>'.format(self.target.key, ', '.join(str(b.key) for b in self.jsrblocks))
     __repr__ = __str__
 
 ###########################################################################################

@@ -116,7 +116,7 @@ class LazyLabelBase(JavaStatement):
     # def getLabelPrefix(self): return self.getLabel() + ': '
 
     # For debugging
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         if isinstance(self, StatementBlock):
             return 'Sb'+str(self.id)
         return type(self).__name__[:3]+str(self.id)
@@ -349,7 +349,7 @@ class JavaExpression(object):
 
     def isLocalAssign(self): return isinstance(self, Assignment) and isinstance(self.params[0], Local)
 
-    def __repr__(self):
+    def __repr__(self):   # pragma: no cover
         return type(self).__name__.rpartition('.')[-1] + ' ' + visitor.DefaultVisitor().visit(self)
     __str__ = __repr__
 

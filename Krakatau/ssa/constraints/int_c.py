@@ -38,7 +38,7 @@ class IntConstraint(ValueType):
         xmax = max(c.max for c in cons)
         return IntConstraint(cons[0].width, xmin, xmax)
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         t = 'Int' if self.width == 32 else 'Long'
         if self.min == self.max:
             return '{}({})'.format(t, self.min)

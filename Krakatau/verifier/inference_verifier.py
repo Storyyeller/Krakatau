@@ -448,7 +448,7 @@ class InstructionNode(object):
         for k in self.successors:
             self._mergeSingleSuccessor(iNodes[k], newstate, iNodes, False)
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         lines = ['{}: {}'.format(self.key, bytecode.printInstruction(self.instruction))]
         if self.visited:
             lines.append('Stack: ' + ', '.join(map(str, self.state.stack)))

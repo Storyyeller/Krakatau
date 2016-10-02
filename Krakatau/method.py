@@ -46,7 +46,7 @@ class Code(object):
         return args[1] == '<init>'
 
 
-    def __str__(self):
+    def __str__(self):   # pragma: no cover
         lines = ['Stack: {}, Locals {}'.format(self.stack, self.locals)]
 
         instructions = self.bytecode

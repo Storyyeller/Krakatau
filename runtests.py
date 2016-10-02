@@ -124,10 +124,7 @@ def runDecompilerTest(target, testcases):
     runJavaAndCompare(target, testcases, good_fname, new_fname)
     shutil.rmtree(tdir)
 
-def runDisassemblerTest(target, testcases):
-    print 'Running disassembler test {}...'.format(target)
-    tdir = tempfile.mkdtemp()
-
+def _readTestContents(target):
     classloc = os.path.join(dis_class_location, target + '.class')
     jarloc = os.path.join(dis_class_location, target + '.jar')
     isjar = not os.path.exists(classloc)
@@ -147,19 +144,39 @@ def runDisassemblerTest(target, testcases):
         with open(classloc, 'rb') as f:
             contents[target] = f.read()
         good_fname = classloc
+    return contents, good_fname, isjar
 
+def _disassemble(contents, roundtrip):
     with script_util.MockWriter() as out:
-        disassemble.disassembleSub(contents.get, out, list(contents))
+        disassemble.disassembleSub(contents.get, out, list(contents), roundtrip=roundtrip)
         disassembled = collections.OrderedDict(out.results)
         assert out.results == disassembled.items()
+    return disassembled
 
+def _assemble(disassembled):
     assembled = collections.OrderedDict()
-    for name, classfile in contents.items():
-        source = disassembled[name]
+    for name, source in disassembled.items():
         for name2, data in assemble.assembleSource(source, name, fatal=True):
             assert name == name2
-            assert len(data) <= len(classfile)
             assembled[name] = data
+    return assembled
+
+def runDisassemblerTest(target, testcases):
+    print 'Running disassembler test {}...'.format(target)
+    tdir = tempfile.mkdtemp()
+
+    contents, good_fname, isjar = _readTestContents(target)
+    # roundtrip test
+    disassembled = _disassemble(contents, True)
+    assembled = _assemble(disassembled)
+    for name, classfile in contents.items():
+        assert classfile == assembled[name]
+
+    # non roundtrip
+    disassembled = _disassemble(contents, False)
+    assembled = _assemble(disassembled)
+    for name, classfile in contents.items():
+        assert len(classfile) >= len(assembled[name])
 
     if isjar:
         new_fname = os.path.join(tdir, target + '.jar')

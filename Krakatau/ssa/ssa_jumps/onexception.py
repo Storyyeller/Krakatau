@@ -57,28 +57,3 @@ class OnException(BaseJump):
             mask = ExceptionSet(x.types.env, [(objtypes.className(tt),()) for tt in x.types.supers | x.types.exact])
         self.cs.newMask(mask)
         return self.reduceSuccessors([])
-
-    def getSuccessorConstraints(self, (block, t)):
-        if t:
-            def propagateConstraints(x):
-                if x is None:
-                    return None,
-                t = x.types
-                top_tts = t.supers | t.exact
-                tops = [objtypes.className(tt) for tt in top_tts]
-                assert None not in tops
-                if 'java/lang/Object' in tops:
-                    tops = 'java/lang/Throwable',
-                mask = ExceptionSet.fromTops(t.env, *tops)
-
-                eset = self.cs.sets[block] & mask
-                if not eset:
-                    return None,
-                else:
-                    ntops = zip(*eset.pairs)[0]
-                    return ObjectConstraint.fromTops(t.env, [objtypes.TypeTT(base,0) for base in ntops], [], nonnull=True),
-            return propagateConstraints
-        else:
-            # In fallthrough case, no exception so always return invalid
-            assert block == self.default
-            return lambda arg:[None]

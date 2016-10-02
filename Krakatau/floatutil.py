@@ -79,13 +79,3 @@ def fromRawFloat(size, x):
         m, e = math.frexp(x)
         m = int(m * (1<<(size[0]+1)))
         return sign, roundMag(size, (m, e))
-
-def toRawFloat(val):
-    s,(m,e) = val
-    if e is None:
-        if val == NAN:
-            return float('NaN')
-        x = float('inf') if m else 0.0
-    else:
-        x = math.ldexp(m,e)
-    return math.copysign(x, s)

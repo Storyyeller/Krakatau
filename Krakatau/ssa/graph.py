@@ -563,8 +563,7 @@ class SSA_Graph(object):
 
     def inlineSubprocs(self):
         assert self._conscheck() is None
-        if not self.procs:
-            return
+        assert self.procs
 
         # establish DAG of subproc callstacks if we're doing nontrivial inlining, since we can only inline leaf procs
         regions = {proc:frozenset(self._region(proc)) for proc in self.procs}

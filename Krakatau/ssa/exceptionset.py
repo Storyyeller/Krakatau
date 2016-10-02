@@ -70,10 +70,6 @@ class ExceptionSet(ValueType):
     def empty(self): return not self.pairs
     def __nonzero__(self): return bool(self.pairs)
 
-    def getSingleTType(self): # todo - update SSA printer
-        # comSuper doesn't care about order so we can freely pass in nondeterministic order
-        return objtypes.commonSupertype(self.env, [objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
-
     def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 
     def __sub__(self, other):

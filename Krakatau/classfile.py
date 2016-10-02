@@ -105,6 +105,3 @@ class ClassFile(object):
         if not keepRaw:
             self.attributes_raw = None
         self.elementsLoaded = True
-
-    def getSuperclassHierarchy(self):
-        return self.hierarchy

@@ -145,7 +145,7 @@ class DirectoryWriter(object):
             f.write(data)
         return out
 
-    def __enter__(self): pass
+    def __enter__(self): return self
     def __exit__(self, *args): pass
 
 class JarWriter(object):
@@ -154,11 +154,18 @@ class JarWriter(object):
         self.suffix = suffix
 
     def write(self, cname, data):
-        self.zip.writestr(cname + self.suffix, data)
+        info = zipfile.ZipInfo(cname + self.suffix, (1980, 1, 1, 0, 0, 0))
+        self.zip.writestr(info, data)
         return 'zipfile'
 
-    def __enter__(self): self.zip.__enter__()
+    def __enter__(self): self.zip.__enter__(); return self
     def __exit__(self, *args): self.zip.__exit__(*args)
+
+class MockWriter(object):
+    def __init__(self): self.results = []
+    def write(self, cname, data): self.results.append((cname, data))
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
 
 def makeWriter(base_path, suffix):
     if base_path is not None:

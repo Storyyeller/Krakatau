@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+import functools
 import os.path
 import time, zipfile, sys
 import StringIO
@@ -9,12 +10,15 @@ from Krakatau.classfileformat.reader import Reader
 from Krakatau.classfileformat.classdata import ClassData
 from Krakatau.assembler.disassembly import Disassembler
 
+def readArchive(archive, name):
+    with archive.open(name.decode('utf8')) as f:
+        return f.read()
+
 def readFile(filename):
     with open(filename, 'rb') as f:
         return f.read()
 
-def disassembleClass(readTarget, targets=None, outpath=None, roundtrip=False):
-    out = script_util.makeWriter(outpath, '.j')
+def disassembleSub(readTarget, out, targets, roundtrip=False):
     start_time = time.time()
     with out:
         for i, target in enumerate(targets):
@@ -29,9 +33,18 @@ def disassembleClass(readTarget, targets=None, outpath=None, roundtrip=False):
             Disassembler(clsdata, output.write, roundtrip=roundtrip).disassemble()
 
             filename = out.write(name, output.getvalue())
-            # filename = out.write(target.replace('.class', ''), output.getvalue())
-            print 'Class written to', filename
-            print time.time() - start_time, ' seconds elapsed'
+            if filename is not None:
+                # filename = out.write(target.replace('.class', ''), output.getvalue())
+                print 'Class written to', filename
+                print time.time() - start_time, ' seconds elapsed'
+
+def disassembleFile(targets, out, roundtrip=False):
+    disassembleSub(readFile, out, targets, args.roundtrip)
+
+def disassembleJar(targets, out, roundtrip=False):
+    with zipfile.ZipFile(jar, 'r') as archive:
+        readFunc = functools.partial(readArchive, archive)
+        disassembleSub(readFunc, out, targets, args.roundtrip)
 
 if __name__== "__main__":
     print script_util.copyright
@@ -51,14 +64,5 @@ if __name__== "__main__":
     if jar is None and args.target.endswith('.jar'):
         jar = args.target
 
-    # allow reading files from a jar if target is specified as a jar
-    if jar:
-        def readArchive(name):
-            with zipfile.ZipFile(jar, 'r') as archive:
-                with archive.open(name.decode('utf8')) as f:
-                    return f.read()
-        readTarget = readArchive
-    else:
-        readTarget = readFile
-
-    disassembleClass(readTarget, targets, args.out, args.roundtrip)
+    out = script_util.makeWriter(args.out, '.j')
+    (disassembleJar if jar else disassembleFile)(targets, out, args.roundtrip)

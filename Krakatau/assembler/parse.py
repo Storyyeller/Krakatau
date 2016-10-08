@@ -669,7 +669,7 @@ class Parser(object):
             delta_offset = pos - a.code.laststackoff - 1
             frame_type = a.tok.val
             if delta_offset < 0:
-                a.error('Multiple stack frames with same offset.', tok)
+                a.error('Stack frame has same offset as previous frame.', tok)
 
             if a.tryv('same'):
                 a._check_delta(tok, frame_type, delta_offset, 63)

@@ -78,6 +78,7 @@ class PoolSub(object):
         self.isbs = isbs
         self.symdefs = {}
         self.symrootdefs = {}
+        self.slot_def_tokens = {}
         self.slots = collections.OrderedDict()
         self.dataToSlot = {}
         self.narrowcounter = itertools.count()
@@ -91,18 +92,23 @@ class PoolSub(object):
         assert lhs.israw() or lhs.issym()
         if lhs.israw():
             if lhs.index in self.slots:
-                error('Duplicate raw reference definition', lhs.tok)
+                error('Conflicting raw reference definition', lhs.tok,
+                      'Conflicts with previous definition:', self.slot_def_tokens[lhs.index])
             self.slots[lhs.index] = rhs
+            self.slot_def_tokens[lhs.index] = lhs.tok
             self.dirtyslotdefs.append(lhs.index)
             assert rhs.type
             if rhs.type in ('Long', 'Double'):
                 if lhs.index + 1 in self.slots:
-                    error('Conflicting raw reference definitions', lhs.tok)
+                    error('Conflicting raw reference definition', lhs.tok,
+                          'Conflicts with previous definition:', self.slot_def_tokens[lhs.index + 1])
                 self.slots[lhs.index + 1] = None
+                self.slot_def_tokens[lhs.index + 1] = lhs.tok
         else:
             if lhs.symbol in self.symdefs:
-                error('Duplicate symbolic reference definition', lhs.tok)
-            self.symdefs[lhs.symbol] = rhs
+                error('Duplicate symbolic reference definition', lhs.tok,
+                      'Previously defined here:', self.symdefs[lhs.symbol][0])
+            self.symdefs[lhs.symbol] = lhs.tok, rhs
 
     def freezedefs(self, pool, error): self.defsfrozen = True
 
@@ -137,7 +143,7 @@ class PoolSub(object):
 
                 if sym not in self.symdefs:
                     error('Undefined symbolic reference', ref.tok)
-                ref = self.symdefs[sym]
+                _, ref = self.symdefs[sym]
 
             for sym in visited:
                 self.symrootdefs[sym] = ref
@@ -151,7 +157,7 @@ class PoolSub(object):
             slot = self._getslot(iswide)
             if slot is None:
                 name = 'bootstrap method' if ref.isbs else 'constant pool'
-                error('Exhausted {} space'.format(name), ref.tok)
+                error('Exhausted {} space.'.format(name), ref.tok)
 
             self.dataToSlot[newdata] = slot
             self.slots[slot] = ref

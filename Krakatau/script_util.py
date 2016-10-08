@@ -19,7 +19,7 @@ See LICENSE.TXT for more details.
 def findFiles(target, recursive, prefix):
     if target.endswith('.jar'):
         with zipfile.ZipFile(target, 'r') as archive:
-            targets = [name.encode('utf8') for name in archive.namelist() if name.endswith(prefix)]
+            return [name.encode('utf8') for name in archive.namelist() if name.endswith(prefix)]
     else:
         if recursive:
             assert os.path.isdir(target)
@@ -27,9 +27,9 @@ def findFiles(target, recursive, prefix):
 
             for root, dirs, files in os.walk(target):
                 targets += [os.path.join(root, fname) for fname in files if fname.endswith(prefix)]
+            return targets
         else:
             return [target]
-    return targets
 
 def normalizeClassname(name):
     if name.endswith('.class'):

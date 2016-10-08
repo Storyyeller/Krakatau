@@ -18,7 +18,7 @@ def readFile(filename):
     with open(filename, 'rb') as f:
         return f.read()
 
-def disassembleSub(readTarget, out, targets, roundtrip=False):
+def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=True):
     start_time = time.time()
     with out:
         for i, target in enumerate(targets):
@@ -26,7 +26,11 @@ def disassembleSub(readTarget, out, targets, roundtrip=False):
 
             data = readTarget(target)
             clsdata = ClassData(Reader(data))
-            name = clsdata.pool.getclsutf(clsdata.this)
+
+            if outputClassName:
+                name = clsdata.pool.getclsutf(clsdata.this)
+            else:
+                name = target.rpartition('.')[0] or target
 
             output = StringIO.StringIO()
             # output = sys.stdout
@@ -34,17 +38,8 @@ def disassembleSub(readTarget, out, targets, roundtrip=False):
 
             filename = out.write(name, output.getvalue())
             if filename is not None:
-                # filename = out.write(target.replace('.class', ''), output.getvalue())
                 print 'Class written to', filename
                 print time.time() - start_time, ' seconds elapsed'
-
-def disassembleFile(targets, out, roundtrip=False):
-    disassembleSub(readFile, out, targets, args.roundtrip)
-
-def disassembleJar(targets, out, roundtrip=False):
-    with zipfile.ZipFile(jar, 'r') as archive:
-        readFunc = functools.partial(readArchive, archive)
-        disassembleSub(readFunc, out, targets, args.roundtrip)
 
 if __name__== "__main__":
     print script_util.copyright
@@ -65,4 +60,9 @@ if __name__== "__main__":
         jar = args.target
 
     out = script_util.makeWriter(args.out, '.j')
-    (disassembleJar if jar else disassembleFile)(targets, out, args.roundtrip)
+    if jar is not None:
+        with zipfile.ZipFile(jar, 'r') as archive:
+            readFunc = functools.partial(readArchive, archive)
+            disassembleSub(readFunc, out, targets, roundtrip=args.roundtrip)
+    else:
+        disassembleSub(readFile, out, targets, roundtrip=args.roundtrip, outputClassName=False)

@@ -204,7 +204,7 @@ class Class(object):
         for _, ref in afterpool.refu8phs:
             ind = ref.resolve(self.pool, error)
             if ind >= 256:
-                error('Ldc references must be in first 255 slots of constant pool (try ldc_w instead).', ref.tok)
+                error("Ldc references too many distinct constants in this class. If you don't want to see this message again, use ldc_w instead of ldc everywhere.", ref.tok)
 
         beforepool.fillRefs(self.pool, error)
         afterpool.fillRefs(self.pool, error)

@@ -22,16 +22,20 @@ class Ref(object):
     def israw(self): return self.index is not None
     def issym(self): return self.symbol is not None
 
-    def _deepdata(self, pool, error, depth=0):
+    def _deepdata(self, pool, error, defstack=()):
         if self.issym():
-            return pool.sub(self).getroot(self, error)._deepdata(pool, error, depth)
+            return pool.sub(self).getroot(self, error)._deepdata(pool, error, defstack)
 
         if self.israw():
             return 'Raw', self.index
 
-        if depth > 5: # Maximum legitimate depth is 5: ID -> BS -> MH -> F -> NAT -> UTF
-            error('Constant pool definitions cannot be nested more than 5 deep.', self.tok)
-        return self.type, self.data, tuple(ref._deepdata(pool, error, depth + 1) for ref in self.refs)
+        if len(defstack) > 5: # Maximum legitimate depth is 5: ID -> BS -> MH -> F -> NAT -> UTF
+            error_args = ['Constant pool definitions cannot be nested more than 5 deep.', self.tok]
+            for ref in reversed(defstack):
+                error_args.append('Included from {} ref here:'.format(ref.type))
+                error_args.append(ref.tok)
+            error(*error_args)
+        return self.type, self.data, tuple(ref._deepdata(pool, error, defstack + (self,)) for ref in self.refs)
 
     def _resolve(self, pool, error):
         if self.israw():
@@ -134,11 +138,16 @@ class PoolSub(object):
         try:
             return self.symrootdefs[ref.symbol]
         except KeyError:
+            stack = []
             visited = set()
             while ref.issym():
                 sym = ref.symbol
                 if sym in visited:
-                    error('Circular symbolic reference', ref.tok)
+                    error_args = ['Circular symbolic reference', ref.tok]
+                    for tok in stack[::-1]:
+                        error_args.extend(('Included from here:', tok))
+                    error(*error_args)
+                stack.append(ref.tok)
                 visited.add(sym)
 
                 if sym not in self.symdefs:

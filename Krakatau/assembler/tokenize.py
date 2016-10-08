@@ -14,15 +14,15 @@ Token = collections.namedtuple('Token', 'type val pos')
 TOKENS = [
     ('WHITESPACE', r'[ \t]+'),
     ('WORD', res.WORD + res.FOLLOWED_BY_WHITESPACE),
-    ('DIRECTIVE', res.DIRECTIVE),
-    ('LABEL_DEF', res.LABEL_DEF),
+    ('DIRECTIVE', res.DIRECTIVE + res.FOLLOWED_BY_WHITESPACE),
+    ('LABEL_DEF', res.LABEL_DEF + res.FOLLOWED_BY_WHITESPACE),
     ('NEWLINES', res.NEWLINES),
-    ('REF', res.REF),
-    ('COLON', r':'),
-    ('EQUALS', r'='),
+    ('REF', res.REF + res.FOLLOWED_BY_WHITESPACE),
+    ('COLON', r':' + res.FOLLOWED_BY_WHITESPACE),
+    ('EQUALS', r'=' + res.FOLLOWED_BY_WHITESPACE),
     ('INT_LITERAL', res.INT_LITERAL + res.FOLLOWED_BY_WHITESPACE),
-    ('DOUBLE_LITERAL', res.FLOAT_LITERAL),
-    ('STRING_LITERAL', res.STRING_LITERAL),
+    ('DOUBLE_LITERAL', res.FLOAT_LITERAL + res.FOLLOWED_BY_WHITESPACE),
+    ('STRING_LITERAL', res.STRING_LITERAL + res.FOLLOWED_BY_WHITESPACE),
 ]
 REGEX = re.compile('|'.join('(?P<{}>{})'.format(*pair) for pair in TOKENS), re.VERBOSE)
 # For error detection

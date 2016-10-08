@@ -35,7 +35,7 @@ class Code(object):
     def labeldef(self, lbl, error):
         if lbl.sym in self.labels:
             error('Duplicate label definition', lbl.tok,
-                  'Previous definition here', self.labels[lbl.sym][0])
+                  'Previous definition here:', self.labels[lbl.sym][0])
         self.labels[lbl.sym] = lbl.tok, self.bytecode.pos
 
     def catch(self, ref, fromlbl, tolbl, usinglbl):
@@ -85,7 +85,7 @@ class Attribute(object):
     def assembleNoCP(self, data, error):
         length = len(self.data) if self.length is None else self.length
         if length >= 1<<32:
-            error('Maximum attribute data length is {} bytes, got {} bytes'.format((1<<32)-1, length), self.tok)
+            error('Maximum attribute data length is {} bytes, got {} bytes.'.format((1<<32)-1, length), self.tok)
 
         data.ref(self.name)
         data.u32(length)

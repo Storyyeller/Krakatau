@@ -129,7 +129,7 @@ class Parser(object):
     def boundedint(a, lower, upper):
         tok, x = a._rawint()
         if not lower <= x < upper:
-            a.error('Value must be in range {} <= x < {}'.format(lower, upper), tok)
+            a.error('Value must be in range {} <= x < {}.'.format(lower, upper), tok)
         return x
 
     def u8(a): return a.boundedint(0, 1<<8)
@@ -206,7 +206,7 @@ class Parser(object):
         try:
             index = int(val)
             if not 0 <= index < 0xFFFF: # note: strict upper bound
-                a.error('Reference must be in range 0 <= x < 65535', tok)
+                a.error('Reference must be in range 0 <= x < 65535.', tok)
             return pool.Ref(tok, index=index, isbs=bootstrap)
         except ValueError:
             return pool.Ref(tok, symbol=val, isbs=bootstrap)
@@ -365,7 +365,7 @@ class Parser(object):
         if not a.tok.val.startswith('L'):
             a.error('Labels must start with L.', a.tok)
         if a.code is None:
-            a.error('Labels can only be used inside of a Code attribute.', a.tok)
+            a.error('Labels may only be used inside of a Code attribute.', a.tok)
         return assembly.Label(a.tok, a.consume().val)
 
     ###########################################################################
@@ -579,7 +579,7 @@ class Parser(object):
             rhs = a.ldc_rhs()
             if op == 'ldc':
                 if rhs.israw() and rhs.index >= 256:
-                    a.error('Ldc index must be <= 255', rhs.tok)
+                    a.error('Ldc index must be <= 255.', rhs.tok)
                 w.refu8(rhs)
             else:
                 w.ref(rhs)
@@ -631,13 +631,16 @@ class Parser(object):
             a.eol()
 
             jumps = {}
+            prevtoks = {}
             while not a.hasv('default'):
                 keytok, key, _, jump, _ = a.tok, a.s32(), a.val(':'), a.lbl(), a.eol()
                 if key in jumps:
-                    a.error('Duplicate lookup switch key', keytok)
+                    a.error('Duplicate lookupswitch key.', keytok,
+                            'Key previously defined here:', prevtoks[key])
                 elif len(jumps) > 1<<31 - 1:
                     a.error('Lookup switch can have at most 2147483647 jumps.', keytok)
                 jumps[key] = jump
+                prevtoks[key] = keytok
 
             _, _, default = a.val('default'), a.val(':'), a.lbl()
             w.lbl(default, pos, 's32')

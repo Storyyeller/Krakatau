@@ -30,6 +30,39 @@ STRING_START_REGEX = re.compile(res.STRING_START)
 WORD_LIKE_REGEX = re.compile(r'[^\s\'"]+' + res.FOLLOWED_BY_WHITESPACE)
 
 MAXLINELEN = 80
+def formatError(source, filename, message, point, point2):
+    try:
+        start = source.rindex('\n', 0, point) + 1
+    except ValueError:
+        start = 0
+    line_start = start
+
+    try:
+        end = source.index('\n', start) + 1
+    except ValueError:    # pragma: no cover
+        end = len(source) + 1
+
+    # Find an 80 char section of the line around the point of interest to display
+    temp = min(point2, point + MAXLINELEN//2)
+    if temp < start + MAXLINELEN:
+        end = min(end, start + MAXLINELEN)
+    elif point >= end - MAXLINELEN:
+        start = max(start, end - MAXLINELEN)
+    else:
+        mid = (point + temp) // 2
+        start = max(start, mid - MAXLINELEN//2)
+        end = min(end, start + MAXLINELEN)
+    point2 = min(point2, end)
+    assert line_start <= start <= point < point2 <= end
+
+    pchars = [' '] * (end - start)
+    for i in range(point - start, point2 - start):
+        pchars[i] = '~'
+    pchars[point - start] = '^'
+    lineno = source[:line_start].count('\n') + 1
+    colno = point - line_start + 1
+    return '{}:{}:{}: {}\n{}\n{}\n'.format(filename, lineno, colno,
+        message, source[start:end].rstrip('\n'), ''.join(pchars))
 
 class Tokenizer(object):
     def __init__(self, source, filename):
@@ -38,42 +71,12 @@ class Tokenizer(object):
         self.atlineend = True
         self.filename = filename.rpartition('/')[-1]
 
-    def error(self, message, point, point2=None):
-        if point2 is None:
-            point2 = point + 1
+    def error(self, error, *notes):
+        message, point, point2 = error
+        text = formatError(self.s, self.filename, 'error: ' + message, point, point2)
+        for message, point, point2 in notes:
+            text += formatError(self.s, self.filename, 'note: ' + message, point, point2)
 
-        try:
-            start = self.s.rindex('\n', 0, point) + 1
-        except ValueError:
-            start = 0
-        line_start = start
-
-        try:
-            end = self.s.index('\n', start) + 1
-        except ValueError:    # pragma: no cover
-            end = len(self.s) + 1
-
-        # Find an 80 char section of the line around the point of interest to display
-        temp = min(point2, point + MAXLINELEN//2)
-        if temp < start + MAXLINELEN:
-            end = min(end, start + MAXLINELEN)
-        elif point >= end - MAXLINELEN:
-            start = max(start, end - MAXLINELEN)
-        else:
-            mid = (point + temp) // 2
-            start = max(start, mid - MAXLINELEN//2)
-            end = min(end, start + MAXLINELEN)
-        point2 = min(point2, end)
-
-        pchars = [' '] * (end - start)
-        for i in range(point - start, point2 - start):
-            pchars[i] = '~'
-        pchars[point - start] = '^'
-
-        lineno = self.s[:line_start].count('\n') + 1
-        colno = point - line_start + 1
-        text = '{}:{}:{}: error: {}\n{}\n{}'.format(self.filename, lineno, colno,
-            message, self.s[start:end].rstrip('\n'), ''.join(pchars))
         print(text, file=sys.stderr)
         raise AsssemblerError()
 
@@ -85,13 +88,13 @@ class Tokenizer(object):
             else:
                 str_match = STRING_START_REGEX.match(self.s, self.pos)
                 if str_match is not None:
-                    self.error('Invalid escape sequence or character in string literal', str_match.end())
+                    self.error(('Invalid escape sequence or character in string literal', str_match.end(), str_match.end()+1))
 
                 match = WORD_LIKE_REGEX.match(self.s, self.pos)
                 if match:
                     self.pos = match.end()
                     return Token('INVALID_TOKEN', match.group(), match.start())
-                self.error('Invalid token', self.pos)
+                self.error(('Invalid token', self.pos, self.pos+1))
         assert match.start() == match.pos == self.pos
 
         self.pos = match.end()

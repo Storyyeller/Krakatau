@@ -45,11 +45,17 @@ class Parser(object):
     def _next_token(self):
         return self.tokenizer.next()
 
-    def error(self, message, tok):
+    def _format_error_args(self, message, tok):
         if tok.type == 'NEWLINES' or tok.type == 'EOF':
-            self.tokenizer.error(message, tok.pos)
+            return message, tok.pos, tok.pos+1
         else:
-            self.tokenizer.error(message, tok.pos, tok.pos + len(tok.val))
+            return message, tok.pos, tok.pos + len(tok.val)
+
+    def error(self, *args):
+        messages = args[0::2]
+        tokens = args[1::2]
+        assert len(messages) == len(tokens)
+        self.tokenizer.error(*map(self._format_error_args, messages, tokens))
 
     def fail(self):
         assert unique(self.triedvals)

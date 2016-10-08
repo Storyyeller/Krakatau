@@ -76,7 +76,7 @@ class Writer(object):
     def _getlbl(self, lbl, labels, error):
         if lbl.sym not in labels:
             error('Undefined label', lbl.tok)
-        return labels[lbl.sym]
+        return labels[lbl.sym][1]
 
     def fillLabels(self, labels, error):
         for pos, lbl, base, dtype in self.lblphs:

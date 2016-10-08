@@ -34,8 +34,9 @@ class Code(object):
 
     def labeldef(self, lbl, error):
         if lbl.sym in self.labels:
-            error('Duplicate label definition', lbl.tok)
-        self.labels[lbl.sym] = self.bytecode.pos
+            error('Duplicate label definition', lbl.tok,
+                  'Previous definition here', self.labels[lbl.sym][0])
+        self.labels[lbl.sym] = lbl.tok, self.bytecode.pos
 
     def catch(self, ref, fromlbl, tolbl, usinglbl):
         self.exceptcount += 1

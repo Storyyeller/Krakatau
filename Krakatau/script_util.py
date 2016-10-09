@@ -16,6 +16,9 @@ This program is provided as open source under the GNU General Public License.
 See LICENSE.TXT for more details.
 '''
 
+_osname = platform.system().lower()
+IS_WINDOWS = 'win' in _osname and 'darwin' not in _osname and 'cygwin' not in _osname
+
 def findFiles(target, recursive, prefix):
     if target.endswith('.jar'):
         with zipfile.ZipFile(target, 'r') as archive:
@@ -124,8 +127,7 @@ class DirectoryWriter(object):
             base_path = base_path.decode('utf8')
             base_path = os.path.abspath(base_path)
 
-        osname = platform.system().lower()
-        if 'win' in osname and 'darwin' not in osname and 'cygwin' not in osname:
+        if IS_WINDOWS:
             self.makepath = WindowsPathSanitizer(base_path, suffix).sanitize
         else:
             self.makepath = LinuxPathSanitizer(base_path, suffix).sanitize

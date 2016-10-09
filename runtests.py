@@ -40,6 +40,12 @@ def read(filename):
 def shash(data): return hashlib.sha256(data).hexdigest()
 
 ###############################################################################
+# workaround for broken unicode handling on Window - turn nonascii bytes into corresponding utf8 encoding
+def _forceUtf8(s):
+    if script_util.IS_WINDOWS and s and max(s) > '\x7f':
+        return ''.join(unichr(ord(b)).encode('utf8') for b in s)
+    return s
+
 def _runJava(target, in_fname, argslist):
     tdir = tempfile.mkdtemp()
     with open(in_fname, 'rb') as temp:
@@ -57,7 +63,8 @@ def _runJava(target, in_fname, argslist):
         results = func(args)
         assert 'VerifyError' not in results[1]
         assert 'ClassFormatError' not in results[1]
-        yield results
+        # yield results
+        yield map(_forceUtf8, results)
     shutil.rmtree(tdir)
 
 def runJava(target, in_fname, argslist):

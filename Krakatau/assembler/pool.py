@@ -30,7 +30,7 @@ class Ref(object):
             return 'Raw', self.index
 
         if len(defstack) > 5: # Maximum legitimate depth is 5: ID -> BS -> MH -> F -> NAT -> UTF
-            error_args = ['Constant pool definitions cannot be nested more than 5 deep.', self.tok]
+            error_args = ['Constant pool definitions cannot be nested more than 5 deep (excluding raw references).', self.tok]
             for ref in reversed(defstack):
                 error_args.append('Included from {} ref here:'.format(ref.type))
                 error_args.append(ref.tok)

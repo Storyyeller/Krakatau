@@ -27,7 +27,7 @@ TOKENS = [
 REGEX = re.compile('|'.join('(?P<{}>{})'.format(*pair) for pair in TOKENS), re.VERBOSE)
 # For error detection
 STRING_START_REGEX = re.compile(res.STRING_START)
-WORD_LIKE_REGEX = re.compile(r'[^\s\'"]+' + res.FOLLOWED_BY_WHITESPACE)
+WORD_LIKE_REGEX = re.compile(r'\S+')
 
 MAXLINELEN = 80
 def formatError(source, filename, message, point, point2):
@@ -61,7 +61,7 @@ def formatError(source, filename, message, point, point2):
     pchars[point - start] = '^'
     lineno = source[:line_start].count('\n') + 1
     colno = point - line_start + 1
-    return '{}:{}:{}: {}\n{}\n{}\n'.format(filename, lineno, colno,
+    return '{}:{}:{}: {}\n{}\n{}'.format(filename, lineno, colno,
         message, source[start:end].rstrip('\n'), ''.join(pchars))
 
 class Tokenizer(object):
@@ -72,12 +72,11 @@ class Tokenizer(object):
         self.filename = filename.rpartition('/')[-1]
 
     def error(self, error, *notes):
+        printerr = lambda s: print(s, file=sys.stderr)
         message, point, point2 = error
-        text = formatError(self.s, self.filename, 'error: ' + message, point, point2)
+        printerr(formatError(self.s, self.filename, 'error: ' + message, point, point2))
         for message, point, point2 in notes:
-            text += formatError(self.s, self.filename, 'note: ' + message, point, point2)
-
-        print(text, file=sys.stderr)
+            printerr(formatError(self.s, self.filename, 'note: ' + message, point, point2))
         raise AsssemblerError()
 
     def _nextsub(self):
@@ -91,10 +90,8 @@ class Tokenizer(object):
                     self.error(('Invalid escape sequence or character in string literal', str_match.end(), str_match.end()+1))
 
                 match = WORD_LIKE_REGEX.match(self.s, self.pos)
-                if match:
-                    self.pos = match.end()
-                    return Token('INVALID_TOKEN', match.group(), match.start())
-                self.error(('Invalid token', self.pos, self.pos+1))
+                self.pos = match.end()
+                return Token('INVALID_TOKEN', match.group(), match.start())
         assert match.start() == match.pos == self.pos
 
         self.pos = match.end()

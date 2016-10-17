@@ -845,7 +845,7 @@ class Parser(object):
         elif a.tryv('.sourcedebugextension'):
             attr, w = create(b'SourceDebugExtension')
             data = a.string(maxlen=0xFFFFFFFF)
-            w.u32(len(data)), w.writeBytes(data)
+            w.writeBytes(data)
         elif a.tryv('.sourcefile'):
             attr, w = create(b'SourceFile')
             w.ref(a.utfref())

@@ -588,7 +588,7 @@ class Disassembler(object):
             a.val('.signature'), a.utfref(r.u16())
         elif name == b'SourceDebugExtension':
             a.val('.sourcedebugextension')
-            a.val('b' + repr(r.bytes(r.u32())))
+            a.val('b' + repr(attr.raw))
         elif name == b'SourceFile':
             a.val('.sourcefile'), a.utfref(r.u16())
         elif name == b'Synthetic':

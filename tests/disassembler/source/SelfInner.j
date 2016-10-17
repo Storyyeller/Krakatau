@@ -33,4 +33,7 @@ L36:
 .innerclasses
 	[1] SelfInner Foo public
 .end innerclasses
+
+
+.attribute SourceDebugExtension b''
 .end class

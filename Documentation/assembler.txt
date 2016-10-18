@@ -258,8 +258,8 @@ ins_wide: "wide" (op_short u16 | op_iinc u16 s16)
 label: WORD
 Annotations
 element_value_line: element_value EOL
-element_value: primtag ldc_rhs | "class" utfref | "enum" utfref utfref | element_value_array | "annotation" annotation_contents annotation_end
-primtag: "byte" | "char" | "double" | "int" | "float" | "long" | "short" | "boolean" | "string"
+element_value: primtag ldc_rhs | "string" utfref | "class" utfref | "enum" utfref utfref | element_value_array | "annotation" annotation_contents annotation_end
+primtag: "byte" | "char" | "double" | "int" | "float" | "long" | "short" | "boolean"
 element_value_array: "array" EOL element_value_line* ".end" "array"
 
 annotation_line: annotation EOL

@@ -696,7 +696,7 @@ class Disassembler(object):
             a.sol(), a.val('.end'), a.val('array')
         elif tag == 'enum':
             a.utfref(r.u16()), a.utfref(r.u16())
-        elif tag == 'class':
+        elif tag == 'class' or tag == 'string':
             a.utfref(r.u16())
         else:
             a.ldcrhs(r.u16())

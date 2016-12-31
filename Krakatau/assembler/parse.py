@@ -124,7 +124,7 @@ class Parser(object):
 
     def _rawint(a):
         a.asserttype('INT_LITERAL')
-        return a.tok, ast.literal_eval(a.consume().val)
+        return a.tok, ast.literal_eval(a.consume().val.lstrip('+'))
 
     def boundedint(a, lower, upper):
         tok, x = a._rawint()
@@ -170,7 +170,7 @@ class Parser(object):
     def intl(a):
         a.asserttype('INT_LITERAL')
         tok = a.consume()
-        x = ast.literal_eval(tok.val)
+        x = ast.literal_eval(tok.val.lstrip('+'))
         if not -1<<31 <= x < 1<<31:
             a.error('Value does not fit into int type.', tok)
         return x % (1 << 32)
@@ -178,7 +178,7 @@ class Parser(object):
     def longl(a):
         a.asserttype('LONG_LITERAL')
         tok = a.consume()
-        x = ast.literal_eval(tok.val)
+        x = ast.literal_eval(tok.val.lstrip('+'))
         if not -1 << 63 <= x < 1 << 63:
             a.error('Value does not fit into long type.', tok)
         return x % (1 << 64)

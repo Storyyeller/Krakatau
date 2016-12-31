@@ -13,6 +13,7 @@ registry = {
     'floattest': ([],),
     'JSRTests': ([], ['x'], ['x', 'x', 'x', 'x']),
     'LClassLiteralTest': ([],),
+    # 'NonexistentCheckcast': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),
     'OddsAndEnds': ([], ['x'], ['42'], ['4'], ['-2'], ['-0x567'], ['-5678']),
     'splitnew': ([], ['-0'], ['-0', ''], ['-0', '', '', ''],

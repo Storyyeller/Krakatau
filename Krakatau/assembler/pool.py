@@ -90,11 +90,16 @@ class PoolSub(object):
 
         self.dirtyslotdefs = []
         self.defsfrozen = False
+        if not isbs:
+            self.slots[0] = None
 
     def adddef(self, lhs, rhs, error):
         assert not self.defsfrozen
         assert lhs.israw() or lhs.issym()
         if lhs.israw():
+            if lhs.index == 0 and not self.isbs:
+                error('Constant pool index must be nonzero', lhs.tok)
+
             if lhs.index in self.slots:
                 error('Conflicting raw reference definition', lhs.tok,
                       'Conflicts with previous definition:', self.slot_def_tokens[lhs.index])
@@ -240,7 +245,6 @@ class Pool(object):
     def __init__(self):
         self.cp = PoolSub(False)
         self.bs = PoolSub(True)
-        self.cp.slots[0] = None
 
     def sub(self, ref): return self.bs if ref.isbs else self.cp
 

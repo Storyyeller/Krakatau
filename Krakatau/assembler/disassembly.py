@@ -352,7 +352,7 @@ class Disassembler(object):
         a.val('.method'), a.flags(m.access, RFLAGS_M), a.utfref(m.name), a.val(':'), a.utfref(m.desc), a.eol()
         a.indentlevel += 1
         for attr in m.attributes:
-            a.attribute(attr)
+            a.attribute(attr, in_method=True)
         a.indentlevel -= 1
         a.val('.end method'), a.eol()
 
@@ -526,7 +526,7 @@ class Disassembler(object):
 
     ###########################################################################
     ### Attributes ############################################################
-    def attribute(a, attr):
+    def attribute(a, attr, in_method=False):
         name = a.pool.getutf(attr.name)
         if not a.roundtrip and name in (b'BootstrapMethods', b'StackMapTable'):
             return
@@ -545,7 +545,7 @@ class Disassembler(object):
             a.val('.annotationdefault'), a.element_value(r)
         elif name == b'BootstrapMethods':
             a.val('.bootstrapmethods')
-        elif name == b'Code':
+        elif name == b'Code' and in_method:
             a.code(r)
         elif name == b'ConstantValue':
             a.val('.constantvalue'), a.ldcrhs(r.u16())

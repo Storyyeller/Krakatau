@@ -316,6 +316,8 @@ def _neg(maker, input_, iNode):
 def _new(maker, input_, iNode):
     index = iNode.instruction[1]
     classname = maker.parent.getConstPoolArgs(index)[0]
+    if classname.endswith(';'):
+        classname = classname[1:-1]
 
     line = ssa_ops.New(maker.parent, classname, iNode.key)
     newstack = input_.stack + [line.rval]

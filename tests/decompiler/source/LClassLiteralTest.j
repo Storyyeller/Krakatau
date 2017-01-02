@@ -34,6 +34,14 @@
     invokestatic LClassLiteralTest print (Ljava/lang/Object;)V
     invokestatic LClassLiteralTest print (Ljava/lang/Object;)V
 
+
+    new Ljava/lang/String;
+    dup
+    ldc_w "Lwtf;"
+    invokespecial Ljava/lang/String; <init> (Ljava/lang/String;)V
+    invokestatic LLClassLiteralTest; print (Ljava/lang/Object;)V
+
+
     if_acmpne LENDIF1
         ldc "Equal1"
         invokestatic LClassLiteralTest print (Ljava/lang/Object;)V

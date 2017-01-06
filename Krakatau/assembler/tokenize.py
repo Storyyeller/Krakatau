@@ -27,7 +27,7 @@ TOKENS = [
 REGEX = re.compile('|'.join('(?P<{}>{})'.format(*pair) for pair in TOKENS), re.VERBOSE)
 # For error detection
 STRING_START_REGEX = re.compile(res.STRING_START)
-WORD_LIKE_REGEX = re.compile(r'\S+')
+WORD_LIKE_REGEX = re.compile(r'.\S*')
 
 MAXLINELEN = 80
 def formatError(source, filename, message, point, point2):
@@ -90,7 +90,6 @@ class Tokenizer(object):
                     self.error(('Invalid escape sequence or character in string literal', str_match.end(), str_match.end()+1))
 
                 match = WORD_LIKE_REGEX.match(self.s, self.pos)
-                self.pos = match.end()
                 return Token('INVALID_TOKEN', match.group(), match.start())
         assert match.start() == match.pos == self.pos
 

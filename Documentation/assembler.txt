@@ -32,11 +32,11 @@ Reference: The classfile format has a large number of places where an index is m
 
 For the first case, there are numeric references, designated by a decimal integer in square brackets with no leading zeroes. For example, [43] refers to the index 43 in the constant pool. For the second case, there are symbolic references, which is a sequence of lowercase ascii, digits, and underscores inside square brackets, not beginning with a digit. For example, [foo_bar4].
 
-Bootstrap method references are the same except preceded by "bs:". For example, [bs:43] or [bs:foo_bar4]. These are represented by the terminal BSREF. Bootstrap method references are only used in very specific circumstances so you probably won’t need them. All other references are constant pool references and have no prefix, designated by the nonterminal CPREF.
+Bootstrap method references are the same except preceded by "bs:". For example, [bs:43] or [bs:foo_bar4]. These are represented by the terminal BSREF. Bootstrap method references are only used in very specific circumstances so you probably won’t need them. All other references are constant pool references and have no prefix, designated by the terminal CPREF.
 
 Note: Constant pools and bootstrap method tables are class-specific. So definitions inside one class do not affect any other classes assembled from the same source file.
 
-Labels refer to a position within in a method’s bytecode. The assembler will automatically fill in each label with the calculated numerical offset. Labels consist of a capital L followed by ascii letters, digits, and underscores. A label definition (LBLDEF) is a label followed by a colon (with no space). For example, "LSTART:". Label uses are included in the WORD token type defined below since they don’t have a colon.
+Labels refer to a position within a method’s bytecode. The assembler will automatically fill in each label with the calculated numerical offset. Labels consist of a capital L followed by ascii letters, digits, and underscores. A label definition (LBLDEF) is a label followed by a colon (with no space). For example, "LSTART:". Label uses are included in the WORD token type defined below since they don’t have a colon.
 
 Note: Labels refer to positions in the bytecode of the enclosing Code attribute where they appear. They may not appear outside of a Code attribute.
 
@@ -56,7 +56,7 @@ In addition, when used in a context following flags, words cannot be any of the 
 .field "bridge" Ljava/lang/String;
 
 Format of grammar rules
-Nonterminals are specified in lowercase. Terminals with a specific value required are specified in quotes. e.g. "Foo" means that the exact text Foo (case sensitive) has to appear at that point. Terminals that a value of a given token type are represented in all caps, e.g. EOL, INT_LITERAL, FLOAT_LITERAL, LONG_LITERAL, DOUBLE_LITERAL, STRING_LITERAL, CPREF, BSREF, WORD, LBLDEF.
+Nonterminals are specified in lowercase. Terminals with a specific value required are specified in quotes. e.g. "Foo" means that the exact text Foo (case sensitive) has to appear at that point. Terminals that require a value of a given token type are represented in all caps, e.g. EOL, INT_LITERAL, FLOAT_LITERAL, LONG_LITERAL, DOUBLE_LITERAL, STRING_LITERAL, CPREF, BSREF, WORD, LBLDEF.
 
 *, +, ?, |, and () have their usual meanings in regular expressions.
 

@@ -332,7 +332,7 @@ class Disassembler(object):
 
         attrs = f.attributes[:]
         cvattr = a._getattr(f, b'ConstantValue')
-        if not a.roundtrip and cvattr:
+        if cvattr and not a.roundtrip:
             a.val('='), a.ldcrhs(cvattr.stream().u16())
             attrs.remove(cvattr)
 

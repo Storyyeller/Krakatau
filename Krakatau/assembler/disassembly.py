@@ -138,9 +138,9 @@ class ReferencePrinter(object):
             return self.rawref(ind, isbs)
         return self.symref(ind, isbs)
 
-    def _ident(self, ind):
+    def _ident(self, ind, wordok=True):
         if self.cpslots[ind].tag == 'Utf8':
-            val = self._encode_utf(ind)
+            val = self._encode_utf(ind, wordok=wordok)
             if len(val) < MAX_INLINE_SIZE:
                 if len(val) < 50 or self.utfcounts.get(ind, 0) < 10:
                     self.utfcounts[ind] = 1 + self.utfcounts.get(ind, 0)
@@ -237,8 +237,10 @@ class ReferencePrinter(object):
             return self._double(slot.data)
         elif t == 'String':
             ind2 = self.cpslots[ind].refs[0]
-            if ind2 not in self.forcedraw and self.cpslots[ind2].tag == 'Utf8':
-                return self._encode_utf(ind2, wordok=False)
+            temp = self._ident(ind2, wordok=False)
+            if temp is not None:
+                return temp
+            return self.symref(ind)
         return self.taggedref(ind, allowed=['Class', 'MethodHandle', 'MethodType'])
 
     def bsnotref(self, ind, tagged=False):

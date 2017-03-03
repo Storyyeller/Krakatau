@@ -264,8 +264,6 @@ class ReferencePrinter(object):
 class Disassembler(object):
     def __init__(self, clsdata, out, roundtrip):
         self.roundtrip = roundtrip
-        # self.roundtrip = True
-        self.printpool = False
 
         self.out = out
         self.cls = clsdata
@@ -357,7 +355,7 @@ class Disassembler(object):
         a.val('.end method'), a.eol()
 
     def constdefs(a):
-        if a.roundtrip or a.printpool:
+        if a.roundtrip:
             for ind in range(len(a.refprinter.cpslots)):
                 a.constdef(ind, False)
             for ind in range(len(a.refprinter.bsslots)):

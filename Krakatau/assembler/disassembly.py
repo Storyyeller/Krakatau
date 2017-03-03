@@ -13,6 +13,9 @@ MAX_INLINE_SIZE = 300
 MAX_INDENT = 20
 WORD_REGEX = re.compile(token_regexes.WORD + r'\Z')
 
+PREFIXES = {'Utf8': 'u', 'Class': 'c', 'String': 's', 'Field': 'f', 'Method': 'm', 'InterfaceMethod': 'im', 'NameAndType': 'nat', 'MethodHandle': 'mh', 'MethodType': 'mt', 'InvokeDynamic': 'id'}
+
+
 def isword(s):
     return WORD_REGEX.match(s) and s not in FLAGS
 
@@ -131,7 +134,11 @@ class ReferencePrinter(object):
 
     def symref(self, ind, isbs=False):
         self.used.add((ind, isbs))
-        return '[{}r{}]'.format('bs:' if isbs else '', ind)
+        if isbs:
+            return '[bs:_{}]'.format(ind)
+
+        prefix = PREFIXES.get(self.cpslots[ind].tag, '_')
+        return '[{}{}]'.format(prefix, ind)
 
     def ref(self, ind, isbs=False):
         if self.roundtrip or not isbs and ind in self.forcedraw:

@@ -145,7 +145,7 @@ class Class(object):
     def _getName(self):
         cpool = self.pool.cp
         clsind = self.this.resolved_index
-        if clsind not in cpool.slots:
+        if not cpool.slots.get(clsind):
             return None
 
         if cpool.slots[clsind].type != 'Class':

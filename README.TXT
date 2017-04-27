@@ -94,8 +94,14 @@ OUT : File or directory name where source files are to be written. Defaults
 -r : Disassembles all .class files found in the directory target (recursively)
 
 -roundtrip : Creates an assembly file that will assemble back to the exact
-    binary file that was disassembled. This is not the default because it
-    results in an assembly file which is harder for humans to read and edit.
+    binary file that was disassembled.
+
+    Without -roundtrip, it will assemble to a classfile which is equivalent to
+    the original and has the same behavior, but may differ in binary encoding
+    details such as the precise ordering of constant pool entries. Reproducing
+    the exact original classfile requires outputting such low level information
+    in the assembly file, which makes the assembly harder for humans to read and
+    edit. Therefore this option is disabled by default.
 
 target : Filename or jar name to disassemble. If a jar is specified, all
     classes in the jar will be disassembled. If -r is specified, this should

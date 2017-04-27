@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+from __future__ import print_function
+
 import functools
 import os.path
 import time, zipfile, sys
@@ -22,7 +24,7 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
     start_time = time.time()
     with out:
         for i, target in enumerate(targets):
-            print 'processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets))
+            print('processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets)))
 
             data = readTarget(target)
             clsdata = ClassData(Reader(data))
@@ -38,11 +40,11 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
 
             filename = out.write(name, output.getvalue())
             if filename is not None:
-                print 'Class written to', filename
-                print time.time() - start_time, ' seconds elapsed'
+                print('Class written to', filename)
+                print(time.time() - start_time, ' seconds elapsed')
 
 if __name__== "__main__":
-    print script_util.copyright
+    print(script_util.copyright)
 
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')

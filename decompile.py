@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+from __future__ import print_function
+
 import os.path
 import time, random, subprocess, functools
 
@@ -51,11 +53,11 @@ def makeGraph(opts, m):
         # s.removeUnusedVariables()
         s.inlineSubprocs()
 
-    # print _stats(s)
+    # print(_stats(s))
     s.condenseBlocks()
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
-    # print _stats(s)
+    # print(_stats(s))
 
     s.copyPropagation()
     s.abstractInterpert()
@@ -66,7 +68,7 @@ def makeGraph(opts, m):
     s.mergeSingleSuccessorBlocks()
     s.mergeSingleSuccessorBlocks()
     s.removeUnusedVariables()
-    # print _stats(s)
+    # print(_stats(s))
     return s
 
 def deleteUnusued(cls):
@@ -93,7 +95,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
     with e, out:
         printer = visitor.DefaultVisitor()
         for i,target in enumerate(targets):
-            print 'processing target {}, {} remaining'.format(target, len(targets)-i)
+            print('processing target {}, {} remaining'.format(target, len(targets)-i))
 
             try:
                 c = e.getClass(target.decode('utf8'))
@@ -103,10 +105,10 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
                 if not skip_errors:
                     raise
                 if isinstance(err, ClassLoaderError):
-                    print 'Failed to decompile {} due to missing or invalid class {}'.format(target, err.data)
+                    print('Failed to decompile {} due to missing or invalid class {}'.format(target, err.data))
                 else:
                     import traceback
-                    print traceback.format_exc()
+                    print(traceback.format_exc())
                 continue
 
             # The single class decompiler doesn't add package declaration currently so we add it here
@@ -115,13 +117,13 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
                 source = package + source
 
             filename = out.write(c.name.encode('utf8'), source)
-            print 'Class written to', filename
-            print time.time() - start_time, ' seconds elapsed'
+            print('Class written to', filename)
+            print(time.time() - start_time, ' seconds elapsed')
             deleteUnusued(c)
-        print len(e.classes) - len(targets), 'extra classes loaded'
+        print(len(e.classes) - len(targets), 'extra classes loaded')
 
 if __name__== "__main__":
-    print script_util.copyright
+    print(script_util.copyright)
 
     import argparse
     parser = argparse.ArgumentParser(description='Krakatau decompiler and bytecode analysis tool')
@@ -136,13 +138,13 @@ if __name__== "__main__":
 
     path = []
     if not args.nauto:
-        print 'Attempting to automatically locate the standard library...'
+        print('Attempting to automatically locate the standard library...')
         found = findJRE()
         if found:
-            print 'Found at ', found
+            print('Found at ', found)
             path.append(found)
         else:
-            print 'Unable to find the standard library'
+            print('Unable to find the standard library')
 
     if args.path:
         for part in args.path:

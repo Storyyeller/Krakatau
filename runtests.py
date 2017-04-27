@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import ast
 import collections
 import hashlib
@@ -29,7 +31,7 @@ class TestFailed(Exception):
     pass
 
 def execute(args, cwd):
-    print 'executing command', args, 'in directory', cwd
+    print('executing command', args, 'in directory', cwd)
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     return process.communicate()
 
@@ -74,7 +76,7 @@ def runJava(target, in_fname, argslist):
         with open(cache, 'r') as f:
             return json.load(f)
     except IOError:
-        print 'failed to load cache', digest
+        print('failed to load cache', digest)
 
     results = list(_runJava(target, in_fname, argslist))
     with open(cache, 'w') as f:
@@ -116,7 +118,7 @@ def runJavaAndCompare(target, testcases, good_fname, new_fname):
             raise TestFailed('\n'.join(message))
 
 def runDecompilerTest(target, testcases):
-    print 'Running decompiler test {}...'.format(target)
+    print('Running decompiler test {}...'.format(target))
     tdir = tempfile.mkdtemp()
 
     cpath = [decompile.findJRE(), dec_class_location]
@@ -170,7 +172,7 @@ def _assemble(disassembled):
     return assembled
 
 def runDisassemblerTest(disonly, target, testcases):
-    print 'Running disassembler test {}...'.format(target)
+    print('Running disassembler test {}...'.format(target))
     tdir = tempfile.mkdtemp()
 
     contents, good_fname, isjar = _readTestContents(disonly, target)
@@ -203,7 +205,7 @@ PP_MARKER = b'###preprocess###\n'
 RANGE_RE = re.compile(br'###range(\([^)]+\)):')
 def preprocess(source, fname):
     if source.startswith(PP_MARKER):
-        print 'Preprocessing', fname
+        print('Preprocessing', fname)
         buf = bytearray()
         pos = len(PP_MARKER)
         dstart = source.find(b'###range', pos)
@@ -224,7 +226,7 @@ def preprocess(source, fname):
 
 def runAssemblerTest(fname, exceptFailure):
     basename = os.path.basename(fname)
-    print 'Running assembler test', basename
+    print('Running assembler test', basename)
     with open(fname, 'r') as f: # not unicode
         source = f.read()
     source = preprocess(source, fname)
@@ -287,13 +289,13 @@ if __name__ == '__main__':
         addAssemblerTests(testlist, os.path.join(test_base, 'decompiler', 'source'), False)
         addAssemblerTests(testlist, os.path.join(test_base, 'disassembler', 'source'), False)
 
-    print len(testlist), 'test cases found'
+    print(len(testlist), 'test cases found')
     assert testlist
     for error in multiprocessing.Pool(processes=5).map(runTest, testlist):
     # for error in map(runTest, testlist):
         if error:
-            print error
+            print(error)
             break
     else:
-        print 'All {} tests passed!'.format(len(testlist))
-        print 'elapsed time:', time.time()-start_time
+        print('All {} tests passed!'.format(len(testlist)))
+        print('elapsed time:', time.time()-start_time)

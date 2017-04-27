@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+from __future__ import print_function
+
 import os.path, time
 
 import Krakatau
@@ -39,4 +41,4 @@ if __name__== "__main__":
             for name, data in pairs:
                 filename = out.write(name, data)
                 log.info('Class written to', filename)
-    print 'Total time', time.time() - start_time
+    print('Total time', time.time() - start_time)

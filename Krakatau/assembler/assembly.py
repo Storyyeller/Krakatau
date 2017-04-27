@@ -169,7 +169,8 @@ class Class(object):
         afterpool.ref(self.this)
         afterpool.ref(self.super)
         writeU16Count(afterpool, error, self.interfaces, 'interface')
-        map(afterpool.ref, self.interfaces)
+        for i in self.interfaces:
+            afterpool.ref(i)
 
         writeU16Count(afterpool, error, self.fields, 'field')
         for field in self.fields:

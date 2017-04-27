@@ -53,10 +53,10 @@ class ConstantPoolData(object):
 class BootstrapMethodsData(object):
     def __init__(self, r):
         self.slots = []
-        for _ in xrange(r.u16()):
+        for _ in range(r.u16()):
             first = r.u16()
             argcount = r.u16()
-            refs = [first] + [r.u16() for _ in xrange(argcount)]
+            refs = [first] + [r.u16() for _ in range(argcount)]
             self.slots.append(SlotData('Bootstrap', None, refs))
 
 class CodeData(object):
@@ -67,8 +67,8 @@ class CodeData(object):
             self.stack, self.locals, codelen = r.u16(), r.u16(), r.u32()
 
         self.bytecode = r.bytes(codelen)
-        self.exceptions = [ExceptData(r.u16(), r.u16(), r.u16(), r.u16()) for _ in xrange(r.u16())]
-        self.attributes = [AttributeData(r) for _ in xrange(r.u16())]
+        self.exceptions = [ExceptData(r.u16(), r.u16(), r.u16(), r.u16()) for _ in range(r.u16())]
+        self.attributes = [AttributeData(r) for _ in range(r.u16())]
 
 class AttributeData(object):
     def __init__(self, r, pool=None):
@@ -89,12 +89,12 @@ class AttributeData(object):
 class FieldData(object):
     def __init__(self, r):
         self.access, self.name, self.desc = r.u16(), r.u16(), r.u16()
-        self.attributes = [AttributeData(r) for _ in xrange(r.u16())]
+        self.attributes = [AttributeData(r) for _ in range(r.u16())]
 
 class MethodData(object):
     def __init__(self, r):
         self.access, self.name, self.desc = r.u16(), r.u16(), r.u16()
-        self.attributes = [AttributeData(r) for _ in xrange(r.u16())]
+        self.attributes = [AttributeData(r) for _ in range(r.u16())]
 
 class ClassData(object):
     def __init__(self, r):
@@ -104,10 +104,10 @@ class ClassData(object):
         self.pool = ConstantPoolData(r)
 
         self.access, self.this, self.super = r.u16(), r.u16(), r.u16()
-        self.interfaces = [r.u16() for _ in xrange(r.u16())]
-        self.fields = [FieldData(r) for _ in xrange(r.u16())]
-        self.methods = [MethodData(r) for _ in xrange(r.u16())]
-        self.attributes = [AttributeData(r, pool=self.pool) for _ in xrange(r.u16())]
+        self.interfaces = [r.u16() for _ in range(r.u16())]
+        self.fields = [FieldData(r) for _ in range(r.u16())]
+        self.methods = [MethodData(r) for _ in range(r.u16())]
+        self.attributes = [AttributeData(r, pool=self.pool) for _ in range(r.u16())]
         # assert r.done()
 
     def getattrs(self, name):

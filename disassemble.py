@@ -4,7 +4,12 @@ from __future__ import print_function
 import functools
 import os.path
 import time, zipfile, sys
-import StringIO
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 
 import Krakatau
 from Krakatau import script_util
@@ -34,7 +39,7 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
             else:
                 name = target.rpartition('.')[0] or target
 
-            output = StringIO.StringIO()
+            output = StringIO()
             # output = sys.stdout
             Disassembler(clsdata, output.write, roundtrip=roundtrip).disassemble()
 

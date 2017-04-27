@@ -80,7 +80,7 @@ class ReferencePrinter(object):
         self.forcedraw = {0}
         for attr in clsdata.getattrs(b'InnerClasses'):
             r = attr.stream()
-            for _ in xrange(r.u16()):
+            for _ in range(r.u16()):
                 inner, outer, _, _ = r.u16(), r.u16(), r.u16(), r.u16()
                 if inner != outer and clsdata.pool.getclsutf(inner) == clsdata.pool.getclsutf(outer):
                     self.forcedraw.add(inner)

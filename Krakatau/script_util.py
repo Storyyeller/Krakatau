@@ -72,6 +72,9 @@ class PathSanitizer(object):
         return left[:self.MAX_PART_LEN - len(right)] + right
 
     def sanitize(self, path):
+        if isinstance(path, bytes):
+            path = path.decode()
+
         oldparts = path.split('/')
         newparts = []
         for i, part in enumerate(oldparts):
@@ -144,7 +147,8 @@ class DirectoryWriter(object):
             if exc.errno != errno.EEXIST:
                 raise
 
-        with open(out,'wb') as f:
+        mode = 'wb' if isinstance(data, bytes) else 'w'
+        with open(out, mode) as f:
             f.write(data)
         return out
 

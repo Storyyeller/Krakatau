@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import ast
 import struct
 
@@ -975,4 +977,4 @@ def assemble(source, filename, fatal=False):
             raise
         import traceback
         traceback.print_exc()
-        print 'If you see this message, please file an issue at https://github.com/Storyyeller/Krakatau/issues, including the error message and the assembly file that caused the error.\n'
+        print('If you see this message, please file an issue at https://github.com/Storyyeller/Krakatau/issues, including the error message and the assembly file that caused the error.\n')

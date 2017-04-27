@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import math
 import re
 
@@ -23,7 +25,7 @@ def format_string(s):
     try:
         u = mutf8.decode(s)
     except UnicodeDecodeError:
-        print 'Warning, invalid utf8 data!'
+        print('Warning, invalid utf8 data!')
     else:
         if mutf8.encode(u) == s:
             return repr(u).lstrip('u')
@@ -602,7 +604,7 @@ class Disassembler(object):
             a.val('.synthetic')
 
         else:
-            print 'Nonstandard attribute', name[:70], len(attr.raw)
+            print('Nonstandard attribute', name[:70], len(attr.raw))
             if not isnamed:
                 a.val('.attribute'), a.utfref(attr.name)
             a.val('b' + repr(attr.raw))

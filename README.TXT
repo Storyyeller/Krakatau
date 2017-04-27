@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012-16 Robert Grosse
+Copyright (C) 2012-17 Robert Grosse
 
 === Introduction ===
 
@@ -8,10 +8,11 @@ Java classfiles and an assembler to create classfiles.
 
 === Requirements ===
 
-Krakatau requires Python 2.7. Note that if you want to do decompilation, you'll
-probably want an installation of the JDK as well. For assembly and disassembly,
-a Java installation is not strictly necessary, but it is still useful for
-testing the resulting classes.
+The Krakatau decompiler requires Python 2.7 while the assembler and disassembler
+support both Python 2.7 and Python 3. Note that if you want to do decompilation,
+you'll probably want an installation of the JDK as well. For assembly and
+disassembly, a Java installation is not strictly necessary, but it is still
+useful for testing the resulting classes.
 
 === Decompilation ===
 
@@ -109,6 +110,11 @@ exactly reproduce the original binary classfile.
 
 Note: If you find a valid class which Krakatau cannot disassemble, please file
 an issue at https://github.com/Storyyeller/Krakatau/issues.
+
+=== Java 8 ===
+
+The assembler and disassembler fully support Java 8, while the decompiler only
+supports Java 7. In particular, decompilation of lambdas is not supported.
 
 === Performance ===
 

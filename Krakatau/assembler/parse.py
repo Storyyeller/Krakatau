@@ -148,7 +148,7 @@ class Parser(object):
         if not tokval[0] in 'bB':
             tokval = 'u' + tokval
         val = ast.literal_eval(tokval)
-        if isinstance(val, unicode):
+        if not isinstance(val, bytes):
             val = mutf8.encode(val)
         if len(val) > maxlen:
             a.error('Maximum string length here is {} bytes ({} found).'.format(maxlen, len(val)), tok)
@@ -180,7 +180,7 @@ class Parser(object):
     def longl(a):
         a.asserttype('LONG_LITERAL')
         tok = a.consume()
-        x = ast.literal_eval(tok.val.lstrip('+'))
+        x = ast.literal_eval(tok.val.lstrip('+').rstrip('lL'))
         if not -1 << 63 <= x < 1 << 63:
             a.error('Value does not fit into long type.', tok)
         return x % (1 << 64)
@@ -609,7 +609,7 @@ class Parser(object):
                 a.fail()
         elif a.hasv('tableswitch'):
             pos = w.pos
-            w.u8(OPNAME_TO_BYTE[a.consume().val]), w.writeBytes('\0' * ((3-pos) % 4))
+            w.u8(OPNAME_TO_BYTE[a.consume().val]), w.writeBytes(b'\0' * ((3-pos) % 4))
             low = a.s32()
             a.eol()
 
@@ -629,7 +629,7 @@ class Parser(object):
                 w.lbl(lbl, pos, 's32')
         elif a.hasv('lookupswitch'):
             pos = w.pos
-            w.u8(OPNAME_TO_BYTE[a.consume().val]), w.writeBytes('\0' * ((3-pos) % 4))
+            w.u8(OPNAME_TO_BYTE[a.consume().val]), w.writeBytes(b'\0' * ((3-pos) % 4))
             a.eol()
 
             jumps = {}
@@ -824,7 +824,7 @@ class Parser(object):
         elif a.tryv('.runtime'):
             if not a.hasany(['visible', 'invisible']):
                 a.fail()
-            prefix = b'Runtime' + a.consume().val.capitalize()
+            prefix = b'Runtime' + a.consume().val.capitalize().encode()
 
             if a.tryv('annotations'):
                 attr, w = create(prefix + b'Annotations')

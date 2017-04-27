@@ -1,4 +1,7 @@
+import collections
 import struct
+
+Label = collections.namedtuple('Label', ['tok', 'sym'])
 
 class Writer(object):
     def __init__(self):
@@ -84,7 +87,7 @@ class Writer(object):
             lbl = self._getlbl(lbl, labels, error)
 
             # base can also be a second label
-            if not isinstance(base, (int, long)):
+            if isinstance(base, Label):
                 base = self._getlbl(base, labels, error)
 
             offset = lbl - base

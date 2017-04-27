@@ -219,7 +219,7 @@ class PoolSub(object):
         size = max(self.slots) + 1 if self.slots else 0
         dummyentry = b'\1\0\0' # empty UTF8
         if self.isbs and self.slots:
-            first = next(self.slots.itervalues())
+            first = next(iter(self.slots.values()))
             dummyentry = self.writebootstrap(Writer(), first, pool, error).toBytes()
 
         w = Writer()

@@ -17,8 +17,15 @@ WORD_REGEX = re.compile(token_regexes.WORD + r'\Z')
 
 PREFIXES = {'Utf8': 'u', 'Class': 'c', 'String': 's', 'Field': 'f', 'Method': 'm', 'InterfaceMethod': 'im', 'NameAndType': 'nat', 'MethodHandle': 'mh', 'MethodType': 'mt', 'InvokeDynamic': 'id'}
 
+def reprbytes(b):
+    # repr will have b in python3 but not python2
+    return 'b' + repr(b).lstrip('b')
 
 def isword(s):
+    try:
+        s = s.decode('ascii')
+    except UnicodeDecodeError:
+        return False
     return WORD_REGEX.match(s) and s not in FLAGS
 
 def format_string(s):
@@ -29,7 +36,7 @@ def format_string(s):
     else:
         if mutf8.encode(u) == s:
             return repr(u).lstrip('u')
-    return 'b' + repr(s)
+    return reprbytes(s)
 
 def make_signed(x, bits):
     if x >= (1 << (bits - 1)):
@@ -127,7 +134,7 @@ class ReferencePrinter(object):
         except KeyError:
             s = self.cpslots[ind].data
             string = format_string(s)
-            word = s if isword(s) else string
+            word = s.decode() if isword(s) else string
             self.encoded[ind] = [string, word]
             return word if wordok else string
 
@@ -580,11 +587,11 @@ class Disassembler(object):
             b'RuntimeVisibleTypeAnnotations', b'RuntimeInvisibleAnnotations',
             b'RuntimeInvisibleParameterAnnotations', b'RuntimeInvisibleTypeAnnotations'):
             a.val('.runtime')
-            a.val('invisible' if 'Inv' in name else 'visible')
-            if 'Type' in name:
+            a.val('invisible' if b'Inv' in name else 'visible')
+            if b'Type' in name:
                 a.val('typeannotations'), a.eol()
                 a.indented_line_list(r, a.type_annotation_line, 'runtime', False)
-            elif 'Parameter' in name:
+            elif b'Parameter' in name:
                 a.val('paramannotations'), a.eol()
                 a.indented_line_list(r, a.param_annotation_line, 'runtime', False, bytelen=True)
             else:
@@ -597,7 +604,7 @@ class Disassembler(object):
             a.val('.signature'), a.utfref(r.u16())
         elif name == b'SourceDebugExtension':
             a.val('.sourcedebugextension')
-            a.val('b' + repr(attr.raw))
+            a.val(reprbytes(attr.raw))
         elif name == b'SourceFile':
             a.val('.sourcefile'), a.utfref(r.u16())
         elif name == b'Synthetic':
@@ -607,7 +614,7 @@ class Disassembler(object):
             print('Nonstandard attribute', name[:70], len(attr.raw))
             if not isnamed:
                 a.val('.attribute'), a.utfref(attr.name)
-            a.val('b' + repr(attr.raw))
+            a.val(reprbytes(attr.raw))
 
         a.eol()
 

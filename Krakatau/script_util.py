@@ -124,7 +124,8 @@ class DirectoryWriter(object):
         if base_path is None:
             base_path = os.getcwdu()
         else:
-            base_path = base_path.decode('utf8')
+            if not isinstance(base_path, str):
+                base_path = base_path.decode('utf8')
             base_path = os.path.abspath(base_path)
 
         if IS_WINDOWS:

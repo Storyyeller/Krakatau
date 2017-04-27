@@ -1,4 +1,5 @@
 from __future__ import print_function
+map = lambda *args: list(__builtins__.map(*args))
 
 import ast
 import collections
@@ -26,6 +27,7 @@ krakatau_root = os.path.dirname(os.path.abspath(__file__))
 cache_location = os.path.join(krakatau_root, 'tests', '.cache')
 dec_class_location = os.path.join(krakatau_root, 'tests', 'decompiler', 'classes')
 dis_class_location = os.path.join(krakatau_root, 'tests', 'disassembler', 'classes')
+
 
 class TestFailed(Exception):
     pass
@@ -160,7 +162,7 @@ def _disassemble(contents, roundtrip):
     with script_util.MockWriter() as out:
         disassemble.disassembleSub(contents.get, out, list(contents), roundtrip=roundtrip)
         disassembled = collections.OrderedDict(out.results)
-        assert out.results == disassembled.items()
+        assert out.results == list(disassembled.items())
     return disassembled
 
 def _assemble(disassembled):
@@ -168,7 +170,7 @@ def _assemble(disassembled):
     for name, source in disassembled.items():
         for name2, data in assemble.assembleSource(source, name, fatal=True):
             assert name == name2
-            assembled[name] = data
+            assembled[name.decode()] = data
     return assembled
 
 def runDisassemblerTest(disonly, target, testcases):
@@ -213,13 +215,13 @@ def preprocess(source, fname):
             buf += source[pos:dstart]
             dend = source.find(b'###', dstart + 3)
             m = RANGE_RE.match(source, dstart, dend)
-            pattern = source[m.end():dend]
-            for i in range(*ast.literal_eval(m.group(1))):
-                buf += pattern.format(i, ip1=i+1)
+            pattern = source[m.end():dend].decode()
+            for i in range(*ast.literal_eval(m.group(1).decode())):
+                buf += pattern.format(i, ip1=i+1).encode()
             pos = dend + 3
             dstart = source.find(b'###range', pos)
         buf += source[pos:]
-        source = str(buf)
+        source = bytes(buf)
         # with open('temp/' + os.path.basename(fname), 'wb') as f:
         #     f.write(source)
     return source.decode('utf8')
@@ -227,7 +229,7 @@ def preprocess(source, fname):
 def runAssemblerTest(fname, exceptFailure):
     basename = os.path.basename(fname)
     print('Running assembler test', basename)
-    with open(fname, 'r') as f: # not unicode
+    with open(fname, 'rb') as f: # not unicode
         source = f.read()
     source = preprocess(source, fname)
 

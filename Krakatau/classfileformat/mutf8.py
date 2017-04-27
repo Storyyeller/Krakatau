@@ -3,7 +3,7 @@ import re
 NONASTRAL_REGEX = re.compile(u'[\0-\uffff]+')
 
 def encode(s):
-    assert isinstance(s, unicode)
+    assert not isinstance(s, bytes)
     b = b''
     pos = 0
     while pos < len(s):
@@ -19,9 +19,9 @@ def encode(s):
             m = NONASTRAL_REGEX.match(s, pos)
             b += m.group().encode('utf8')
             pos = m.end()
-    return b.replace('\0','\xc0\x80')
+    return b.replace(b'\0', b'\xc0\x80')
 
 # Warning, decode(encode(s)) != s if s contains astral characters, as they are converted to surrogate pairs
 def decode(b):
     assert isinstance(b, bytes)
-    return b.replace('\xc0\x80', '\0').decode('utf8')
+    return b.replace(b'\xc0\x80', b'\0').decode('utf8')

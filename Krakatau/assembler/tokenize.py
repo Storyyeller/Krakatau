@@ -69,6 +69,8 @@ class Tokenizer(object):
         self.s = source
         self.pos = 0
         self.atlineend = True
+        if isinstance(filename, bytes):
+            filename = filename.decode()
         self.filename = filename.rpartition('/')[-1]
 
     def error(self, error, *notes):

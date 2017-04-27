@@ -1,9 +1,6 @@
-import collections
-
 from .pool import Pool, utf
-from .writer import Writer
+from .writer import Writer, Label
 
-Label = collections.namedtuple('Label', ['tok', 'sym'])
 
 def writeU16Count(data, error, objects, message):
     count = len(objects)

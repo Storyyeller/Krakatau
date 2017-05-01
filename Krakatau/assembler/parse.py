@@ -950,6 +950,8 @@ class Parser(object):
             w.ref(a.utfref()), w.ref(a.utfref())
         elif tag == 'class' or tag == 'string':
             w.ref(a.utfref())
+	elif tag == 'string':
+            w.ref(a.utfref())
         else:
             w.ref(a.ldc_rhs())
 

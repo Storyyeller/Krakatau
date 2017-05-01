@@ -147,11 +147,35 @@ if __name__== "__main__":
             print('Unable to find the standard library')
 
     if args.path:
-        for part in args.path:
-            path.extend(part.split(';'))
+        for parts in args.path:
+            splitBySemi = parts.split(';')
+            for semiPart in splitBySemi:
+                if os.path.isdir(semiPart):
+                    print 'Processing %s directory for JAR files' % semiPart
+                    for dirPath,dirNames,fileNames in os.walk(semiPart):
+                        for fn in fileNames:
+                            if fn.lower().endswith('.jar'):
+                                jarPath = os.path.join(dirPath, fn)
+                                print '  Added %s to path' % fn
+                                path.append(jarPath)
+                else:
+                    path.append(semiPart)
 
-    if args.target.endswith('.jar'):
+    t = args.target
+
+    if t and t.lower().endswith('.jar') and not os.path.isabs(t):
+        for p in path:
+            bn = os.path.basename(p)
+            if bn.lower() == t.lower():
+                args.target = p
+                print 'Target exists at %s' % p
+                break
+    elif t and t.lower().endswith('.jar'):
         path.append(args.target)
+
+    if not os.path.exists(args.out):
+        os.makedirs(args.out)
+        print 'Created output directory %s' % args.out
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)

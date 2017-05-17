@@ -17,7 +17,8 @@ import zipfile
 
 from Krakatau import script_util
 from Krakatau.assembler.tokenize import AsssemblerError
-import decompile
+if sys.version_info < (3, 0):
+    import decompile
 import disassemble
 import assemble
 import tests

@@ -261,19 +261,19 @@ class Parser(object):
             desc = pool.utf(*words[2])
         elif len(words) == 2: # Jasmin field syntax
             tok, cnn = words[0]
-            left, _, right = cnn.rpartition('/')
+            left, _, right = cnn.rpartition(b'/')
 
             cls = pool.single('Class', tok, left)
             name = pool.utf(tok, right)
             desc = pool.utf(*words[1])
         elif len(words) == 1: # Jasmin method syntax
             tok, cnnd = words[0]
-            cnn, _, d = cnnd.partition('(')
-            left, _, right = cnn.rpartition('/')
+            cnn, _, d = cnnd.partition(b'(')
+            left, _, right = cnn.rpartition(b'/')
 
             cls = pool.single('Class', tok, left)
             name = pool.utf(tok, right)
-            desc = pool.utf(tok, '(' + d)
+            desc = pool.utf(tok, b'(' + d)
         else:
             a.fail()
         return pool.Ref(cls.tok, type=typeguess, refs=[cls, pool.nat(name, desc)])

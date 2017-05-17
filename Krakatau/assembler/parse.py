@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import ast
 import struct
+import sys
 
 from ..classfileformat import mutf8
 from ..util.thunk import thunk
@@ -972,6 +973,7 @@ def assemble(source, filename, fatal=False):
     except AsssemblerError:
         if fatal:
             raise
+        sys.exit(1)
     except Exception:
         if fatal:
             raise

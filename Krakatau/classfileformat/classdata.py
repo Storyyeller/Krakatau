@@ -25,7 +25,7 @@ class ConstantPoolData(object):
         refs = []
 
         if t == 'Utf8':
-            data = r.bytes(r.u16())
+            data = r.getRaw(r.u16())
         elif t == 'Int' or t == 'Float':
             data = r.u32()
         elif t == 'Long' or t == 'Double':
@@ -66,7 +66,7 @@ class CodeData(object):
         else:
             self.stack, self.locals, codelen = r.u16(), r.u16(), r.u32()
 
-        self.bytecode = r.bytes(codelen)
+        self.bytecode = r.getRaw(codelen)
         self.exceptions = [ExceptData(r.u16(), r.u16(), r.u16(), r.u16()) for _ in range(r.u16())]
         self.attributes = [AttributeData(r) for _ in range(r.u16())]
 
@@ -81,7 +81,7 @@ class AttributeData(object):
         else:
             actual_length = self.length
 
-        self.raw = r.bytes(actual_length)
+        self.raw = r.getRaw(actual_length)
         self.wronglength = actual_length != self.length
 
     def stream(self): return Reader(self.raw)

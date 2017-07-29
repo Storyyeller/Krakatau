@@ -516,7 +516,7 @@ class Disassembler(object):
         elif op == 'newarray':
             a.val(codes.newarr_rcodes[r.u8()])
         elif op == 'tableswitch':
-            r.bytes((3-pos) % 4)
+            r.getRaw((3-pos) % 4)
             default = pos + r.s32()
             low, high = r.s32(), r.s32()
 
@@ -527,7 +527,7 @@ class Disassembler(object):
             a.sol(), a.val('default'), a.val(':'), a.lbl(default), a.eol()
             a.indentlevel -= 1
         elif op == 'lookupswitch':
-            r.bytes((3-pos) % 4)
+            r.getRaw((3-pos) % 4)
             default = pos + r.s32()
 
             a.eol()

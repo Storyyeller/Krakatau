@@ -15,7 +15,6 @@ class Reader(object):
     def u32(self): return self.get('>I')
     def s32(self): return self.get('>i')
     def u64(self): return self.get('>Q')
-    def s64(self): return self.get('>q')
     def bytes(self, n): return self.getRaw(n)
 
     # binUnpacker functions

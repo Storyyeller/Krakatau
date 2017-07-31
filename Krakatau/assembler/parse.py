@@ -302,13 +302,13 @@ class Parser(object):
         if a.tryv('Utf8'):
             return pool.utf(tok, a.identifier())
         elif a.tryv('Int'):
-            return pool.primative(tok.val, tok, a.intl())
+            return pool.primitive(tok.val, tok, a.intl())
         elif a.tryv('Float'):
-            return pool.primative(tok.val, tok, a.floatl())
+            return pool.primitive(tok.val, tok, a.floatl())
         elif a.tryv('Long'):
-            return pool.primative(tok.val, tok, a.longl())
+            return pool.primitive(tok.val, tok, a.longl())
         elif a.tryv('Double'):
-            return pool.primative(tok.val, tok, a.doublel())
+            return pool.primitive(tok.val, tok, a.doublel())
         elif a.hasany(['Class', 'String', 'MethodType']):
             a.consume()
             return pool.Ref(tok, type=tok.val, refs=[a.utfref()])
@@ -346,13 +346,13 @@ class Parser(object):
     def ldc_rhs(a):
         tok = a.tok
         if a.hastype('INT_LITERAL'):
-            return pool.primative('Int', tok, a.intl())
+            return pool.primitive('Int', tok, a.intl())
         elif a.hastype('FLOAT_LITERAL'):
-            return pool.primative('Float', tok, a.floatl())
+            return pool.primitive('Float', tok, a.floatl())
         elif a.hastype('LONG_LITERAL'):
-            return pool.primative('Long', tok, a.longl())
+            return pool.primitive('Long', tok, a.longl())
         elif a.hastype('DOUBLE_LITERAL'):
-            return pool.primative('Double', tok, a.doublel())
+            return pool.primitive('Double', tok, a.doublel())
         elif a.hastype('STRING_LITERAL'):
             return pool.single('String', a.tok, a.string())
         return a.ref_or_tagged_const(methodhandle=True)

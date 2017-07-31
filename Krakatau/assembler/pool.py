@@ -73,7 +73,7 @@ def single(type, tok, s):
 def nat(name, desc):
     return Ref(name.tok, type='NameAndType', refs=[name, desc])
 
-def primative(type, tok, x):
+def primitive(type, tok, x):
     assert type in 'Int Long Float Double'.split()
     return Ref(tok, type=type, data=x)
 

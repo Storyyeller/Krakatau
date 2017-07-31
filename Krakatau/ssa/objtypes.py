@@ -1,7 +1,7 @@
 from ..verifier import verifier_types as vtypes
 
 # types are represented by classname, dimension
-# primative types are .int, etc since these cannot be valid classnames since periods are forbidden
+# primitive types are .int, etc since these cannot be valid classnames since periods are forbidden
 def TypeTT(baset, dim):
     assert dim >= 0
     return baset, dim
@@ -69,7 +69,7 @@ def commonSupertype(env, tts):
     newdim = min(dims)
     if max(dims) > newdim or any(baset(tt) == 'java/lang/Object' for tt in tts):
         return TypeTT('java/lang/Object', newdim)
-    # if any are primative arrays, result is object array of dim-1
+    # if any are primitive arrays, result is object array of dim-1
     if not all(isBaseTClass(tt) for tt in tts):
         return TypeTT('java/lang/Object', newdim-1)
 
@@ -107,7 +107,7 @@ def declTypeToActual(env, decltype):
     # Verifier treats bool[]s and byte[]s as interchangeable, so it could really be either
     if newdim and (name == baset(ByteTT) or name == baset(BoolTT)):
         return [], [withDimInc(ByteTT, newdim), withDimInc(BoolTT, newdim)]
-    elif not isBaseTClass(decltype): # primative types can't be subclassed anyway
+    elif not isBaseTClass(decltype): # primitive types can't be subclassed anyway
         return [], [decltype]
 
     # Verifier doesn't fully verify interfaces so they could be anything

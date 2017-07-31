@@ -1,6 +1,7 @@
 import re
 
-NONASTRAL_REGEX = re.compile(u'[\0-\uffff]+')
+# First alternative handles a single surrogate, in case input string somehow contains unmerged surrogates
+NONASTRAL_REGEX = re.compile(u'[\ud800-\udfff]|[\0-\ud7ff\ue000-\uffff]+')
 
 def encode(s):
     assert not isinstance(s, bytes)

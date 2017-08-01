@@ -252,9 +252,9 @@ def runTest(data):
         import traceback
         return 'Test {} failed:\n'.format(data) + traceback.format_exc()
 
-def addAssemblerTests(testlist, basedir, exceptFailure):
+def addAssemblerTests(testlist, target_filter, basedir, exceptFailure):
     for fname in os.listdir(basedir):
-        if fname.endswith('.j'):
+        if fname.endswith('.j') and target_filter(fname.rpartition('.')):
             testlist.append(('assembler', os.path.join(basedir, fname), exceptFailure))
 
 if __name__ == '__main__':
@@ -287,10 +287,10 @@ if __name__ == '__main__':
 
     if do_assemble:
         test_base = os.path.join(krakatau_root, 'tests')
-        addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'bad'), True)
-        addAssemblerTests(testlist, os.path.join(test_base, 'assembler', 'good'), False)
-        addAssemblerTests(testlist, os.path.join(test_base, 'decompiler', 'source'), False)
-        addAssemblerTests(testlist, os.path.join(test_base, 'disassembler', 'source'), False)
+        addAssemblerTests(testlist, target_filter, os.path.join(test_base, 'assembler', 'bad'), True)
+        addAssemblerTests(testlist, target_filter, os.path.join(test_base, 'assembler', 'good'), False)
+        addAssemblerTests(testlist, target_filter, os.path.join(test_base, 'decompiler', 'source'), False)
+        addAssemblerTests(testlist, target_filter, os.path.join(test_base, 'disassembler', 'source'), False)
 
     print(len(testlist), 'test cases found')
     assert testlist

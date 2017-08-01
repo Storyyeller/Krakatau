@@ -32,9 +32,9 @@ def parseFloat(s, isfloat):
         f = float(s)
 
     if isfloat:
-        return struct.unpack('>i', struct.pack('>f', f))[0]
+        return struct.unpack('>I', struct.pack('>f', f))[0]
     else:
-        return struct.unpack('>q', struct.pack('>d', f))[0]
+        return struct.unpack('>Q', struct.pack('>d', f))[0]
 
 class Parser(object):
     def __init__(self, tokenizer):
@@ -188,11 +188,11 @@ class Parser(object):
 
     def floatl(a):
         a.asserttype('FLOAT_LITERAL')
-        return parseFloat(a.consume().val.rstrip('fF'), True) % (1 << 32)
+        return parseFloat(a.consume().val.rstrip('fF'), True)
 
     def doublel(a):
         a.asserttype('DOUBLE_LITERAL')
-        return parseFloat(a.consume().val, False) % (1 << 64)
+        return parseFloat(a.consume().val, False)
 
     def ref(a, isbs=False):
         a.asserttype('REF')

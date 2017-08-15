@@ -732,7 +732,7 @@ class Parser(object):
 
     def _check_delta(a, tok, frame_type, delta_offset, maxv):
         if delta_offset > maxv:
-            a.error('Stack frame type {} must appear at most {} bytes after the previous frame (actual offset is {}).'.format(maxv+1, delta_offset+1), tok)
+            a.error('Stack frame type "{}" must appear at most {} bytes after the previous frame (actual offset is {}).'.format(frame_type, maxv+1, delta_offset+1), tok)
 
     def verification_type(a, w):
         val = a.tok.val

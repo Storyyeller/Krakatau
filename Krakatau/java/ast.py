@@ -131,8 +131,8 @@ class TryStatement(LazyLabelBase):
 
     def print_(self, printer, print_):
         tryb = print_(self.tryb)
-        parts = ['catch({})\n{}'.format(print_(x), print_(y)) for x,y in self.pairs]
-        return '{}try\n{}\n{}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
+        parts = ['catch({}) {}'.format(print_(x), print_(y)) for x,y in self.pairs]
+        return '{}try {} {}'.format(self.getLabelPrefix(), tryb, '\n'.join(parts))
 
     def tree(self, printer, tree):
         parts = [map(tree, t) for t in self.pairs]
@@ -152,7 +152,7 @@ class IfStatement(LazyLabelBase):
 
         if len(self.scopes) == 1:
             parts = [print_(x) for x in parts]
-            return '{}if ({})\n{}'.format(lbl, *parts)
+            return '{}if ({}) {}'.format(lbl, *parts)
 
         # Special case handling for 'else if'
         sep = '\n' # else seperator depends on if we have else if
@@ -162,7 +162,7 @@ class IfStatement(LazyLabelBase):
             if isinstance(stmt, IfStatement) and stmt.label is None:
                 sep, parts[-1] = ' ', stmt
         parts = [print_(x) for x in parts]
-        return '{}if ({})\n{}\nelse{sep}{}'.format(lbl, *parts, sep=sep)
+        return '{}if ({}) {} else{sep}{}'.format(lbl, *parts, sep=sep)
 
     def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), map(tree, self.scopes)]
 
@@ -191,7 +191,7 @@ class SwitchStatement(LazyLabelBase):
         contents = '\n'.join(bodies)
         indented = ['    '+line for line in contents.splitlines()]
         lines = ['{'] + indented + ['}']
-        return '{}switch({}){}'.format(self.getLabelPrefix(), expr, '\n'.join(lines))
+        return '{}switch({}) {}'.format(self.getLabelPrefix(), expr, '\n'.join(lines))
 
     def tree(self, printer, tree):
         parts = []
@@ -210,7 +210,7 @@ class WhileStatement(LazyLabelBase):
 
     def print_(self, printer, print_):
         parts = print_(self.expr), print_(self.parts[0])
-        return '{}while({})\n{}'.format(self.getLabelPrefix(), *parts)
+        return '{}while({}) {}'.format(self.getLabelPrefix(), *parts)
 
     def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), tree(self.parts[0])]
 

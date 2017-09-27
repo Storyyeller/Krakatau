@@ -51,7 +51,7 @@ class MethodDef(object):
                 return header + ' {/*error*/throw null;}\n'
             return header + ';\n'
         else:
-            return header + '\n' + print_(self.body)
+            return header + ' ' + print_(self.body)
 
     def tree(self, printer, tree):
         return {

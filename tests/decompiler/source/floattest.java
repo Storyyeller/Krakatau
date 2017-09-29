@@ -8,7 +8,7 @@ abstract public class floattest {
 	static float z = 700649232162408535461864791644958065640130970938257885878534141944895541342930300743319094181060791015626E-150f;
 
 	final static float Float = 0X.0P0f/-0X0p-0f;
-	static float _ = 5.25E1F;
+	static float __ = 5.25E1F;
 
 	strictfp public static void main(String[] args)
 	{
@@ -34,22 +34,22 @@ abstract public class floattest {
 	    System.out.println(-.0);
 	    System.out.println(1e29f);
 	    System.out.println(129f);
-	    System.out.println(_);
+	    System.out.println(__);
 	    System.out.println(x);
-	    System.out.println(x == (_ = (float)x));
+	    System.out.println(x == (__ = (float)x));
 	    System.out.println(3.14159f);
-	    double _ = _ = 0x1.8ap50;
+	    double __ = __ = 0x1.8ap50;
 	    double floattest = -1.0/.0;
 
-	    if ((_ >= 0x1.8ap50) & (_ <= 0x1.8ap50)) {
+	    if ((__ >= 0x1.8ap50) & (__ <= 0x1.8ap50)) {
 	    	System.out.println((self.x%x));
 	    }
 
 	    System.out.println(-floattest);
 	    floattest = -0.0;
 	    System.out.println(-floattest);
-	    System.out.println(_);
-	    System.out.println(self._);
+	    System.out.println(__);
+	    System.out.println(self.__);
 	    System.out.println((float)(null==self?1.00000017881393421514957253748434595763683319091796875001f:.0f));
 	    System.out.println((float)(null==self?1.00000017881393421514957253748434595763683319091796875001d:.0d));
 	}

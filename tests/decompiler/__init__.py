@@ -12,7 +12,7 @@ registry = {
     'ExceptionHandlers': tuple([str(x)] for x in range(-1, 12)),
     'floattest': ([],),
     'JSRTests': ([], ['x'], ['x', 'x', 'x', 'x']),
-    'LClassLiteralTest': ([],),
+    # 'LClassLiteralTest': ([],), # JVM 9 no longer accepts weird class literals
     # 'NonexistentCheckcast': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),
     'OddsAndEnds': ([], ['x'], ['42'], ['4'], ['-2'], ['-0x567'], ['-5678']),

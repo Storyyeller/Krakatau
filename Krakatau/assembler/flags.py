@@ -5,8 +5,12 @@ _pairs = [
     ('static', 0x0008),
     ('final', 0x0010),
     ('super', 0x0020),
+    # todo - order attributes properly by context
+    ('transitive', 0x0020),
+    ('open', 0x0020),
     ('synchronized', 0x0020),
     ('volatile', 0x0040),
+    ('static_phase', 0x0040),
     ('bridge', 0x0040),
     ('transient', 0x0080),
     ('varargs', 0x0080),
@@ -17,6 +21,7 @@ _pairs = [
     ('synthetic', 0x1000),
     ('annotation', 0x2000),
     ('enum', 0x4000),
+    ('module', 0x8000),
     ('mandated', 0x8000),
 ]
 

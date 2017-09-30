@@ -219,10 +219,11 @@ class Parser(object):
             return a.ref()
         return pool.utf(a.tok, a.identifier())
 
-    def clsref(a):
+    def clsref(a, tag='Class'):
+        assert tag in 'Class Module Package'.split()
         if a.hastype('REF'):
             return a.ref()
-        return pool.single('Class', a.tok, a.identifier())
+        return pool.single(tag, a.tok, a.identifier())
 
     def natref(a):
         if a.hastype('REF'):
@@ -309,7 +310,7 @@ class Parser(object):
             return pool.primitive(tok.val, tok, a.longl())
         elif a.tryv('Double'):
             return pool.primitive(tok.val, tok, a.doublel())
-        elif a.hasany(['Class', 'String', 'MethodType']):
+        elif a.hasany(['Class', 'String', 'MethodType', 'Module', 'Package']):
             a.consume()
             return pool.Ref(tok, type=tok.val, refs=[a.utfref()])
         elif a.hasany(['Field', 'Method', 'InterfaceMethod']):
@@ -806,7 +807,7 @@ class Parser(object):
             a.val('method'), w.ref(a.clsref()), w.ref(a.natref())
         elif a.tryv('.exceptions'):
             attr, w = create(b'Exceptions')
-            a.list(w, a.ateol, a._exceptions_item)
+            a.list(w, a.ateol, a._class_item)
         elif a.tryv('.innerclasses'):
             attr, w = create(b'InnerClasses')
             a.eol(), a.list(w, a.atendtok, a._innerclasses_item), a.val('.end'), a.val('innerclasses')
@@ -822,6 +823,27 @@ class Parser(object):
         elif a.tryv('.methodparameters'):
             attr, w = create(b'MethodParameters')
             a.eol(), a.list(w, a.atendtok, a._methodparams_item), a.val('.end'), a.val('methodparameters')
+
+        elif a.tryv('.module'):
+            print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
+            attr, w = create(b'Module')
+            w.ref(a.utfref()), w.u16(a.flags()), a.consume(), w.ref(a.utfref()), a.eol(),
+            a._mod_list(w, '.requires', a._mod_requires_item)
+            a._mod_list(w, '.exports', a._mod_exports_item)
+            a._mod_list(w, '.opens', a._mod_exports_item)
+            a._mod_list(w, '.uses', a._mod_uses_item)
+            a._mod_list(w, '.provides', a._mod_provides_item)
+            a.val('.end'), a.val('module')
+
+        elif a.tryv('.modulemainclass'):
+            print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
+            attr, w = create(b'ModuleMainClass')
+            w.ref(a.clsref())
+        elif a.tryv('.modulepackages'):
+            print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
+            attr, w = create(b'ModulePackages')
+            a.list(w, a.ateol, a._package_item)
+
         elif a.tryv('.runtime'):
             if not a.hasany(['visible', 'invisible']):
                 a.fail()
@@ -858,7 +880,9 @@ class Parser(object):
             return None
         return attr
 
-    def _exceptions_item(a, w): w.ref(a.clsref())
+    def _class_item(a, w): w.ref(a.clsref())
+    def _package_item(a, w): w.ref(a.clsref(tag='Package'))
+    def _module_item(a, w): w.ref(a.clsref(tag='Package'))
     def _innerclasses_item(a, w): w.ref(a.clsref()), w.ref(a.clsref()), w.ref(a.utfref()), w.u16(a.flags()), a.eol()
     def _linenumber_item(a, w): w.lbl(a.lbl(), 0, 'u16'), w.u16(a.u16()), a.eol()
     def _methodparams_item(a, w): w.ref(a.utfref()), w.u16(a.flags()), a.eol()
@@ -866,6 +890,23 @@ class Parser(object):
     def _localvariabletable_item(a, w):
         ind, _, name, desc, _range, _ = a.u16(), a.val('is'), a.utfref(), a.utfref(), a.code_range(), a.eol()
         w.lblrange(*_range), w.ref(name), w.ref(desc), w.u16(ind)
+
+    # module attr callbacks
+    def _mod_list(a, w, startdir, cb): a.list(w, lambda: not a.tryv(startdir), cb)
+    def _mod_requires_item(a, w):
+        w.ref(a.clsref(tag='Module')), w.u16(a.flags()), a.val('version'), w.ref(a.utfref()), a.eol()
+    def _mod_exports_item(a, w):
+        w.ref(a.clsref(tag='Package')), w.u16(a.flags())
+        if a.tryv('to'):
+            a.list(w, a.ateol, a._module_item)
+        else:
+            a.u16(0) # count of 0 targets
+        a.eol()
+    def _mod_uses_item(a, w): w.ref(a.clsref()), a.eol()
+    def _mod_provides_item(a, w):
+        w.ref(a.clsref()), a.val('with')
+        a.list(w, a.ateol, a._class_item)
+        a.eol()
 
     ###########################################################################
     ### Annotations ###########################################################

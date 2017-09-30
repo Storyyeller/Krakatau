@@ -3,7 +3,7 @@ import itertools
 
 from .writer import Writer
 
-TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', None, 'InvokeDynamic']
+TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', None, 'InvokeDynamic', 'Module', 'Package']
 
 class Ref(object):
     def __init__(self, tok, index=None, symbol=None, type=None, refs=None, data=None, isbs=False):
@@ -67,7 +67,7 @@ def utf(tok, s):
     return Ref(tok, type='Utf8', data=s)
 
 def single(type, tok, s):
-    assert type in 'Class String MethodType'.split()
+    assert type in 'Class String MethodType Module Package'.split()
     return Ref(tok, type=type, refs=[utf(tok, s)])
 
 def nat(name, desc):

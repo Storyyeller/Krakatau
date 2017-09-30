@@ -2,7 +2,7 @@ import collections
 
 from .reader import Reader
 
-TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', None, 'InvokeDynamic']
+TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', None, 'InvokeDynamic', 'Module', 'Package']
 
 SlotData = collections.namedtuple('SlotData', ['tag', 'data', 'refs'])
 ExceptData = collections.namedtuple('ExceptData', ['start', 'end', 'handler', 'type'])
@@ -33,7 +33,7 @@ class ConstantPoolData(object):
         elif t == 'MethodHandle':
             data = r.u8()
             refs.append(r.u16())
-        elif t in ['Class', 'String', 'MethodType']:
+        elif t in ['Class', 'String', 'MethodType', 'Module', 'Package']:
             refs.append(r.u16())
         else:
             refs.append(r.u16())

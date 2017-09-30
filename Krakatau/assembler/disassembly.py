@@ -170,10 +170,11 @@ class ReferencePrinter(object):
             return temp
         return self.symref(ind)
 
-    def clsref(self, ind):
+    def clsref(self, ind, tag='Class'):
+        assert tag in 'Class Module Package'.split()
         if self.roundtrip or ind in self.forcedraw:
             return self.rawref(ind)
-        if self.cpslots[ind].tag == 'Class':
+        if self.cpslots[ind].tag == tag:
             ind2 = self.cpslots[ind].refs[0]
             temp = self._ident(ind2)
             if temp is not None:
@@ -214,7 +215,7 @@ class ReferencePrinter(object):
             parts = [self._long(slot.data)]
         elif slot.tag == 'Double':
             parts = [self._double(slot.data)]
-        elif slot.tag in ['Class', 'String', 'MethodType']:
+        elif slot.tag in ['Class', 'String', 'MethodType', 'Module', 'Package']:
             parts = [self.utfref(slot.refs[0])]
         elif slot.tag in ['Field', 'Method', 'InterfaceMethod']:
             parts = [self.clsref(slot.refs[0]), self.natref(slot.refs[1])]
@@ -310,7 +311,7 @@ class Disassembler(object):
 
     def ref(a, ind, isbs=False): a.val(a.refprinter.ref(ind, isbs))
     def utfref(a, ind): a.val(a.refprinter.utfref(ind))
-    def clsref(a, ind): a.val(a.refprinter.clsref(ind))
+    def clsref(a, ind, tag='Class'): a.val(a.refprinter.clsref(ind, tag))
     def natref(a, ind): a.val(a.refprinter.natref(ind))
     def fmimref(a, ind): a.val(a.refprinter.fmimref(ind))
     def taggedbs(a, ind): a.val(a.refprinter.bsnotref(ind, tagged=True))
@@ -583,6 +584,14 @@ class Disassembler(object):
             a.indented_line_list(r, a._localvariabletable_item, 'localvariabletypetable')
         elif name == b'MethodParameters':
             a.indented_line_list(r, a._methodparams_item, 'methodparameters')
+        elif name == b'Module':
+            a.module_attr(r)
+        elif name == b'ModuleMainClass':
+            a.val('.modulemainclass'), a.clsref(r.u16())
+        elif name == b'ModulePackages':
+            a.val('.modulepackages')
+            for _ in range(r.u16()):
+                a.clsref(r.u16(), tag='Package')
         elif name in (b'RuntimeVisibleAnnotations', b'RuntimeVisibleParameterAnnotations',
             b'RuntimeVisibleTypeAnnotations', b'RuntimeInvisibleAnnotations',
             b'RuntimeInvisibleParameterAnnotations', b'RuntimeInvisibleTypeAnnotations'):
@@ -617,6 +626,34 @@ class Disassembler(object):
             a.val(reprbytes(attr.raw))
 
         a.eol()
+
+    def module_attr(a, r):
+        a.val('.module'), a.utfref(r.u16()), a.flags(r.u16()), a.val('version'), a.utfref(r.u16()), a.eol()
+        a.indentlevel += 1
+
+        for _ in range(r.u16()):
+            a.sol(), a.val('.requires'), a.clsref(r.u16(), tag='Module'), a.flags(r.u16()), a.val('version'), a.utfref(r.u16()), a.eol()
+
+        for dir_ in ('.exports', '.opens'):
+            for _ in range(r.u16()):
+                a.sol(), a.val(dir_), a.clsref(r.u16(), tag='Package'), a.flags(r.u16())
+                count = r.u16()
+                if count:
+                    a.val('to')
+                    for _ in count:
+                        a.clsref(r.u16(), tag='Module')
+                a.eol()
+
+        for _ in range(r.u16()):
+            a.sol(), a.val('.uses'), a.clsref(r.u16()), a.eol()
+
+        for _ in range(r.u16()):
+            a.sol(), a.val('.provides'), a.clsref(r.u16()), a.val('with')
+            for _ in range(r.u16()):
+                a.clsref(r.u16())
+            a.eol()
+        a.indentlevel -= 1
+        a.sol(), a.val('.end module')
 
     def indented_line_list(a, r, cb, dirname, dostart=True, bytelen=False):
         if dostart:

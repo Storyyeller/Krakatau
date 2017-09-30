@@ -51,7 +51,7 @@ For example, 42 is not a valid word because it begins with a digit. A class name
 
 .class "42"
 
-In addition, when used in a context following flags, words cannot be any of the possible flag names. These are public, private, protected, static, final, super, synchronized, volatile, bridge, transient, varargs, native, interface, abstract, strict, synthetic, annotation, enum, and mandated. In addition, strictfp is disallowed to avoid confusion. So if you wanted to have a string field named bridge, you’d have to do
+In addition, when used in a context following flags, words cannot be any of the possible flag names. These are currently public, private, protected, static, final, super, synchronized, open, transitive, volatile, bridge, static_phase, transient, varargs, native, interface, abstract, strict, synthetic, annotation, enum, module, and mandated. In addition, strictfp is disallowed to avoid confusion. So if you wanted to have a string field named bridge, you’d have to do
 
 .field "bridge" Ljava/lang/String;
 

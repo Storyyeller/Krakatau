@@ -28,6 +28,7 @@ krakatau_root = os.path.dirname(os.path.abspath(__file__))
 cache_location = os.path.join(krakatau_root, 'tests', '.cache')
 dec_class_location = os.path.join(krakatau_root, 'tests', 'decompiler', 'classes')
 dis_class_location = os.path.join(krakatau_root, 'tests', 'disassembler', 'classes')
+dis2_class_location = os.path.join(krakatau_root, 'tests', 'roundtrip', 'classes')
 
 
 class TestFailed(Exception):
@@ -136,8 +137,7 @@ def runDecompilerTest(target, testcases):
     runJavaAndCompare(target, testcases, good_fname, new_fname)
     shutil.rmtree(tdir)
 
-def _readTestContents(disonly, target):
-    base = dis_class_location if disonly else dec_class_location
+def _readTestContents(base, target):
     classloc = os.path.join(base, target + '.class')
     jarloc = os.path.join(base, target + '.jar')
     isjar = not os.path.exists(classloc)
@@ -174,11 +174,11 @@ def _assemble(disassembled):
             assembled[name.decode()] = data
     return assembled
 
-def runDisassemblerTest(disonly, target, testcases):
+def runDisassemblerTest(disonly, basedir, target, testcases):
     print('Running disassembler test {}...'.format(target))
     tdir = tempfile.mkdtemp()
 
-    contents, good_fname, isjar = _readTestContents(disonly, target)
+    contents, good_fname, isjar = _readTestContents(basedir, target)
     # roundtrip test
     disassembled = _disassemble(contents, True)
     assembled = _assemble(disassembled)
@@ -191,18 +191,19 @@ def runDisassemblerTest(disonly, target, testcases):
     for name, classfile in contents.items():
         assert len(classfile) >= len(assembled[name])
 
-    if isjar:
-        new_fname = os.path.join(tdir, target + '.jar')
-        with script_util.JarWriter(new_fname, '.class') as out:
-            for cname, data in assembled.items():
-                out.write(cname, data)
-    else:
-        # new_fname = os.path.join(tdir, target + '.class')
-        with script_util.DirectoryWriter(tdir, '.class') as out:
-            new_fname = out.write(target, assembled[target])
+    if not disonly:
+        if isjar:
+            new_fname = os.path.join(tdir, target + '.jar')
+            with script_util.JarWriter(new_fname, '.class') as out:
+                for cname, data in assembled.items():
+                    out.write(cname, data)
+        else:
+            # new_fname = os.path.join(tdir, target + '.class')
+            with script_util.DirectoryWriter(tdir, '.class') as out:
+                new_fname = out.write(target, assembled[target])
 
-    runJavaAndCompare(target, testcases, good_fname, new_fname)
-    shutil.rmtree(tdir)
+        runJavaAndCompare(target, testcases, good_fname, new_fname)
+        shutil.rmtree(tdir)
 
 PP_MARKER = b'###preprocess###\n'
 RANGE_RE = re.compile(br'###range(\([^)]+\)):')
@@ -281,9 +282,14 @@ if __name__ == '__main__':
             testlist.append(('decompiler', target, map(tuple, testcases)))
     if do_disassemble:
         for target, testcases in filter(target_filter, sorted(tests.disassembler.registry.items())):
-            testlist.append(('disassembler', True, target, map(tuple, testcases)))
+            testlist.append(('disassembler', False, dis_class_location, target, map(tuple, testcases)))
         for target, testcases in filter(target_filter, sorted(tests.decompiler.registry.items())):
-            testlist.append(('disassembler', False, target, map(tuple, testcases)))
+            testlist.append(('disassembler', False, dec_class_location, target, map(tuple, testcases)))
+
+        for fname in os.listdir(dis2_class_location):
+            target = fname.rpartition('.')[0]
+            if target_filter(target):
+                testlist.append(('disassembler', True, dis2_class_location, target, None))
 
     if do_assemble:
         test_base = os.path.join(krakatau_root, 'tests')

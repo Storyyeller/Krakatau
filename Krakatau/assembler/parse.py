@@ -900,7 +900,7 @@ class Parser(object):
         if a.tryv('to'):
             a.list(w, a.ateol, a._module_item)
         else:
-            a.u16(0) # count of 0 targets
+            w.u16(0) # count of 0 targets
         a.eol()
     def _mod_uses_item(a, w): w.ref(a.clsref()), a.eol()
     def _mod_provides_item(a, w):

@@ -640,7 +640,7 @@ class Disassembler(object):
                 count = r.u16()
                 if count:
                     a.val('to')
-                    for _ in count:
+                    for _ in range(count):
                         a.clsref(r.u16(), tag='Module')
                 a.eol()
 

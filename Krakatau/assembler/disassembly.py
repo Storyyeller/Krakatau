@@ -583,7 +583,7 @@ class Disassembler(object):
         elif name == b'LocalVariableTypeTable':
             a.indented_line_list(r, a._localvariabletable_item, 'localvariabletypetable')
         elif name == b'MethodParameters':
-            a.indented_line_list(r, a._methodparams_item, 'methodparameters')
+            a.indented_line_list(r, a._methodparams_item, 'methodparameters', bytelen=True)
         elif name == b'Module':
             a.module_attr(r)
         elif name == b'ModuleMainClass':

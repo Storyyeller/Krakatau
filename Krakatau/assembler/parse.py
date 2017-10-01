@@ -822,8 +822,7 @@ class Parser(object):
             a.eol(), a.list(w, a.atendtok, a._localvariabletable_item), a.val('.end'), a.val('localvariabletypetable')
         elif a.tryv('.methodparameters'):
             attr, w = create(b'MethodParameters')
-            a.eol(), a.list(w, a.atendtok, a._methodparams_item), a.val('.end'), a.val('methodparameters')
-
+            a.eol(), a.listu8(w, a.atendtok, a._methodparams_item), a.val('.end'), a.val('methodparameters')
         elif a.tryv('.module'):
             print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
             attr, w = create(b'Module')

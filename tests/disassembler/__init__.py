@@ -2,6 +2,7 @@
 registry = {
     'AnnotationsTest': ([],),
     'LineNumbersTest': ([],),
+    'MethodParametersTest': ([],),
     'Primes': (['2'], ['3'], ['55555']),
     'SelfInner': ([],),
 }

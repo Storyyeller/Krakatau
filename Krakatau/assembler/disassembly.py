@@ -8,7 +8,7 @@ from ..classfileformat.reader import Reader
 from ..util.thunk import thunk
 
 from . import codes, token_regexes
-from .flags import FLAGS, RFLAGS, RFLAGS_M
+from . import flags
 from .instructions import OPNAMES, OP_CLS, OP_FMIM, OP_LBL, OP_NONE, OP_SHORT
 
 MAX_INLINE_SIZE = 300
@@ -26,7 +26,7 @@ def isword(s):
         s = s.decode('ascii')
     except UnicodeDecodeError:
         return False
-    return WORD_REGEX.match(s) and s not in FLAGS
+    return WORD_REGEX.match(s) and s not in flags.FLAGS
 
 def format_string(s):
     try:
@@ -319,7 +319,7 @@ class Disassembler(object):
     def taggedref(a, ind): a.val(a.refprinter.taggedref(ind))
     def ldcrhs(a, ind): a.val(a.refprinter.ldcrhs(ind))
 
-    def flags(a, access, names=RFLAGS):
+    def flags(a, access, names):
         for i in range(16):
             if access & (1 << i):
                 a.val(names[1 << i])
@@ -329,7 +329,7 @@ class Disassembler(object):
     def disassemble(a):
         cls = a.cls
         a.val('.version'), a.int(cls.version[0]), a.int(cls.version[1]), a.eol()
-        a.val('.class'), a.flags(cls.access), a.clsref(cls.this), a.eol()
+        a.val('.class'), a.flags(cls.access, flags.RFLAGS_CLASS), a.clsref(cls.this), a.eol()
         a.val('.super'), a.clsref(cls.super), a.eol()
         for ref in cls.interfaces:
             a.val('.implements'), a.clsref(ref), a.eol()
@@ -347,7 +347,7 @@ class Disassembler(object):
         a.val('.end class'), a.eol()
 
     def field(a, f):
-        a.val('.field'), a.flags(f.access), a.utfref(f.name), a.utfref(f.desc)
+        a.val('.field'), a.flags(f.access, flags.RFLAGS_FIELD), a.utfref(f.name), a.utfref(f.desc)
 
         attrs = f.attributes[:]
         cvattr = a._getattr(f, b'ConstantValue')
@@ -366,7 +366,7 @@ class Disassembler(object):
 
     def method(a, m):
         a.extrablankline()
-        a.val('.method'), a.flags(m.access, RFLAGS_M), a.utfref(m.name), a.val(':'), a.utfref(m.desc), a.eol()
+        a.val('.method'), a.flags(m.access, flags.RFLAGS_METHOD), a.utfref(m.name), a.val(':'), a.utfref(m.desc), a.eol()
         a.indentlevel += 1
         for attr in m.attributes:
             a.attribute(attr, in_method=True)
@@ -628,15 +628,15 @@ class Disassembler(object):
         a.eol()
 
     def module_attr(a, r):
-        a.val('.module'), a.utfref(r.u16()), a.flags(r.u16()), a.val('version'), a.utfref(r.u16()), a.eol()
+        a.val('.module'), a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER), a.val('version'), a.utfref(r.u16()), a.eol()
         a.indentlevel += 1
 
         for _ in range(r.u16()):
-            a.sol(), a.val('.requires'), a.clsref(r.u16(), tag='Module'), a.flags(r.u16()), a.val('version'), a.utfref(r.u16()), a.eol()
+            a.sol(), a.val('.requires'), a.clsref(r.u16(), tag='Module'), a.flags(r.u16(), flags.RFLAGS_MOD_REQUIRES), a.val('version'), a.utfref(r.u16()), a.eol()
 
         for dir_ in ('.exports', '.opens'):
             for _ in range(r.u16()):
-                a.sol(), a.val(dir_), a.clsref(r.u16(), tag='Package'), a.flags(r.u16())
+                a.sol(), a.val(dir_), a.clsref(r.u16(), tag='Package'), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER)
                 count = r.u16()
                 if count:
                     a.val('to')
@@ -665,13 +665,13 @@ class Disassembler(object):
         if dirname is not None:
             a.sol(), a.val('.end ' + dirname)
 
-    def _innerclasses_item(a, r): a.clsref(r.u16()), a.clsref(r.u16()), a.utfref(r.u16()), a.flags(r.u16())
+    def _innerclasses_item(a, r): a.clsref(r.u16()), a.clsref(r.u16()), a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_CLASS)
     def _linenumber_item(a, r): a.lbl(r.u16()), a.int(r.u16())
     def _localvariabletable_item(a, r):
         start, length, name, desc, ind = r.u16(), r.u16(), r.u16(), r.u16(), r.u16()
         a.int(ind), a.val('is'), a.utfref(name), a.utfref(desc),
         a.val('from'), a.lbl(start), a.val('to'), a.lbl(start + length)
-    def _methodparams_item(a, r): a.utfref(r.u16()), a.flags(r.u16())
+    def _methodparams_item(a, r): a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER)
 
     ###########################################################################
     ### Annotations ###########################################################

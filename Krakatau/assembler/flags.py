@@ -26,7 +26,18 @@ _pairs = [
 ]
 
 FLAGS = dict(_pairs)
-RFLAGS_M = {v:k for k,v in _pairs}
-RFLAGS = {v:k for k,v in reversed(_pairs)}
 # Treat strictfp as flag too to reduce confusion
 FLAGS['strictfp'] = FLAGS['strict']
+
+def _make_dict(priority):
+    d = {v:k for k,v in reversed(_pairs)}
+    # ensure that the specified flags have priority
+    for flag in priority.split():
+        d[FLAGS[flag]] = flag
+    return d
+
+RFLAGS_CLASS = _make_dict('super module')
+RFLAGS_FIELD = _make_dict('volatile transient')
+RFLAGS_METHOD = _make_dict('synchronized bridge varargs')
+RFLAGS_MOD_REQUIRES = _make_dict('transitive static_phase mandated')
+RFLAGS_MOD_OTHER = _make_dict('open mandated')

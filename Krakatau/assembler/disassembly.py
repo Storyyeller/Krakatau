@@ -628,7 +628,8 @@ class Disassembler(object):
         a.eol()
 
     def module_attr(a, r):
-        a.val('.module'), a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER), a.val('version'), a.utfref(r.u16()), a.eol()
+        a.val('.module'), a.clsref(r.u16(), tag='Module'), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER)
+        a.val('version'), a.utfref(r.u16()), a.eol()
         a.indentlevel += 1
 
         for _ in range(r.u16()):

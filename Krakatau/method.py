@@ -82,16 +82,17 @@ class Method(object):
         # print 'Loading method ', self.name, self.descriptor
         self.attributes = fixAttributeNames(attributes_raw, cpool)
 
-        self.flags = set(name for name,mask in Method.flagVals.items() if (mask & flags))
+        self.flags = set(name for name, mask in Method.flagVals.items() if (mask & flags))
+        # Flags are ignored for <clinit>?
+        if self.name == '<clinit>':
+            self.flags = set(['STATIC'])
+
+
         self._checkFlags()
         self.static = 'STATIC' in self.flags
         self.native = 'NATIVE' in self.flags
         self.abstract = 'ABSTRACT' in self.flags
         self.isConstructor = (self.name == '<init>')
-
-        # Prior to version 51.0, <clinit> is still valid even if it isn't marked static
-        if self.class_.version < (51,0) and self.name == '<clinit>' and self.descriptor == '()V':
-            self.static = True
 
         self.code = self._loadCode(keepRaw)
         if keepRaw:

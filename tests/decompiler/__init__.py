@@ -3,6 +3,7 @@ registry = {
     'ArgumentTypes': (['42', 'false'], ['43', 'true'], ['1', '1', '1']),
     'ArrayTest': ([], ['x']),
     'BoolizeTest': ([],),
+    'ClinitFlagsTest': ([],),
     'ConditionalTest': ([],),
     'ControlFlow': ([], ['.Na', 'q'], ['ddKK', '-2'], ['hB7X', '-1'],
                     ['R%%X', '0', '0'], ['>OE=.K', '#FF'],

@@ -84,7 +84,7 @@ class ReferencePrinter(object):
         # specifying the same index for inner and outer class will fail verification, but specifying
         # different indexes which point to identical class entries will pass. In this case, we force
         # references to those indexes to be raw, so they don't get merged and break the class.
-        self.forcedraw = {0}
+        self.forcedraw = set()
         for attr in clsdata.getattrs(b'InnerClasses'):
             r = attr.stream()
             for _ in range(r.u16()):
@@ -92,6 +92,13 @@ class ReferencePrinter(object):
                 if inner != outer and clsdata.pool.getclsutf(inner) == clsdata.pool.getclsutf(outer):
                     self.forcedraw.add(inner)
                     self.forcedraw.add(outer)
+        self.explicit_forcedraw = self.forcedraw.copy()
+
+        # For invalid cp indices, just output raw ref instead of throwing (including 0)
+        for i, slot in enumerate(self.cpslots):
+            if slot.tag is None:
+                self.forcedraw.add(i)
+        self.forcedraw.update(range(len(self.cpslots), 65536))
 
         self.used = set()
         self.encoded = {}
@@ -381,7 +388,7 @@ class Disassembler(object):
                 a.constdef(ind, True)
         else:
             assert not a.refprinter.used & a.refprinter.forcedraw
-            for ind in sorted(a.refprinter.forcedraw - {0}):
+            for ind in sorted(a.refprinter.explicit_forcedraw):
                 a.constdef(ind, False)
 
             done = set()

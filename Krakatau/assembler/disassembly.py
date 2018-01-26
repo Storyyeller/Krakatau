@@ -4,7 +4,7 @@ import math
 import re
 
 from ..classfileformat import classdata, mutf8
-from ..classfileformat.reader import Reader
+from ..classfileformat.reader import Reader, TruncatedStreamError
 from ..util.thunk import thunk
 
 from . import codes, token_regexes
@@ -16,6 +16,9 @@ MAX_INDENT = 20
 WORD_REGEX = re.compile(token_regexes.WORD + r'\Z')
 
 PREFIXES = {'Utf8': 'u', 'Class': 'c', 'String': 's', 'Field': 'f', 'Method': 'm', 'InterfaceMethod': 'im', 'NameAndType': 'nat', 'MethodHandle': 'mh', 'MethodType': 'mt', 'InvokeDynamic': 'id'}
+
+class DisassemblyError(Exception):
+    pass
 
 def reprbytes(b):
     # repr will have b in python3 but not python2
@@ -564,68 +567,14 @@ class Disassembler(object):
             if attr.wronglength:
                 a.val('length'), a.int(attr.length)
 
-        r = attr.stream()
-        if name == b'AnnotationDefault':
-            a.val('.annotationdefault'), a.element_value(r)
+        if name == b'Code' and in_method:
+            a.code(attr.stream())
         elif name == b'BootstrapMethods':
             a.val('.bootstrapmethods')
-        elif name == b'Code' and in_method:
-            a.code(r)
-        elif name == b'ConstantValue':
-            a.val('.constantvalue'), a.ldcrhs(r.u16())
-        elif name == b'Deprecated':
-            a.val('.deprecated')
-        elif name == b'EnclosingMethod':
-            a.val('.enclosing method'), a.clsref(r.u16()), a.natref(r.u16())
-        elif name == b'Exceptions':
-            a.val('.exceptions')
-            for _ in range(r.u16()):
-                a.clsref(r.u16())
-        elif name == b'InnerClasses':
-            a.indented_line_list(r, a._innerclasses_item, 'innerclasses')
-        elif name == b'LineNumberTable':
-            a.indented_line_list(r, a._linenumber_item, 'linenumbertable')
-        elif name == b'LocalVariableTable':
-            a.indented_line_list(r, a._localvariabletable_item, 'localvariabletable')
-        elif name == b'LocalVariableTypeTable':
-            a.indented_line_list(r, a._localvariabletable_item, 'localvariabletypetable')
-        elif name == b'MethodParameters':
-            a.indented_line_list(r, a._methodparams_item, 'methodparameters', bytelen=True)
-        elif name == b'Module':
-            a.module_attr(r)
-        elif name == b'ModuleMainClass':
-            a.val('.modulemainclass'), a.clsref(r.u16())
-        elif name == b'ModulePackages':
-            a.val('.modulepackages')
-            for _ in range(r.u16()):
-                a.clsref(r.u16(), tag='Package')
-        elif name in (b'RuntimeVisibleAnnotations', b'RuntimeVisibleParameterAnnotations',
-            b'RuntimeVisibleTypeAnnotations', b'RuntimeInvisibleAnnotations',
-            b'RuntimeInvisibleParameterAnnotations', b'RuntimeInvisibleTypeAnnotations'):
-            a.val('.runtime')
-            a.val('invisible' if b'Inv' in name else 'visible')
-            if b'Type' in name:
-                a.val('typeannotations'), a.eol()
-                a.indented_line_list(r, a.type_annotation_line, 'runtime', False)
-            elif b'Parameter' in name:
-                a.val('paramannotations'), a.eol()
-                a.indented_line_list(r, a.param_annotation_line, 'runtime', False, bytelen=True)
-            else:
-                a.val('annotations'), a.eol()
-                a.indented_line_list(r, a.annotation_line, 'runtime', False)
-
         elif name == b'StackMapTable':
             a.val('.stackmaptable')
-        elif name == b'Signature':
-            a.val('.signature'), a.utfref(r.u16())
-        elif name == b'SourceDebugExtension':
-            a.val('.sourcedebugextension')
-            a.val(reprbytes(attr.raw))
-        elif name == b'SourceFile':
-            a.val('.sourcefile'), a.utfref(r.u16())
-        elif name == b'Synthetic':
-            a.val('.synthetic')
-
+        elif a.attribute_fallible(name, attr):
+            pass
         else:
             print('Nonstandard attribute', name[:70], len(attr.raw))
             if not isnamed:
@@ -633,6 +582,82 @@ class Disassembler(object):
             a.val(reprbytes(attr.raw))
 
         a.eol()
+
+    def attribute_fallible(a, name, attr):
+        # Temporarily buffer output so we don't get partial output if attribute disassembly fails
+        # in case of failure, we'll fall back to binary output in the caller
+        orig_out = a.out
+        buffer_ = []
+        a.out = buffer_.append
+
+        try:
+            r = attr.stream()
+            if name == b'AnnotationDefault':
+                a.val('.annotationdefault'), a.element_value(r)
+            elif name == b'ConstantValue':
+                a.val('.constantvalue'), a.ldcrhs(r.u16())
+            elif name == b'Deprecated':
+                a.val('.deprecated')
+            elif name == b'EnclosingMethod':
+                a.val('.enclosing method'), a.clsref(r.u16()), a.natref(r.u16())
+            elif name == b'Exceptions':
+                a.val('.exceptions')
+                for _ in range(r.u16()):
+                    a.clsref(r.u16())
+            elif name == b'InnerClasses':
+                a.indented_line_list(r, a._innerclasses_item, 'innerclasses')
+            elif name == b'LineNumberTable':
+                a.indented_line_list(r, a._linenumber_item, 'linenumbertable')
+            elif name == b'LocalVariableTable':
+                a.indented_line_list(r, a._localvariabletable_item, 'localvariabletable')
+            elif name == b'LocalVariableTypeTable':
+                a.indented_line_list(r, a._localvariabletable_item, 'localvariabletypetable')
+            elif name == b'MethodParameters':
+                a.indented_line_list(r, a._methodparams_item, 'methodparameters', bytelen=True)
+            elif name == b'Module':
+                a.module_attr(r)
+            elif name == b'ModuleMainClass':
+                a.val('.modulemainclass'), a.clsref(r.u16())
+            elif name == b'ModulePackages':
+                a.val('.modulepackages')
+                for _ in range(r.u16()):
+                    a.clsref(r.u16(), tag='Package')
+            elif name in (b'RuntimeVisibleAnnotations', b'RuntimeVisibleParameterAnnotations',
+                b'RuntimeVisibleTypeAnnotations', b'RuntimeInvisibleAnnotations',
+                b'RuntimeInvisibleParameterAnnotations', b'RuntimeInvisibleTypeAnnotations'):
+                a.val('.runtime')
+                a.val('invisible' if b'Inv' in name else 'visible')
+                if b'Type' in name:
+                    a.val('typeannotations'), a.eol()
+                    a.indented_line_list(r, a.type_annotation_line, 'runtime', False)
+                elif b'Parameter' in name:
+                    a.val('paramannotations'), a.eol()
+                    a.indented_line_list(r, a.param_annotation_line, 'runtime', False, bytelen=True)
+                else:
+                    a.val('annotations'), a.eol()
+                    a.indented_line_list(r, a.annotation_line, 'runtime', False)
+
+            elif name == b'Signature':
+                a.val('.signature'), a.utfref(r.u16())
+            elif name == b'SourceDebugExtension':
+                a.val('.sourcedebugextension')
+                a.val(reprbytes(attr.raw))
+            elif name == b'SourceFile':
+                a.val('.sourcefile'), a.utfref(r.u16())
+            elif name == b'Synthetic':
+                a.val('.synthetic')
+
+            # check for extra data in the attribute
+            if r.size():
+                raise DisassemblyError()
+
+        except (TruncatedStreamError, DisassemblyError):
+            a.out = orig_out
+            return False
+
+        a.out = orig_out
+        a.out(''.join(buffer_))
+        return True
 
     def module_attr(a, r):
         a.val('.module'), a.clsref(r.u16(), tag='Module'), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER)

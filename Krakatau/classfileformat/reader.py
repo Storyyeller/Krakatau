@@ -1,5 +1,10 @@
 import struct
 
+
+class TruncatedStreamError(EOFError):
+    pass
+
+
 class Reader(object):
     def __init__(self, data, off=0):
         self.d = data
@@ -18,17 +23,21 @@ class Reader(object):
 
     # binUnpacker functions
     def get(self, fmt, forceTuple=False, peek=False):
+        size = struct.calcsize(fmt)
+        if self.size() < size:
+            raise TruncatedStreamError()
+
         val = struct.unpack_from(fmt, self.d, self.off)
 
         if not peek:
-            self.off += struct.calcsize(fmt)
-            assert self.size() >= 0
+            self.off += size
         if not forceTuple and len(val) == 1:
             val = val[0]
         return val
 
     def getRaw(self, num):
-        assert num <= self.size()
+        if self.size() < num:
+            raise TruncatedStreamError()
         val = self.d[self.off:self.off+num]
         self.off += num
         return val

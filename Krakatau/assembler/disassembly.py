@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import collections
 import math
 import re
 
@@ -290,6 +291,7 @@ class ReferencePrinter(object):
             return self.rawref(ind, isbs=True)
         return self.bsnotref(ind)
 
+LabelInfos = collections.namedtuple('LabelInfos', 'defined used')
 class Disassembler(object):
     def __init__(self, clsdata, out, roundtrip):
         self.roundtrip = roundtrip
@@ -299,7 +301,7 @@ class Disassembler(object):
         self.pool = clsdata.pool
 
         self.indentlevel = 0
-        self.lblfmt = None
+        self.labels = None
         self.refprinter = ReferencePrinter(clsdata, roundtrip)
 
     def _getattr(a, obj, name):
@@ -315,7 +317,15 @@ class Disassembler(object):
     def eol(a): a.out('\n')
     def val(a, s): a.out(s + ' ')
     def int(a, x): a.val(str(x))
-    def lbl(a, x): a.val(a.lblfmt.format(x))
+
+    def lbl(a, x):
+        a.labels.used.add(x)
+        a.val('L{}'.format(x))
+
+    def try_lbl(a, x):
+        if a.labels is None or x not in a.labels.defined:
+            raise DisassemblyError()
+        a.lbl(x)
     ###########################################################################
     def extrablankline(a): a.eol()
 
@@ -417,10 +427,8 @@ class Disassembler(object):
         c = classdata.CodeData(r, a.pool, a.cls.version < (45, 3))
         a.val('.code'), a.val('stack'), a.int(c.stack), a.val('locals'), a.int(c.locals), a.eol()
         a.indentlevel += 1
-        assert a.lblfmt is None
-        # a.lblfmt = 'L{{:0{}}}'.format(len(str(len(c.bytecode))))
-        a.lblfmt = 'L{}'
-        # a.lblfmt = 'L{:04X}'
+        assert a.labels is None
+        a.labels = LabelInfos(set(), set())
 
         stackreader = StackMapReader()
         for attr in c.attributes:
@@ -437,7 +445,8 @@ class Disassembler(object):
 
         for attr in c.attributes:
             a.attribute(attr)
-        a.lblfmt = None
+
+        a.labels = None
         a.indentlevel -= 1
         a.sol(), a.val('.end code')
 
@@ -482,7 +491,8 @@ class Disassembler(object):
             a.eol()
             stackreader.parseNextPos()
 
-        a.sol(a.lblfmt.format(pos) + ':')
+        a.sol('L{}'.format(pos) + ':')
+        a.labels.defined.add(pos)
 
     def verification_type(a, r):
         tag = codes.vt_rcodes[r.u8()]
@@ -569,7 +579,7 @@ class Disassembler(object):
 
         if name == b'Code' and in_method:
             a.code(attr.stream())
-        elif name == b'BootstrapMethods':
+        elif name == b'BootstrapMethods' and a.cls.version >= (51, 0):
             a.val('.bootstrapmethods')
         elif name == b'StackMapTable':
             a.val('.stackmaptable')
@@ -699,11 +709,11 @@ class Disassembler(object):
             a.sol(), a.val('.end ' + dirname)
 
     def _innerclasses_item(a, r): a.clsref(r.u16()), a.clsref(r.u16()), a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_CLASS)
-    def _linenumber_item(a, r): a.lbl(r.u16()), a.int(r.u16())
+    def _linenumber_item(a, r): a.try_lbl(r.u16()), a.int(r.u16())
     def _localvariabletable_item(a, r):
         start, length, name, desc, ind = r.u16(), r.u16(), r.u16(), r.u16(), r.u16()
         a.int(ind), a.val('is'), a.utfref(name), a.utfref(desc),
-        a.val('from'), a.lbl(start), a.val('to'), a.lbl(start + length)
+        a.val('from'), a.try_lbl(start), a.val('to'), a.try_lbl(start + length)
     def _methodparams_item(a, r): a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER)
 
     ###########################################################################
@@ -744,9 +754,9 @@ class Disassembler(object):
         elif tag <= 0x42:
             a.val('catch'), a.int(r.u16())
         elif tag <= 0x46:
-            a.val('offset'), a.lbl(r.u16())
+            a.val('offset'), a.try_lbl(r.u16())
         else:
-            a.val('typearg'), a.lbl(r.u16()), a.int(r.u8())
+            a.val('typearg'), a.try_lbl(r.u16()), a.int(r.u8())
         a.eol()
 
     def _localvarrange(a, r):
@@ -754,7 +764,7 @@ class Disassembler(object):
         if start == length == 0xFFFF: # WTF, Java?
             a.val('nowhere')
         else:
-            a.val('from'), a.lbl(start), a.val('to'), a.lbl(start + length)
+            a.val('from'), a.try_lbl(start), a.val('to'), a.try_lbl(start + length)
         a.int(index)
 
     def ta_target_path(a, r):
@@ -769,7 +779,9 @@ class Disassembler(object):
     def annotation_contents(a, r): thunk(a._annotation_contents(r))
 
     def _element_value(a, r):
-        tag = codes.et_rtags[r.u8()]
+        tag = codes.et_rtags.get(r.u8())
+        if tag is None:
+            raise DisassemblyError()
         a.val(tag)
         if tag == 'annotation':
             (yield a._annotation_contents(r)), a.sol(), a.val('.end'), a.val('annotation')

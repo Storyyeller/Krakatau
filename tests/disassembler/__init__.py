@@ -1,6 +1,7 @@
 # Mapping from test name -> tuple of argument lists.
 registry = {
     'AnachAttrBadCP': ([],),
+    'AnachAttrBadLowLbl': ([],),
     'AnachAttrExtraData': ([],),
     'AnachAttrTruncated': ([],),
     'AnnotationsTest': ([],),

@@ -59,7 +59,7 @@ class PathSanitizer(object):
         if not 1 <= len(s) <= self.MAX_PART_LEN:
             return False
         # avoid potential collision with hashed parts
-        if len(s) >= 34 and '__' in s:
+        if len(s) >= 66 and '__' in s:
             return False
         # . cannot appear in a valid class name, but might as well specifically exclude these, just in case
         if s.startswith('.') or '..' in s:
@@ -68,7 +68,7 @@ class PathSanitizer(object):
 
     def hash(self, s, suffix):
         left = ''.join(c for c in s if c in pref_disp_chars)
-        right = '__' + hashlib.md5(s).hexdigest() + suffix
+        right = '__' + hashlib.sha256(s).hexdigest() + suffix
         return left[:self.MAX_PART_LEN - len(right)] + right
 
     def sanitize(self, path):
@@ -186,6 +186,6 @@ def ignore(*args, **kwargs):
 
 class Logger(object):
     def __init__(self, level):
-        lvl = ['info','warning'].index(level)
+        lvl = ['info', 'warning'].index(level)
         self.info = print if lvl <= 0 else ignore
         self.warn = print if lvl <= 1 else ignore

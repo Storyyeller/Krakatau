@@ -6,6 +6,7 @@ class TruncatedStreamError(EOFError):
 
 
 class Reader(object):
+    __slots__ = ['d', 'off']
     def __init__(self, data, off=0):
         self.d = data
         self.off = off

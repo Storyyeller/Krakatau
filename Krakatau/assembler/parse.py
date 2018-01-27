@@ -725,6 +725,10 @@ class Parser(object):
             a.code.laststackoff = pos
             a.code.stackcount += 1
             return True
+        elif a.tryv('.noimplicitstackmap'):
+            a.eol()
+            a.code.dont_generate_stackmap = True
+
         return False
 
     def code_range(a):

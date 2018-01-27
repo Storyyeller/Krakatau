@@ -202,7 +202,7 @@ synthetic: ".synthetic"
 Code
 
 code_body: (instruction_line | code_directive)* attribute*
-code_directive: catch_directive | stack_directive
+code_directive: catch_directive | stack_directive | ".noimplicitstackmap"
 
 catch_directive: ".catch" clsref code_range "using" label EOL
 code_range: "from" label "to" label

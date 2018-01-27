@@ -53,24 +53,42 @@ class StackMapReader(object):
         self.tag = -1
         self.pos = -1
         self.count = 0
+        self.valid = True
 
     def setdata(self, r):
-        assert self.stream is None
-        self.stream = r
-        self.count = r.u16() + 1
-        self.parseNextPos()
+        if self.stream is None:
+            self.stream = r
+            self.count = self.u16() + 1
+            self.parseNextPos()
+        else:
+            # Multiple StackMapTable attributes in same Code attribute
+            self.valid = False
 
     def parseNextPos(self):
         self.count -= 1
         if self.count > 0:
-            r = self.stream
-            self.tag = tag = r.u8()
+            self.tag = tag = self.u8()
 
             if tag <= 127: # same and stack_1
                 delta = tag % 64
             else: # everything else has 16bit delta field
-                delta = r.u16()
+                delta = self.u16()
             self.pos += delta + 1
+
+    def u8(self):
+        try:
+            return self.stream.u8()
+        except TruncatedStreamError:
+            self.valid = False
+            return 0
+
+    def u16(self):
+        try:
+            return self.stream.u16()
+        except TruncatedStreamError:
+            self.valid = False
+            return 0
+
 
 class ReferencePrinter(object):
     def __init__(self, clsdata, roundtrip):
@@ -434,7 +452,6 @@ class Disassembler(object):
         for attr in c.attributes:
             if a.pool.getutf(attr.name) == b'StackMapTable':
                 stackreader.setdata(attr.stream())
-                break
 
         rexcepts = c.exceptions[::-1]
         bcreader = Reader(c.bytecode)
@@ -443,8 +460,21 @@ class Disassembler(object):
             a.instruction(bcreader)
         a.insline_start(bcreader.off, rexcepts, stackreader), a.eol()
 
+        badlbls = a.labels.used - a.labels.defined
+        if badlbls:
+            stackreader.valid = False
+            a.sol('; Labels used by invalid StackMapTable attribute'), a.eol()
+            for pos in sorted(badlbls):
+                a.sol('L{}'.format(pos) + ':'), a.eol()
+
+        if stackreader.stream and (stackreader.stream.size() or stackreader.count > 0):
+            stackreader.valid = False
+
+        if not stackreader.valid:
+            a.sol('.noimplicitstackmap'), a.eol()
+
         for attr in c.attributes:
-            a.attribute(attr)
+            a.attribute(attr, use_raw_stackmap=not stackreader.valid)
 
         a.labels = None
         a.indentlevel -= 1
@@ -457,7 +487,7 @@ class Disassembler(object):
             a.val('to'), a.lbl(e.end), a.val('using'), a.lbl(e.handler), a.eol()
 
         if stackreader.count > 0 and stackreader.pos == pos:
-            r = stackreader.stream
+            r = stackreader
             tag = stackreader.tag
             a.extrablankline()
             a.sol(), a.val('.stack')
@@ -495,7 +525,13 @@ class Disassembler(object):
         a.labels.defined.add(pos)
 
     def verification_type(a, r):
-        tag = codes.vt_rcodes[r.u8()]
+        try:
+            tag = codes.vt_rcodes[r.u8()]
+        except IndexError:
+            r.valid = False
+            a.val('Top')
+            return
+
         a.val(tag)
         if tag == 'Object':
             a.clsref(r.u16())
@@ -563,7 +599,7 @@ class Disassembler(object):
 
     ###########################################################################
     ### Attributes ############################################################
-    def attribute(a, attr, in_method=False):
+    def attribute(a, attr, in_method=False, use_raw_stackmap=False):
         name = a.pool.getutf(attr.name)
         if not a.roundtrip and name in (b'BootstrapMethods', b'StackMapTable'):
             return
@@ -581,7 +617,7 @@ class Disassembler(object):
             a.code(attr.stream())
         elif name == b'BootstrapMethods' and a.cls.version >= (51, 0):
             a.val('.bootstrapmethods')
-        elif name == b'StackMapTable':
+        elif name == b'StackMapTable' and not use_raw_stackmap:
             a.val('.stackmaptable')
         elif a.attribute_fallible(name, attr):
             pass

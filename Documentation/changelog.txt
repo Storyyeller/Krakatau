@@ -1,3 +1,6 @@
+2018.01.26:
+    Add .noimplicitstackmap
+
 2016.10.18: (Backwards incompatible)
     String element values take utfref, rather than ldcrhs
 

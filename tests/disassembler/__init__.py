@@ -4,6 +4,13 @@ registry = {
     'AnachAttrBadLowLbl': ([],),
     'AnachAttrExtraData': ([],),
     'AnachAttrTruncated': ([],),
+    'AnachAttrStackMapExtra': ([],),
+    'AnachAttrStackMapLbl': ([],),
+    'AnachAttrStackMapTruncated': ([],),
+    'AnachAttrStackMapTwice': ([],),
+    'AnachAttrStackMapVTCode': ([],),
+
+
     'AnnotationsTest': ([],),
     'LineNumbersTest': ([],),
     'MethodParametersTest': ([],),

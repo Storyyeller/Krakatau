@@ -24,6 +24,7 @@ class Code(object):
         self.laststackoff = -1 # first frame doesn't subtract 1 from offset
 
         self.stackmaptable = None
+        self.dont_generate_stackmap = False
         self.attributes = []
 
         self.labels = {}
@@ -54,7 +55,7 @@ class Code(object):
         data.u16(self.exceptcount)
         data += self.exceptions
 
-        if self.stackmaptable is None and self.stackcount > 0:
+        if self.stackmaptable is None and self.stackcount > 0 and not self.dont_generate_stackmap:
             # Use arbitrary token in case we need to report errors
             self.stackmaptable = Attribute(self.tok, b'StackMapTable')
             self.attributes.append(self.stackmaptable)

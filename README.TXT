@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012-17 Robert Grosse
+Copyright (C) 2012-18 Robert Grosse
 
 === Introduction ===
 

@@ -125,7 +125,7 @@ class WindowsPathSanitizer(PathSanitizer):
 class DirectoryWriter(object):
     def __init__(self, base_path, suffix):
         if base_path is None:
-            base_path = os.getcwdu()
+            base_path = os.getcwd()
         else:
             if not isinstance(base_path, str):
                 base_path = base_path.decode('utf8')

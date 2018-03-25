@@ -117,9 +117,9 @@ exactly reproduce the original binary classfile.
 Note: If you find a valid class which Krakatau cannot disassemble, please file
 an issue at https://github.com/Storyyeller/Krakatau/issues.
 
-=== Java 9 ===
+=== Java 10 ===
 
-The assembler and disassembler fully support Java 9, while the decompiler only
+The assembler and disassembler fully support Java 10, while the decompiler only
 supports Java 7. In particular, decompilation of lambdas is not supported.
 
 === Performance ===

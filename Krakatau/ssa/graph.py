@@ -205,7 +205,7 @@ class SSA_Graph(object):
             for var in block.unaryConstraints:
                 v2b[var] = block
             for phi in block.phis:
-                assigns[phi.rval] = map(phi.get, block.predecessors)
+                assigns[phi.rval] = list(map(phi.get, block.predecessors))
 
         UCs = {}
         sccs = graph_util.tarjanSCC(assigns, lambda v:assigns.get(v, []))
@@ -238,7 +238,7 @@ class SSA_Graph(object):
             for block in self.blocks:
                 assert block in self.blocks
                 UCs = block.unaryConstraints
-                assert None not in UCs.values()
+                assert None not in list(UCs.values())
                 dirty = visit_counts[block] == 0
                 for phi in block.phis:
                     if phi in dirty_phis:
@@ -574,19 +574,19 @@ class SSA_Graph(object):
 
         self.procs = graph_util.topologicalSort(self.procs, parents.get)
         if any(parents.values()):
-            print 'Warning, nesting subprocedures detected! This method may take a long time to decompile.'
-        print 'Subprocedures for', self.code.method.name + ':', self.procs
+            print('Warning, nesting subprocedures detected! This method may take a long time to decompile.')
+        print('Subprocedures for', self.code.method.name + ':', self.procs)
 
         # now inline the procs
         while self.procs:
             proc = self.procs.pop()
             while len(proc.jsrblocks) > 1:
-                print 'splitting', proc
+                print('splitting', proc)
                 # push new subproc onto stack
                 self.procs.append(self._splitSubProc(proc))
                 assert self._conscheck() is None
             # When a subprocedure has only one call point, it can just be inlined instead of splitted
-            print 'inlining', proc
+            print('inlining', proc)
             self._inlineSubProc(proc)
             assert self._conscheck() is None
     ##########################################################################
@@ -596,13 +596,13 @@ class SSA_Graph(object):
         for block in self.blocks[:]:
             if block is self.entryBlock:
                 continue
-            types = set(zip(*block.predecessors)[1])
+            types = set(tuple(zip(*block.predecessors))[1])
             if len(types) <= 1:
                 continue
             assert not isinstance(block.jump, (ssa_jumps.Return, ssa_jumps.Rethrow))
 
             new = self._newBlockFrom(block)
-            print 'Splitting', block, '->', new
+            print('Splitting', block, '->', new)
             # first fix up CFG edges
             badpreds = [t for t in block.predecessors if t[1]]
             new.predecessors = badpreds
@@ -651,8 +651,8 @@ class SSA_Graph(object):
                     head = entries[0]
                 else:
                     # if more than one entry point into the loop, we have to choose one as the head and duplicate the rest
-                    print 'Warning, multiple entry point loop detected. Generated code may be extremely large',
-                    print '({} entry points, {} blocks)'.format(len(entries), len(scc))
+                    print('Warning, multiple entry point loop detected. Generated code may be extremely large', end=' ')
+                    print('({} entry points, {} blocks)'.format(len(entries), len(scc)))
                     def loopSuccessors(head, block):
                         if block == head:
                             return []
@@ -664,9 +664,9 @@ class SSA_Graph(object):
 
                     head, reachable = min(reaches, key=lambda t:(len(t[1]), -len(t[0].predecessors)))
                     assert head not in reachable
-                    print 'Duplicating {} nodes'.format(len(reachable))
+                    print('Duplicating {} nodes'.format(len(reachable)))
                     blockd = self._duplicateBlocks(reachable, set(scc) - set(reachable))
-                    newtodo += map(blockd.get, reachable)
+                    newtodo += list(map(blockd.get, reachable))
                 newtodo.extend(scc)
                 newtodo.remove(head)
             todo = newtodo

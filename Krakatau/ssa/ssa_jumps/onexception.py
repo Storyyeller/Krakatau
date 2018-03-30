@@ -42,7 +42,7 @@ class OnException(BaseJump):
         return [self.default] if self.default is not None else []
 
     def getExceptSuccessors(self):
-        return self.cs.sets.keys()
+        return list(self.cs.sets.keys())
 
     def clone(self):
         new = super(OnException, self).clone()

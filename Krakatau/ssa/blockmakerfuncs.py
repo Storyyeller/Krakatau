@@ -164,18 +164,18 @@ def _goto(maker, input_, iNode):
 def _if_a(maker, input_, iNode):
     null = makeConstVar(maker.parent, SSA_OBJECT, 'null')
     null.decltype = objtypes.NullTT
-    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], map(maker.blockd.get, iNode.successors), (input_.stack[-1], null))
+    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], list(map(maker.blockd.get, iNode.successors)), (input_.stack[-1], null))
     newstack = input_.stack[:-1]
     return ResultDict(jump=jump, newstack=newstack)
 
 def _if_i(maker, input_, iNode):
     zero = makeConstVar(maker.parent, SSA_INT, 0)
-    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], map(maker.blockd.get, iNode.successors), (input_.stack[-1], zero))
+    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], list(map(maker.blockd.get, iNode.successors)), (input_.stack[-1], zero))
     newstack = input_.stack[:-1]
     return ResultDict(jump=jump, newstack=newstack)
 
 def _if_cmp(maker, input_, iNode):
-    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], map(maker.blockd.get, iNode.successors), input_.stack[-2:])
+    jump = ssa_jumps.If(maker.parent, iNode.instruction[1], list(map(maker.blockd.get, iNode.successors)), input_.stack[-2:])
     newstack = input_.stack[:-2]
     return ResultDict(jump=jump, newstack=newstack)
 

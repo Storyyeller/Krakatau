@@ -16,7 +16,7 @@ _ssaToTT = {ssa_types.SSA_INT:objtypes.IntTT, ssa_types.SSA_LONG:objtypes.LongTT
 class VarInfo(object):
     def __init__(self, method, blocks, namegen):
         self.env = method.class_.env
-        self.labelgen = LabelGen().next
+        self.labelgen = LabelGen().__next__
 
         returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)[-1]
         self.return_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else None
@@ -188,8 +188,8 @@ def _createASTBlock(info, endk, node):
             assert isinstance(block.lines[-1], ssa_ops.ExceptionPhi)
             split_ind = block.lines.index(block.lines[-1].params[0].origin)
 
-        lines_before = filter(None, map(op2expr, block.lines[:split_ind]))
-        lines_after = filter(None, map(op2expr, block.lines[split_ind:]))
+        lines_before = [f for f in map(op2expr, block.lines[:split_ind]) if f]
+        lines_after = [f for f in map(op2expr, block.lines[split_ind:]) if f]
     else:
         lines_before, lines_after = [], []
 
@@ -308,7 +308,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
             part.breakKey = endk # createSub will assume break should be ft, which isn't the case with switch statements
 
         expr = info.var(node, jump.params[0])
-        pairs = zip(current.ordered_keysets, parts)
+        pairs = list(zip(current.ordered_keysets, parts))
         new = ast.SwitchStatement(info.labelgen, midk, endk, expr, pairs)
 
     # bundle head and if together so we can return as single statement

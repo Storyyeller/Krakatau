@@ -1,4 +1,5 @@
 import collections
+from itertools import chain
 
 from ..constraints import IntConstraint
 from ..ssa_types import SSA_INT
@@ -16,7 +17,7 @@ class Switch(BaseJump):
             ordered = [default]
         else:
             tset = set()
-            ordered = [x for x in (default,) + zip(*table)[1] if not x in tset and not tset.add(x)]
+            ordered = [x for x in (default,) + tuple(zip(*table))[1] if not x in tset and not tset.add(x)]
 
         self.successors = ordered
         reverse = collections.defaultdict(set)
@@ -63,13 +64,13 @@ class Switch(BaseJump):
     def constrainJumps(self, x):
         impossible = []
         for child in self.successors:
-            func = self.getSuccessorConstraints((child,False))
+            func = self.getSuccessorConstraints(child, False)
             results = func(x)
             if results[0] is None:
                 impossible.append((child,False))
         return self.reduceSuccessors(impossible)
 
-    def getSuccessorConstraints(self, (block, t)):
+    def getSuccessorConstraints(self, block, t):
         if block in self.reverse:
             cmin = min(self.reverse[block])
             cmax = max(self.reverse[block])

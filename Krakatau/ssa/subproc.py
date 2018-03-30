@@ -35,7 +35,7 @@ class ProcCallOp(ProcJumpBase):
         self.input = inslots
         self.output = outslots
 
-        for var in self.output.stack + self.output.locals.values():
+        for var in self.output.stack + list(self.output.locals.values()):
             if var is not None:
                 assert var.origin is None
                 var.origin = self

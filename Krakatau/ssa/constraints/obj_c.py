@@ -21,7 +21,7 @@ class TypeConstraint(ValueType):
         assert all(objtypes.dim(tt) < 999 for tt in exact)
 
     def _key(self): return self.supers, self.exact
-    def __nonzero__(self): return bool(self.supers or self.exact)
+    def __bool__(self): return bool(self.supers or self.exact)
 
     def getSingleTType(self):
         # comSuper doesn't care about order so we can freely pass in nondeterministic order
@@ -57,7 +57,7 @@ class TypeConstraint(ValueType):
             return cons.pop()
         assert(len(cons) == 2) # joining more than 2 not currently supported
 
-        supers_l, exact_l = zip(*(c._key() for c in cons))
+        supers_l, exact_l = tuple(zip(*(c._key() for c in cons)))
 
         newsupers = set()
         for t1,t2 in itertools.product(*supers_l):

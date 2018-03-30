@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 import ast
 import struct
@@ -46,7 +45,7 @@ class Parser(object):
         self.field = self.method = self.code = None
 
     def _next_token(self):
-        return self.tokenizer.next()
+        return next(self.tokenizer)
 
     def _format_error_args(self, message, tok):
         if tok.type == 'NEWLINES' or tok.type == 'EOF':

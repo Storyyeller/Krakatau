@@ -98,7 +98,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
             print('processing target {}, {} remaining'.format(target, len(targets)-i))
 
             try:
-                c = e.getClass(target.decode('utf8'))
+                c = e.getClass(target)
                 makeGraphCB = functools.partial(makeGraph, magic_throw)
                 source = printer.visit(javaclass.generateAST(c, makeGraphCB, skip_errors, add_throws=add_throws))
             except Exception as err:
@@ -154,5 +154,5 @@ if __name__== "__main__":
         path.append(args.target)
 
     targets = script_util.findFiles(args.target, args.r, '.class')
-    targets = map(script_util.normalizeClassname, targets)
+    targets = list(map(script_util.normalizeClassname, targets))
     decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow)

@@ -36,15 +36,15 @@ class If(BaseJump):
     def constrainJumps(self, x, y):
         impossible = []
         for child in self.successors:
-            func = self.getSuccessorConstraints((child,False))
+            func = self.getSuccessorConstraints(child, False)
 
             results = func(x,y)
             if None in results:
                 assert results == (None,None)
-                impossible.append((child,False))
+                impossible.append((child, False))
         return self.reduceSuccessors(impossible)
 
-    def getSuccessorConstraints(self, (block, t)):
+    def getSuccessorConstraints(self, block, t):
         assert t is False
         cmp_t = If.opposites[self.cmp] if block == self.successors[0] else self.cmp
 

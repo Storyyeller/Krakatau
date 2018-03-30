@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import collections
 import re
@@ -98,7 +98,7 @@ class Tokenizer(object):
         self.pos = match.end()
         return Token(match.lastgroup, match.group(), match.start())
 
-    def next(self):
+    def __next__(self):
         tok = self._nextsub()
         while tok.type == 'WHITESPACE' or self.atlineend and tok.type == 'NEWLINES':
             tok = self._nextsub()

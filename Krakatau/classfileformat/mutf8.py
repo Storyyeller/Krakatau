@@ -13,8 +13,8 @@ def encode(s):
             x -= 1<<16
             high = 0xD800 + (x >> 10)
             low = 0xDC00 + (x % (1 << 10))
-            b += unichr(high).encode('utf8')
-            b += unichr(low).encode('utf8')
+            b += chr(high).encode('utf8')
+            b += chr(low).encode('utf8')
             pos += 1
         else:
             m = NONASTRAL_REGEX.match(s, pos)

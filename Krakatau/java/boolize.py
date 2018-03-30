@@ -1,4 +1,5 @@
 import collections
+from itertools import chain
 
 from .. import graph_util
 from ..ssa import objtypes
@@ -45,7 +46,7 @@ def visitStatementTree(scope, callback, catchcb=None):
                 catchcb(pair[0])
 
 int_tags = frozenset(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
-array_tags = frozenset(map(objtypes.baset, [ByteTT, BoolTT]) + [objtypes.BExpr])
+array_tags = frozenset(chain(map(objtypes.baset, [ByteTT, BoolTT]), (objtypes.BExpr,)))
 
 # Fix int/bool and byte[]/bool[] vars
 def boolizeVars(root, arg_vars):

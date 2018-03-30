@@ -8,7 +8,7 @@ Java classfiles and an assembler to create classfiles.
 
 === Requirements ===
 
-The Krakatau decompiler requires Python 2.7 while the assembler and disassembler
+The Krakatau decompiler, assembler and disassembler
 support both Python 2.7 and Python 3. Note that if you want to do decompilation,
 you'll probably want an installation of the JDK as well. For assembly and
 disassembly, a Java installation is not strictly necessary, but it is still

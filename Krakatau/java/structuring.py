@@ -7,6 +7,7 @@ from ..ssa import objtypes, ssa_jumps
 from ..ssa.exceptionset import ExceptionSet
 
 from .setree import SEBlockItem, SEIf, SEScope, SESwitch, SETry, SEWhile
+from functools import reduce
 
 # This module is responsible for transforming an arbitrary control flow graph into a tree
 # of nested structures corresponding to Java control flow statements. This occurs in
@@ -60,7 +61,7 @@ class DominatorInfo(object):
 
     def dominator(self, *nodes):
         '''Get the common dominator of nodes'''
-        doms = reduce(frozenset.intersection, map(self._doms.get, nodes))
+        doms = reduce(frozenset.intersection, list(map(self._doms.get, nodes)))
         return max(doms, key=lambda n:len(self._doms[n]))
 
     def set_extend(self, dom, nodes):
@@ -68,7 +69,7 @@ class DominatorInfo(object):
         pred_nl_func = lambda x:x.predecessors_nl if x is not dom else []
         return frozenset(graph_util.topologicalSort(nodes, pred_nl_func))
 
-    def area(self, node): return ClosedSet([k for k,v in self._doms.items() if node in v], node, self)
+    def area(self, node): return ClosedSet([k for k,v in list(self._doms.items()) if node in v], node, self)
     def extend(self, dom, nodes): return ClosedSet(self.set_extend(dom, nodes), dom, self)
     def extend2(self, nodes): return self.extend(self.dominator(*nodes), nodes)
     def single(self, head): return ClosedSet([head], head, self)
@@ -353,7 +354,7 @@ def createConstraints(dom, while_heads, newtryinfos, switchinfos, ifinfos):
         for ot, cset in csets.items():
             forbid_dicts[ot][n] -= cset
     for forbid in forbid_dicts.values():
-        for k in forbid.keys():
+        for k in list(forbid.keys()):
             if not forbid[k]:
                 del forbid[k]
 
@@ -1011,7 +1012,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
     # Now that we have the final set of heads, fill in the tree data
     # for each mnode, we need to find its immediate parent
     ancestors = {h:domC[h].intersection(mdata) for h in mdata}
-    mparents = {h:(sorted(v,key=depths.get)[-2] if len(v) > 1 else None) for h,v in ancestors.items()}
+    mparents = {h:(sorted(v,key=depths.get)[-2] if len(v) > 1 else None) for h,v in list(ancestors.items())}
 
     for h, mnode in mdata.items():
         mnode.top = True
@@ -1026,7 +1027,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
         assert h in mnode.nodes and len(mnode.nodes) >= len(mnode.items)
         mnode.children = [mnode2 for h2, mnode2 in mdata.items() if mparents[h2] == h]
 
-    revorder = graph_util.topologicalSort(mdata.values(), lambda mn:mn.children)
+    revorder = graph_util.topologicalSort(list(mdata.values()), lambda mn:mn.children)
     assert len(revorder) == len(mdata)
     assert sum(len(mn.children) for mn in revorder) == len(revorder)-1
 
@@ -1060,7 +1061,7 @@ def _addBreak_sub(dom, rno_get, body, childcons):
             items += mnode.items
         results.append((nodes, items))
 
-    temp = list(itertools.chain.from_iterable(zip(*results)[1]))
+    temp = list(itertools.chain.from_iterable(list(zip(*results))[1]))
     assert len(temp) == len(childcons) and set(temp) == set(childcons)
     return results
 
@@ -1148,8 +1149,8 @@ def constraintsToSETree(dom, croot, children, nodes):
         seitems[new.entryBlock] = new
 
     assert len(seitems) == 1
-    assert isinstance(seitems.values()[0], SEScope)
-    return seitems.values()[0]
+    assert isinstance(next(iter(seitems.values())), SEScope)
+    return next(iter(seitems.values()))
 
 def _checkNested(ctree_children):
     # Check tree for proper nesting

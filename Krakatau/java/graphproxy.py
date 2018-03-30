@@ -29,7 +29,7 @@ class BlockProxy(object):
     def replaceSuccessors(self, rmap):
         update = lambda k:rmap.get(k,k)
 
-        self.successors = map(update, self.successors)
+        self.successors = list(map(update, self.successors))
         self.outvars = {update(k):v for k,v in self.outvars.items()}
         if self.block is not None:
             d1 = self.blockdict

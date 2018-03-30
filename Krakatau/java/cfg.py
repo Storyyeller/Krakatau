@@ -82,7 +82,7 @@ def visitExpr(expr, lines):
         lines.append(('use', expr))
 
     if isinstance(expr, ast.Assignment):
-        lhs, rhs = map(varOrNone, expr.params)
+        lhs, rhs = list(map(varOrNone, expr.params))
 
         # with assignment we need to only visit LHS if it isn't a local in order to avoid spurious uses
         # also, we need to visit RHS before generating the def

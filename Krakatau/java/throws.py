@@ -22,7 +22,7 @@ def _visit_statement(env, stmt):
                 if not any(env.isSubclass(name, caught) for caught in caught_types):
                     result = temp
 
-        statements = zip(*stmt.pairs)[1]
+        statements = tuple(zip(*stmt.pairs))[1]
     elif isinstance(stmt, ast.StatementBlock):
         statements = stmt.statements
     else:

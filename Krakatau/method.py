@@ -53,7 +53,7 @@ class Code(object):
         lines += ['{}: {}'.format(i, bytecode.printInstruction(instructions[i])) for i in sorted(instructions)]
         if self.except_raw:
             lines += ['Exception Handlers:']
-            lines += map(str, self.except_raw)
+            lines += list(map(str, self.except_raw))
         return '\n'.join(lines)
 
 class Method(object):

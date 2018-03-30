@@ -62,7 +62,7 @@ class VerifierTypesState(object):
     def returnTo(self, called, jsrstate):
         mask = self.maskFor(called)
         # merge locals using mask
-        zipped = itertools.izip_longest(self.locals, jsrstate.locals, fillvalue=T_INVALID)
+        zipped = itertools.zip_longest(self.locals, jsrstate.locals, fillvalue=T_INVALID)
         self.locals = [(x if i in mask else y) for i,(x,y) in enumerate(zipped)]
 
     def merge(self, other, env):
@@ -342,7 +342,7 @@ class InstructionNode(object):
             opname, default, jumps = self.instruction
             targets = (default,)
             if jumps:
-                targets += zip(*jumps)[1]
+                targets += tuple(zip(*jumps))[1]
             self.successors = targets
         else:
             self.successors = next_,
@@ -492,7 +492,7 @@ def verifyBytecode(code):
         else:
             typen = 'java/lang/Throwable'
         return (rawdata.start, rawdata.end, iNodeLookup[rawdata.handler], T_OBJECT(typen))
-    exceptions = map(makeException, code.except_raw)
+    exceptions = list(map(makeException, code.except_raw))
 
     start = iNodes[0]
     start.state = stateFromInitialArgs(args)

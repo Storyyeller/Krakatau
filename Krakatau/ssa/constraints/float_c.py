@@ -37,7 +37,7 @@ class FloatConstraint(ValueType):
         if (None, None) in ranges:
             xmin = xmax = None
         else:
-            mins, maxs = zip(*ranges)
+            mins, maxs = tuple(zip(*ranges))
             xmin = max(mins, key=fu.sortkey)
             xmax = min(maxs, key=fu.sortkey)
             if fu.sortkey(xmax) < fu.sortkey(xmin):
@@ -51,7 +51,7 @@ class FloatConstraint(ValueType):
         ranges = [c.finite for c in cons if c.finite != (None,None)]
 
         if ranges:
-            mins, maxs = zip(*ranges)
+            mins, maxs = tuple(zip(*ranges))
             xmin = min(mins, key=fu.sortkey)
             xmax = max(maxs, key=fu.sortkey)
         else:

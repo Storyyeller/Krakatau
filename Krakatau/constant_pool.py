@@ -9,7 +9,7 @@ import struct
 # cpool.getArgs/getArgsCheck will automatically convert them into Python floats
 
 def decodeStr(s):
-    return s.replace('\xc0\x80','\0').decode('utf8'),
+    return s.replace(b'\xc0\x80',b'\0').decode('utf8'),
 def decodeFloat(i):
     return struct.unpack('>f', struct.pack('>i', i)) # Note: returns tuple
 def decodeDouble(i):

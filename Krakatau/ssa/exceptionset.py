@@ -68,7 +68,7 @@ class ExceptionSet(ValueType):
 
     def _key(self): return self.pairs
     def empty(self): return not self.pairs
-    def __nonzero__(self): return bool(self.pairs)
+    def __bool__(self): return bool(self.pairs)
 
     def getTopTTs(self): return sorted([objtypes.TypeTT(top,0) for (top,holes) in self.pairs])
 

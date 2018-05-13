@@ -814,6 +814,14 @@ def _pruneVoidReturn(scope):
         if isinstance(last, ast.ReturnStatement) and last.expr is None:
             scope.statements.pop()
 
+def _pruneCtorSuper(scope):
+    if scope.statements:
+        stmt = scope.statements[0]
+        if isinstance(stmt, ast.ExpressionStatement):
+            expr = stmt.expr
+            if isinstance(expr, ast.MethodInvocation) and len(expr.params) == 0 and expr.name == 'super':
+                scope.statements = scope.statements[1:]
+
 def generateAST(method, graph, forbidden_identifiers):
     env = method.class_.env
     namegen = NameGen(forbidden_identifiers)
@@ -862,6 +870,7 @@ def generateAST(method, graph, forbidden_identifiers):
         _preorder(ast_root, partial(_addCastsAndParens, env=env))
         _generateJumps(ast_root, set())
         _pruneVoidReturn(ast_root)
+        _pruneCtorSuper(ast_root)
     else: # abstract or native method
         ast_root = None
         argsources = [ast.Local(tt, lambda expr:namegen.getPrefix('arg')) for tt in tts]

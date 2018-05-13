@@ -155,14 +155,13 @@ class IfStatement(LazyLabelBase):
             return '{}if ({}) {}'.format(lbl, *parts)
 
         # Special case handling for 'else if'
-        sep = '\n' # else seperator depends on if we have else if
         fblock = self.scopes[1]
         if len(fblock.statements) == 1:
             stmt = fblock.statements[-1]
             if isinstance(stmt, IfStatement) and stmt.label is None:
-                sep, parts[-1] = ' ', stmt
+                parts[-1] = stmt
         parts = [print_(x) for x in parts]
-        return '{}if ({}) {} else{sep}{}'.format(lbl, *parts, sep=sep)
+        return '{}if ({}) {} else {}'.format(lbl, *parts)
 
     def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), map(tree, self.scopes)]
 

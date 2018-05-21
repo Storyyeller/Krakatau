@@ -641,7 +641,7 @@ class MethodInvocation(JavaExpression):
     def addCasts_sub(self, env):
         newparams = []
         for tt, expr in zip(self.tts, self.params):
-            if expr.dtype != tt and (ALWAYS_CAST_PARAMS or not isJavaAssignable(env, expr.dtype, tt)):
+            if expr.dtype != tt and (ALWAYS_CAST_PARAMS or not isJavaAssignable(env, expr.dtype, tt)) and not (isinstance(expr, Local) and expr.print_(None, None) == 'this'):
                 expr = makeCastExpr(tt, expr, fixEnv=env)
             newparams.append(expr)
         self.params = newparams

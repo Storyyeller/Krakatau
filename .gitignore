@@ -3,3 +3,7 @@
 test*.py
 Krakatau/plugins/*
 tests/.cache
+.coverage
+.pytest_cache/
+Krakatau.egg-info/
+tests/reports/

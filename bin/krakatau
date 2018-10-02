@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Krakatau contains a decompiler and disassembler for Java classfiles and an
+assembler to create classfiles.
+"""
+
+# core modules
+import sys
+
+# 3rd party modules
+import click
+
+# local modules
+import Krakatau
+
+
+@click.group(help=__doc__)
+@click.version_option(version='0.1.0')
+def entry_point():
+    pass
+
+
+@entry_point.command()
+@click.option(
+    '--nauto',
+    help=('An optional list of directories, jars, or zipfiles to search for '
+          'classes in. Krakatau will attempt to automatically detect and add  '
+          'the jar containing core language classes, but you can disable this '
+          'with the -nauto option. For multiple jars, you can either pass a '
+          'semicolon seperated list of jars or pass the -path option multiple '
+          'times.'),
+)
+@click.option(
+    '--path',
+    help=('An optional list of directories, jars, or zipfiles to search for '
+          'classes in. Krakatau will attempt to automatically detect and add  '
+          'the jar containing core language classes, but you can disable this '
+          'with the -nauto option. For multiple jars, you can either pass a '
+          'semicolon seperated list of jars or pass the -path option multiple '
+          'times.'),
+)
+@click.option(
+    '--out',
+    help='TODO',
+)
+@click.option(
+    '--skip',
+    help='TODO',
+)
+@click.argument(
+    'target',
+    required=True,
+)
+def decompile(nauto, path, out, skip, target):
+    """
+    decompile
+    """
+    pass  # TODO
+
+
+if __name__ == '__main__':
+    entry_point()

@@ -114,6 +114,8 @@ class BlockMaker(object):
         self.exceptionhandlers = []
         for (start, end, handler, index) in exceptions:
             catchtype = parent.getConstPoolArgs(index)[0] if index else 'java/lang/Throwable'
+            if catchtype.startswith('L') and catchtype.endswith(';'):
+                catchtype = catchtype[1:-1]
             self.exceptionhandlers.append((start, end, self.blockd[handler], catchtype))
         self.exceptionhandlers.append((0, 65536, self.rethrowBlock, 'java/lang/Throwable'))
 

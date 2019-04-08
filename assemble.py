@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os.path, time
+import sys
 
 import Krakatau
 from Krakatau.assembler import parse
@@ -13,7 +14,11 @@ def assembleSource(source, basename, fatal=False):
 
 def assembleClass(filename):
     basename = os.path.basename(filename)
-    with open(filename, 'rU') as f:
+    if sys.version_info < (3,):
+        mode = 'rU'
+    else:  # python 3 deprecates mode "U" in favor of "newline" option
+        mode = 'r'
+    with open(filename, mode) as f:
         source = f.read()
     return assembleSource(source, basename)
 

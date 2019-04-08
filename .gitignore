@@ -3,3 +3,4 @@
 test*.py
 Krakatau/plugins/*
 tests/.cache
+.idea/

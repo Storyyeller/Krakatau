@@ -208,7 +208,22 @@ class WhileStatement(LazyLabelBase):
     def getScopes(self): return self.parts
 
     def print_(self, printer, print_):
-        parts = print_(self.expr), print_(self.parts[0])
+        assert len(self.parts) == 1 and isinstance(self.parts[0], StatementBlock)
+        body = self.parts[0]
+        if isinstance(self.expr, BinaryInfix) and len(body.statements) > 1:
+            # Check to see if we can print as a for loop instead (without initializer)
+            last_statement = body.statements[-1]
+            if isinstance(last_statement, ExpressionStatement):
+                last = last_statement.expr
+                if last.isLocalAssign() and last.params[0] in self.expr.params:
+                    # hack - pop last statement so it won't be printed as part of the body
+                    body.statements.pop()
+                    parts = print_(self.expr), print_(last), print_(body)
+                    # add it back, just in case we somehow want to print the AST again
+                    body.statements.append(last_statement)
+                    return '{}for(; {}; {}) {}'.format(self.getLabelPrefix(), *parts)
+
+        parts = print_(self.expr), print_(body)
         return '{}while({}) {}'.format(self.getLabelPrefix(), *parts)
 
     def tree(self, printer, tree): return [self.__class__.__name__, self.label, tree(self.expr), tree(self.parts[0])]

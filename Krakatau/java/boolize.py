@@ -45,7 +45,6 @@ def visitStatementTree(scope, callback, catchcb=None):
                 catchcb(pair[0])
 
 int_tags = frozenset(map(objtypes.baset, [IntTT, ShortTT, CharTT, ByteTT, BoolTT]))
-array_tags = frozenset(map(objtypes.baset, [ByteTT, BoolTT]) + [objtypes.BExpr])
 
 # Fix int/bool and byte[]/bool[] vars
 def boolizeVars(root, arg_vars):
@@ -65,7 +64,7 @@ def boolizeVars(root, arg_vars):
 
         if isinstance(expr, ast.Local):
             tag, dim = objtypes.baset(expr.dtype), objtypes.dim(expr.dtype)
-            if (dim == 0 and tag in int_tags) or (dim > 0 and tag in array_tags):
+            if tag in int_tags or (dim > 0 and tag == BExpr):
                 # the only "unknown" vars are bexpr[] and ints. All else have fixed types
                 if forceExact or (tag != BExpr and tag != objtypes.baset(IntTT)):
                     sets.union(tag == objtypes.baset(BoolTT), expr)
@@ -98,12 +97,14 @@ def boolizeVars(root, arg_vars):
     # Fix the propagated types
     for var in set(varlist):
         tag, dim = objtypes.baset(var.dtype), objtypes.dim(var.dtype)
-        assert tag in int_tags or (dim>0 and tag == BExpr)
-        # make everything bool which is not forced to int
-        if sets.find(var) != False:
-            var.dtype = objtypes.withDimInc(BoolTT, dim)
-        elif dim > 0:
-            var.dtype = objtypes.withDimInc(ByteTT, dim)
+        assert tag in int_tags or (dim > 0 and tag == BExpr)
+        # Skip arrays unless they are a bool/byte array
+        if dim == 0 or tag == BExpr:
+            # make everything bool which is not forced to int
+            if sets.find(var) != False:
+                var.dtype = objtypes.withDimInc(BoolTT, dim)
+            elif dim > 0:
+                var.dtype = objtypes.withDimInc(ByteTT, dim)
 
     # Fix everything else back up
     def fixExpr(item, expr):

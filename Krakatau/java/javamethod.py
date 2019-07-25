@@ -560,11 +560,22 @@ def _inlineVariables(root):
                 stack.extend(expr.params)
 
     _preorder(root, visitFindDefs)
+
+    def equalOrBothPrimativeTypes(t1, t2):
+        return t1 == t2 or (not ast.isReferenceType(t1) and not ast.isReferenceType(t2))
+
     # These should have 2 uses since the initial assignment also counts
-    replacevars = {k for k,v in defs.items() if len(v)==1 and uses[k]==2 and k.dtype == v[0].params[1].dtype}
+    replacevars = {k for k,v in defs.items()
+        if len(v)==1 and uses[k]==2
+        and equalOrBothPrimativeTypes(v[0].params[1].dtype, k.dtype)}
+
     def doReplacement(item, pairs):
         old, new = item.expr.params
-        assert isinstance(old, ast.Local) and old.dtype == new.dtype
+        assert isinstance(old, ast.Local)
+        if new.dtype != old.dtype:
+            assert not ast.isReferenceType(old.dtype) and not ast.isReferenceType(new.dtype)
+            new = ast.Cast(ast.TypeName(old.dtype), new)
+
         stack = [(True, (True, item2, expr)) for item2, expr in reversed(pairs) if expr is not None]
         while stack:
             recurse, args = stack.pop()

@@ -633,7 +633,7 @@ def _inlineVariables(root):
 
             if isinstance(item.expr, ast.Assignment) and item.expr.params[0] in replacevars:
                 expr_roots = []
-                for item2 in newstatements:
+                for item2 in reversed(newstatements):
                     # Don't inline into a while condition as it may be evaluated more than once
                     if not isinstance(item2, ast.WhileStatement):
                         expr_roots.append((item2, item2.expr))
@@ -642,8 +642,8 @@ def _inlineVariables(root):
                 success = doReplacement(item, expr_roots)
                 if success:
                     continue
-            newstatements.insert(0, item)
-        scope.statements = newstatements
+            newstatements.append(item)
+        scope.statements = newstatements[::-1]
     visitReplace(root)
 
 def _createDeclarations(root, predeclared):

@@ -11,6 +11,7 @@ registry = {
     'DoubleEdge': ([], ['x']),
     'DuplicateInit': ([], ['5', '-7'], ['x', 'x', 'x']),
     'ExceptionHandlers': tuple([str(x)] for x in range(-1, 12)),
+    'For': ([],),
     'floattest': ([],),
     'JSRTests': ([], ['x'], ['x', 'x', 'x', 'x']),
     # 'LClassLiteralTest': ([],), # JVM 9 no longer accepts weird class literals

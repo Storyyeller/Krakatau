@@ -215,7 +215,12 @@ class WhileStatement(LazyLabelBase):
             last_statement = body.statements[-1]
             if isinstance(last_statement, ExpressionStatement):
                 last = last_statement.expr
-                if last.isLocalAssign() and last.params[0] in self.expr.params:
+                last_vars = {expr for expr in last.postFlatIter() if isinstance(expr, Local)}
+                # We can only safely move the last statement into the loop increment if it does
+                # not reference any variables defined within the loop body
+                # We just check whether any variables it referenced are also part of the loop condition
+                # because any variables in the loop condition are gauranteed to be defined outside.
+                if last.isLocalAssign() and all(v in self.expr.params for v in last_vars):
                     # hack - pop last statement so it won't be printed as part of the body
                     body.statements.pop()
                     parts = print_(self.expr), print_(last), print_(body)
@@ -371,7 +376,7 @@ class ArrayAccess(JavaExpression):
     def __init__(self, *params):
         if params[0].dtype == objtypes.NullTT:
             # Unfortunately, Java doesn't really support array access on null constants
-            #So we'll just cast it to Object[] as a hack
+            # So we'll just cast it to Object[] as a hack
             param = makeCastExpr(objtypes.withDimInc(objtypes.ObjectTT, 1), params[0])
             params = param, params[1]
 
@@ -524,7 +529,7 @@ def printFloat(x, isSingle):
     assert x >= 0.0 and not math.isinf(x)
     suffix = 'f' if isSingle else ''
     if isSingle and x > 0.0:
-        # Try to find more compract representation for floats, since repr treats everything as doubles
+        # Try to find more compact representation for floats, since repr treats everything as doubles
         m, e = math.frexp(x)
         half_ulp2 = math.ldexp(1.0, max(e - 25, -150)) # don't bother doubling when near the upper range of a given e value
         half_ulp1 = (half_ulp2/2) if m == 0.5 and e >= -125 else half_ulp2
@@ -685,7 +690,7 @@ class Ternary(JavaExpression):
     def dtype(self): return self.params[1].dtype
 
     def addParens_sub(self):
-        # Add unecessary parenthesis to complex conditions for readability
+        # Add unnecessary parenthesis to complex conditions for readability
         if self.params[0].precedence >= 20 or self.params[0].complexity() > 0:
             self.params[0] = Parenthesis(self.params[0])
         if self.params[2].precedence > 20:

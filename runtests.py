@@ -300,8 +300,8 @@ if __name__ == '__main__':
 
     print(len(testlist), 'test cases found')
     assert testlist
-    for error in multiprocessing.Pool(processes=5).map(runTest, testlist):
-    # for error in map(runTest, testlist):
+    # for error in multiprocessing.Pool(processes=5).map(runTest, testlist):
+    for error in map(runTest, testlist):
         if error:
             print(error)
             break

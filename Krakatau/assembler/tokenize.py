@@ -70,7 +70,7 @@ class Tokenizer(object):
         self.pos = 0
         self.atlineend = True
         if isinstance(filename, bytes):
-            filename = filename.decode()
+            filename = filename.decode('utf8')
         self.filename = filename.rpartition('/')[-1]
 
     def error(self, error, *notes):

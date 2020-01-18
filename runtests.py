@@ -171,7 +171,7 @@ def _assemble(disassembled):
     for name, source in disassembled.items():
         for name2, data in assemble.assembleSource(source, name, fatal=True):
             assert name == name2
-            assembled[name.decode()] = data
+            assembled[name.decode('utf8')] = data
     return assembled
 
 def runDisassemblerTest(disonly, basedir, target, testcases):
@@ -217,8 +217,8 @@ def preprocess(source, fname):
             buf += source[pos:dstart]
             dend = source.find(b'###', dstart + 3)
             m = RANGE_RE.match(source, dstart, dend)
-            pattern = source[m.end():dend].decode()
-            for i in range(*ast.literal_eval(m.group(1).decode())):
+            pattern = source[m.end():dend].decode('utf8')
+            for i in range(*ast.literal_eval(m.group(1).decode('utf8'))):
                 buf += pattern.format(i, ip1=i+1).encode()
             pos = dend + 3
             dstart = source.find(b'###range', pos)

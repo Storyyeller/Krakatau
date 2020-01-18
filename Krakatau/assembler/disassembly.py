@@ -163,7 +163,7 @@ class ReferencePrinter(object):
         except KeyError:
             s = self.cpslots[ind].data
             string = format_string(s)
-            word = s.decode() if isword(s) else string
+            word = s.decode('utf8') if isword(s) else string
             self.encoded[ind] = [string, word]
             return word if wordok else string
 

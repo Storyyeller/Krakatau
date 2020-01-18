@@ -73,7 +73,7 @@ class PathSanitizer(object):
 
     def sanitize(self, path):
         if isinstance(path, bytes):
-            path = path.decode()
+            path = path.decode('utf8')
 
         oldparts = path.split('/')
         newparts = []

@@ -2,7 +2,7 @@ import collections
 
 from .reader import Reader
 
-TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', None, 'InvokeDynamic', 'Module', 'Package']
+TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', 'Dynamic', 'InvokeDynamic', 'Module', 'Package']
 
 SlotData = collections.namedtuple('SlotData', ['tag', 'data', 'refs'])
 ExceptData = collections.namedtuple('ExceptData', ['start', 'end', 'handler', 'type'])

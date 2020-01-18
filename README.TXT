@@ -1,5 +1,5 @@
 Krakatau Bytecode Tools
-Copyright (C) 2012-18 Robert Grosse
+Copyright (C) 2012-20 Robert Grosse
 
 === Introduction ===
 
@@ -117,18 +117,12 @@ exactly reproduce the original binary classfile.
 Note: If you find a valid class which Krakatau cannot disassemble, please file
 an issue at https://github.com/Storyyeller/Krakatau/issues.
 
-=== Java 10 ===
+=== Java 13 ===
 
-The assembler and disassembler fully support Java 10, while the decompiler only
+The assembler and disassembler fully support Java 13, while the decompiler only
 supports Java 7. In particular, decompilation of lambdas is not supported.
 
 === Performance ===
 
 You can disable the internal debugging checks by passing -O to Python. This
 will make Krakatau slightly faster, so it is recommended for normal usage.
-
-=== Pypy ===
-
-If you want to use Pypy, you'll need a build from 15 Feb 2016 or later.
-Previous versions of Pypy have a bug that causes a segfault when running
-Krakatau.

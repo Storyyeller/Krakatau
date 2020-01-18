@@ -16,7 +16,7 @@ MAX_INLINE_SIZE = 300
 MAX_INDENT = 20
 WORD_REGEX = re.compile(token_regexes.WORD + r'\Z')
 
-PREFIXES = {'Utf8': 'u', 'Class': 'c', 'String': 's', 'Field': 'f', 'Method': 'm', 'InterfaceMethod': 'im', 'NameAndType': 'nat', 'MethodHandle': 'mh', 'MethodType': 'mt', 'InvokeDynamic': 'id'}
+PREFIXES = {'Utf8': 'u', 'Class': 'c', 'String': 's', 'Field': 'f', 'Method': 'm', 'InterfaceMethod': 'im', 'NameAndType': 'nat', 'MethodHandle': 'mh', 'MethodType': 'mt', 'Dynamic': 'dc', 'InvokeDynamic': 'id'}
 
 class DisassemblyError(Exception):
     pass
@@ -252,7 +252,7 @@ class ReferencePrinter(object):
             parts = [self.utfref(slot.refs[0]), self.utfref(slot.refs[1])]
         elif slot.tag == 'MethodHandle':
             parts = [self.mhnotref(ind)]
-        elif slot.tag == 'InvokeDynamic':
+        elif slot.tag in ['InvokeDynamic', 'Dynamic']:
             parts = [self.bsref(slot.refs[0]), self.natref(slot.refs[1])]
         parts.insert(0, slot.tag)
         return ' '.join(parts)
@@ -287,7 +287,7 @@ class ReferencePrinter(object):
             if temp is not None:
                 return temp
             return self.symref(ind)
-        return self.taggedref(ind, allowed=['Class', 'MethodHandle', 'MethodType'])
+        return self.taggedref(ind, allowed=['Class', 'MethodHandle', 'MethodType', 'Dynamic'])
 
     def bsnotref(self, ind, tagged=False):
         slot = self.bsslots[ind]
@@ -300,7 +300,8 @@ class ReferencePrinter(object):
         else:
             parts.append(self.mhnotref(slot.refs[0]))
         for bsarg in slot.refs[1:]:
-            parts.append(self.taggedref(bsarg))
+            # Force Dynamic arguments to be references in order to avoid infinite loops
+            parts.append(self.taggedref(bsarg, allowed=['Int', 'Long', 'Float', 'Double', 'String', 'Class', 'MethodHandle', 'MethodType']))
         parts.append(':')
         return ' '.join(parts)
 
@@ -668,6 +669,12 @@ class Disassembler(object):
                 a.val('.modulepackages')
                 for _ in range(r.u16()):
                     a.clsref(r.u16(), tag='Package')
+            elif name == b'NestHost':
+                a.val('.nesthost'), a.clsref(r.u16())
+            elif name == b'NestMembers':
+                a.val('.nestmembers')
+                for _ in range(r.u16()):
+                    a.clsref(r.u16())
             elif name in (b'RuntimeVisibleAnnotations', b'RuntimeVisibleParameterAnnotations',
                 b'RuntimeVisibleTypeAnnotations', b'RuntimeInvisibleAnnotations',
                 b'RuntimeInvisibleParameterAnnotations', b'RuntimeInvisibleTypeAnnotations'):

@@ -281,6 +281,7 @@ class Parser(object):
 
     def bootstrapargs(a):
         while not a.hasv(':'):
+            # Do not allow Dynamic or InvokeDynamic here in order to avoid infinite loops
             yield a.ref_or_tagged_const(methodhandle=True)
         a.val(':')
 
@@ -356,7 +357,7 @@ class Parser(object):
             return pool.primitive('Double', tok, a.doublel())
         elif a.hastype('STRING_LITERAL'):
             return pool.single('String', a.tok, a.string())
-        return a.ref_or_tagged_const(methodhandle=True)
+        return a.ref_or_tagged_const(methodhandle=True, invokedynamic=True)
 
     def flags(a):
         flags = 0
@@ -839,13 +840,18 @@ class Parser(object):
             a.val('.end'), a.val('module')
 
         elif a.tryv('.modulemainclass'):
-            print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
             attr, w = create(b'ModuleMainClass')
             w.ref(a.clsref())
         elif a.tryv('.modulepackages'):
-            print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
             attr, w = create(b'ModulePackages')
             a.list(w, a.ateol, a._package_item)
+
+        elif a.tryv('.nesthost'):
+            attr, w = create(b'NestHost')
+            w.ref(a.clsref())
+        elif a.tryv('.nestmembers'):
+            attr, w = create(b'NestMembers')
+            a.list(w, a.ateol, a._class_item)
 
         elif a.tryv('.runtime'):
             if not a.hasany(['visible', 'invisible']):

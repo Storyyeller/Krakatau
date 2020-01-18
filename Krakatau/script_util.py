@@ -11,7 +11,7 @@ import zipfile
 
 # Various utility functions for the top level scripts (decompile.py, assemble.py, disassemble.py)
 
-copyright = '''Krakatau  Copyright (C) 2012-18  Robert Grosse
+copyright = '''Krakatau  Copyright (C) 2012-20  Robert Grosse
 This program is provided as open source under the GNU General Public License.
 See LICENSE.TXT for more details.
 '''
@@ -161,7 +161,11 @@ class JarWriter(object):
         self.suffix = suffix
 
     def write(self, cname, data):
-        info = zipfile.ZipInfo(cname + self.suffix, (1980, 1, 1, 0, 0, 0))
+        # Temporary hack:
+        if isinstance(cname, bytes):
+            cname = cname.decode('utf8')
+        name = cname + self.suffix
+        info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
         self.zip.writestr(info, data)
         return 'zipfile'
 

@@ -57,7 +57,7 @@ if __name__== "__main__":
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('-path', help='Jar to look for class in')
     parser.add_argument('-roundtrip', action='store_true', help='Create assembly file that can roundtrip to original binary.')
-    parser.add_argument('target', help='Name of class or jar file to decompile')
+    parser.add_argument('target', help='Name of class or jar file to disassemble')
     args = parser.parse_args()
 
     targets = script_util.findFiles(args.target, args.r, '.class')

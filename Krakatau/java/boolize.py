@@ -7,7 +7,7 @@ from ..ssa.objtypes import BExpr, BoolTT, ByteTT, CharTT, IntTT, ShortTT
 from . import ast
 
 # Class union-find data structure except that we don't bother with weighting trees and singletons are implicit
-# Also, booleans are forced to be seperate roots
+# Also, booleans are forced to be separate roots
 FORCED_ROOTS = True, False
 class UnionFind(object):
     def __init__(self):

@@ -75,7 +75,7 @@ def getNextInstruction(data, address):
     elif byte <= 0x35:
         op = opnames.ARRLOAD
         t = [I,L,F,D,A,B,C,S][byte - 0x2e]
-        inst = (op, t) if t != A else (opnames.ARRLOAD_OBJ,) # split object case into seperate op name to simplify things later
+        inst = (op, t) if t != A else (opnames.ARRLOAD_OBJ,) # split object case into separate op name to simplify things later
     elif byte <= 0x4e:
         op = opnames.STORE
         if byte <= 0x3a:
@@ -89,7 +89,7 @@ def getNextInstruction(data, address):
     elif byte <= 0x56:
         op = opnames.ARRSTORE
         t = [I,L,F,D,A,B,C,S][byte - 0x4f]
-        inst = (op, t) if t != A else (opnames.ARRSTORE_OBJ,) # split object case into seperate op name to simplify things later
+        inst = (op, t) if t != A else (opnames.ARRSTORE_OBJ,) # split object case into separate op name to simplify things later
     elif byte <= 0x77:
         temp = byte - 0x60
         opt = (opnames.ADD,opnames.SUB,opnames.MUL,opnames.DIV,opnames.REM,opnames.NEG)[temp//4]

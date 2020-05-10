@@ -37,7 +37,8 @@ class TestFailed(Exception):
 def execute(args, cwd):
     print('executing command', args, 'in directory', cwd)
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-    return process.communicate()
+    stdout, stderr = process.communicate()
+    return (stdout.decode('utf8'), stderr.decode('utf8'))
 
 def read(filename):
     with open(filename, 'rb') as f:
@@ -46,12 +47,6 @@ def read(filename):
 def shash(data): return hashlib.sha256(data).hexdigest()
 
 ###############################################################################
-# workaround for broken unicode handling on Window - turn nonascii bytes into corresponding utf8 encoding
-def _forceUtf8(s):
-    if script_util.IS_WINDOWS and s and max(s) > '\x7f':
-        return ''.join(unichr(ord(b)).encode('utf8') for b in s)
-    return s
-
 def _runJava(target, in_fname, argslist):
     tdir = tempfile.mkdtemp()
     with open(in_fname, 'rb') as temp:
@@ -66,11 +61,10 @@ def _runJava(target, in_fname, argslist):
 
     for args in argslist:
         # results = execute(['java', target] + list(args), cwd=tdir)
-        results = func(args)
-        assert 'VerifyError' not in results[1]
-        assert 'ClassFormatError' not in results[1]
-        # yield results
-        yield map(_forceUtf8, results)
+        stdout, stderr = func(args)
+        assert 'VerifyError' not in stderr
+        assert 'ClassFormatError' not in stderr
+        yield (stdout, stderr)
     shutil.rmtree(tdir)
 
 def runJava(target, in_fname, argslist):
@@ -288,7 +282,7 @@ if __name__ == '__main__':
 
         for fname in os.listdir(dis2_class_location):
             target = fname.rpartition('.')[0]
-            if target_filter(target):
+            if target_filter((target, [])):
                 testlist.append(('disassembler', True, dis2_class_location, target, None))
 
     if do_assemble:

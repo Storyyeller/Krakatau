@@ -409,7 +409,7 @@ class Parser(object):
             a.eol()
 
     def class_item(a):
-        a.try_const_def() or a.try_field() or a.try_method() or a.try_attribute(a.cls) or a.fail()
+        a.try_const_def() or a.try_field() or a.try_method() or a.try_attribute(a.cls, allowed=('Record')) or a.fail()
 
     def try_const_def(a):
         if a.hasany(['.const', '.bootstrap']):
@@ -472,7 +472,7 @@ class Parser(object):
                 a.legacy_method_body()
             else:
                 while not a.atendtok():
-                    a.try_attribute(m) or a.fail()
+                    a.try_attribute(m, allowed=('Code')) or a.fail()
 
             a.val('.end'), a.val('method'), a.eol()
             a.cls.methods.append(m)
@@ -753,7 +753,7 @@ class Parser(object):
 
     ###########################################################################
     ### Attributes ############################################################
-    def try_attribute(a, parent):
+    def try_attribute(a, parent, allowed=()):
         if a.hasv('.attribute'):
             startok, name = a.consume(), a.utfref()
             if a.tryv('length'):
@@ -765,7 +765,7 @@ class Parser(object):
             if a.hastype('STRING_LITERAL'):
                 attr.data.writeBytes(a.string(maxlen=0xFFFFFFFF))
             else:
-                namedattr = a.maybe_named_attribute(attr)
+                namedattr = a.maybe_named_attribute(attr, allowed=allowed)
                 if namedattr is not None:
                     attr.data = namedattr.data
                 else:
@@ -774,14 +774,14 @@ class Parser(object):
             parent.attributes.append(attr)
             return True
         else:
-            namedattr = a.maybe_named_attribute(None)
+            namedattr = a.maybe_named_attribute(None, allowed=allowed)
             if namedattr is not None:
                 a.eol()
                 parent.attributes.append(namedattr)
                 return True
         return False
 
-    def maybe_named_attribute(a, wrapper_attr):
+    def maybe_named_attribute(a, wrapper_attr, allowed):
         starttok = a.tok
         def create(name):
             attr = assembly.Attribute(starttok, name)
@@ -793,7 +793,9 @@ class Parser(object):
         elif a.tryv('.bootstrapmethods'):
             attr, w = create(b'BootstrapMethods')
             a.cls.bootstrapmethods = wrapper_attr or attr
-        elif a.code is None and a.tryv('.code'):
+        elif a.tryv('.code'):
+            if 'Code' not in allowed:
+                a.error('Code attributes are only allowed at method level', starttok)
             a.code = c = assembly.Code(starttok, a.cls.useshortcodeattrs)
             limitfunc = a.u8 if c.short else a.u16
             _, c.stack, _, c.locals, _ = a.val('stack'), limitfunc(), a.val('locals'), limitfunc(), a.eol()
@@ -845,13 +847,18 @@ class Parser(object):
         elif a.tryv('.modulepackages'):
             attr, w = create(b'ModulePackages')
             a.list(w, a.ateol, a._package_item)
-
         elif a.tryv('.nesthost'):
             attr, w = create(b'NestHost')
             w.ref(a.clsref())
         elif a.tryv('.nestmembers'):
             attr, w = create(b'NestMembers')
             a.list(w, a.ateol, a._class_item)
+
+        elif a.tryv('.record'):
+            if 'Record' not in allowed:
+                a.error('Record attributes are only allowed at class level', starttok)
+            attr, w = create(b'Record')
+            a.eol(), a.list(w, a.atendtok, a._record_item), a.val('.end'), a.val('record')
 
         elif a.tryv('.runtime'):
             if not a.hasany(['visible', 'invisible']):
@@ -916,6 +923,17 @@ class Parser(object):
         w.ref(a.clsref()), a.val('with')
         a.list(w, a.ateol, a._class_item)
         a.eol()
+
+    def _record_item(a, w):
+        w.ref(a.utfref()), w.ref(a.utfref())
+        rc = assembly.RecordComponent()
+        if a.tryv('.attributes'):
+            a.eol()
+            while not a.atendtok():
+                a.try_attribute(rc) or a.fail()
+            a.val('.end'), a.val('attributes')
+        a.eol()
+        rc.assembleNoCP(w, a.error)
 
     ###########################################################################
     ### Annotations ###########################################################

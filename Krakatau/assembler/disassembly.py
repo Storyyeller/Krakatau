@@ -675,6 +675,8 @@ class Disassembler(object):
                 a.val('.nestmembers')
                 for _ in range(r.u16()):
                     a.clsref(r.u16())
+            elif name == b'Record':
+                a.indented_line_list(r, a._record_component, 'record')
             elif name in (b'RuntimeVisibleAnnotations', b'RuntimeVisibleParameterAnnotations',
                 b'RuntimeVisibleTypeAnnotations', b'RuntimeInvisibleAnnotations',
                 b'RuntimeInvisibleParameterAnnotations', b'RuntimeInvisibleTypeAnnotations'):
@@ -758,6 +760,17 @@ class Disassembler(object):
         a.int(ind), a.val('is'), a.utfref(name), a.utfref(desc),
         a.val('from'), a.try_lbl(start), a.val('to'), a.try_lbl(start + length)
     def _methodparams_item(a, r): a.utfref(r.u16()), a.flags(r.u16(), flags.RFLAGS_MOD_OTHER)
+
+    def _record_component(a, r):
+        a.utfref(r.u16()), a.utfref(r.u16())
+        attrs = [classdata.AttributeData(r) for _ in range(r.u16())]
+        if attrs:
+            a.val('.attributes'), a.eol()
+            a.indentlevel += 1
+            for attr in attrs:
+                a.attribute(attr)
+            a.indentlevel -= 1
+            a.sol(), a.val('.end attributes')
 
     ###########################################################################
     ### Annotations ###########################################################

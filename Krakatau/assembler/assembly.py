@@ -69,6 +69,16 @@ class Code(object):
             attr.assembleNoCP(data, error)
         return data.fillLabels(self.labels, error)
 
+class RecordComponent(object):
+    def __init__(self):
+        self.attributes = []
+
+    def assembleNoCP(self, data, error):
+        writeU16Count(data, error, self.attributes, 'attribute')
+        for attr in self.attributes:
+            attr.assembleNoCP(data, error)
+        return data
+
 class Attribute(object):
     def __init__(self, tok, name, length=None):
         assert tok

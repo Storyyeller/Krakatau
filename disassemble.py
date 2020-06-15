@@ -32,6 +32,11 @@ def disassembleSub(readTarget, out, targets, roundtrip=False, outputClassName=Tr
             print('processing target {}, {}/{} remaining'.format(target, len(targets)-i, len(targets)))
 
             data = readTarget(target)
+            if not data.startswith(b'\xca\xfe\xba\xbe'):
+                print('Warning! Skipping {} since it is not a valid classfile.'.format(target))
+                print('File begins with {!r}, expected {!r}'.format(data[:4], b'\xca\xfe\xba\xbe'))
+                continue
+
             clsdata = ClassData(Reader(data))
 
             if outputClassName:

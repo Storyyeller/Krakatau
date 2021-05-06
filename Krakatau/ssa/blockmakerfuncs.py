@@ -272,7 +272,15 @@ def _ldc(maker, input_, iNode):
     elif entry_type == 'Class':
         var = makeConstVar(maker.parent, SSA_OBJECT, parseArrOrClassName(args[0]))
         var.decltype = objtypes.ClassTT
-    # Todo - handle MethodTypes and MethodHandles?
+    elif entry_type == 'MethodType' or entry_type == 'MethodHandle':
+        # Todo - handle MethodTypes and MethodHandles?
+        if entry_type == 'MethodType':
+            args_repr = args[0]
+        else:
+            args_repr = str(args)
+        placeholder = 'Unknown constant {} {}'.format(entry_type, args_repr)
+        var = makeConstVar(maker.parent, SSA_OBJECT, placeholder)
+        var.decltype = objtypes.ObjectTT
 
     assert var
     newstack = input_.stack + [var] + [None]*(cat-1)

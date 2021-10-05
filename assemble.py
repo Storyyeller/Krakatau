@@ -13,8 +13,12 @@ def assembleSource(source, basename, fatal=False):
 
 def assembleClass(filename):
     basename = os.path.basename(filename)
-    with open(filename, 'rU') as f:
-        source = f.read()
+    try:
+        with open(filename, 'rU') as f:
+            source = f.read()
+    except Exception:
+        with open(filename, 'rU', encoding='utf8') as f:
+            source = f.read()
     return assembleSource(source, basename)
 
 if __name__== "__main__":

@@ -321,7 +321,8 @@ class Parser(object):
             return pool.Ref(tok, type=tok.val, refs=[a.utfref(), a.utfref()])
         elif methodhandle and a.tryv('MethodHandle'):
             return a.mhnotref(tok)
-        elif invokedynamic and a.tryv('InvokeDynamic'):
+        elif invokedynamic and a.hasany(['Dynamic', 'InvokeDynamic']):
+            a.consume()
             return pool.Ref(tok, type=tok.val, refs=[a.bsref(), a.natref()])
 
         elif a.tryv('Bootstrap'):

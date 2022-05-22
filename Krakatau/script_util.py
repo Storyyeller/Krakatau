@@ -172,6 +172,29 @@ class JarWriter(object):
     def __enter__(self): self.zip.__enter__(); return self
     def __exit__(self, *args): self.zip.__exit__(*args)
 
+class SingleFileWriter(object):
+    def __init__(self, path):
+        self.path = path
+
+    def write(self, cname, data):
+        dirpath = os.path.dirname(self.path)
+
+        try:
+            if dirpath:
+                os.makedirs(dirpath)
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                raise
+
+        mode = 'wb' if isinstance(data, bytes) else 'w'
+        with open(self.path, mode) as f:
+            f.write(data)
+        return self.path
+
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
+
+
 class MockWriter(object):
     def __init__(self): self.results = []
     def write(self, cname, data): self.results.append((cname, data))
@@ -182,6 +205,8 @@ def makeWriter(base_path, suffix):
     if base_path is not None:
         if base_path.endswith('.zip') or base_path.endswith('.jar'):
             return JarWriter(base_path, suffix)
+        if base_path.endswith(suffix):
+            return SingleFileWriter(base_path)
     return DirectoryWriter(base_path, suffix)
 
 ###############################################################################

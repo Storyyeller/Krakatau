@@ -6,7 +6,7 @@
     .code stack 910 locals 10
     ldc 'LdcTest'
     ldc_w Class "LdcTest"
-###range(253,):
+###range(254,):
     ldc "{}"
 ###
         return

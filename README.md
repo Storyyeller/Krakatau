@@ -20,7 +20,7 @@ Example usage:
 
 You can either disassemble an individual classfile, a directory of classfiles, or an entire jar file. If the input filename ends in `.jar`, it will be treated as a jar file. To disassemble a directory recursively, pass the `-r` option.
 
-The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
+The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If it ends with `.j`, output will be written to that file. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
 
 To disassemble in roundtrip mode as described above, pass the `-roundtrip` option.
 
@@ -34,7 +34,7 @@ The Krakatau assembler allows you to write Java bytecode in a human friendly tex
 
 You can either assemble an individual source file, a directory of source files, or an entire jar file containing assembly files. If the input filename ends in `.jar`, it will be treated as a jar file. To assemble a directory recursively, pass the `-r` option. In the case of the jar and directory modes, all files with the extention `.j` will be assembled.
 
-The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
+The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If it ends with `.class`, output will be written to that file. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
 
 The `-q` option surpresses all console output other than warnings and errors. This can be useful if you are using Krakatau as part of an automated build system.
 
@@ -50,7 +50,7 @@ Example usage:
 
     python Krakatau/decompile.py -out temp difficult_jars/issue133/sample.jar -nauto -path jres/jrt9.jar -path merged.jar -path merged2.jar -path merged3.jar
 
-The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
+The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If it ends with `.java`, output will be written to that file. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
 
 The `-path` option is used to pass the location of any library jars that the decompiled classes reference (see above). You can also pass multiple paths at once as a semicolon separated list.
 

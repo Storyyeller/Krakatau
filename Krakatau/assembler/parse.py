@@ -797,7 +797,9 @@ class Parser(object):
         elif a.tryv('.code'):
             if 'Code' not in allowed:
                 a.error('Code attributes are only allowed at method level', starttok)
-            a.code = c = assembly.Code(starttok, a.cls.useshortcodeattrs)
+
+            is_short = a.cls.useshortcodeattrs and not a.tryv('long')
+            a.code = c = assembly.Code(starttok, is_short)
             limitfunc = a.u8 if c.short else a.u16
             _, c.stack, _, c.locals, _ = a.val('stack'), limitfunc(), a.val('locals'), limitfunc(), a.eol()
             a.code_body()

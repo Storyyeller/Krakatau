@@ -14,6 +14,7 @@ registry = {
     'AnnotationsTest': ([],),
     'LineNumbersTest': ([],),
     'MethodParametersTest': ([],),
+    'PatternMatching': ([],),
     'Primes': (['2'], ['3'], ['55555']),
     'SelfInner': ([],),
 }

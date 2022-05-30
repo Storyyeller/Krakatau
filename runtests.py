@@ -52,18 +52,23 @@ def _runJava(target, in_fname, argslist):
     with open(in_fname, 'rb') as temp:
         isclass = temp.read(4) == b'\xCA\xFE\xBA\xBE'
 
+    cmd_base = ['java']
+    # cmd_base = '/usr/lib/jvm/jdk-18/bin/java --enable-preview'.split()
+
     if isclass:
         shutil.copy2(in_fname, os.path.join(tdir, target + '.class'))
-        func = lambda args: execute(['java', target] + list(args), cwd=tdir)
+        func = lambda args: execute(cmd_base + [target] + list(args), cwd=tdir)
     else:
         shutil.copy2(in_fname, os.path.join(tdir, target + '.jar'))
-        func = lambda args: execute(['java', '-cp', target + '.jar', target] + list(args), cwd=tdir)
+        func = lambda args: execute(cmd_base + ['-cp', target + '.jar', target] + list(args), cwd=tdir)
 
     for args in argslist:
         # results = execute(['java', target] + list(args), cwd=tdir)
         stdout, stderr = func(args)
-        assert 'VerifyError' not in stderr
-        assert 'ClassFormatError' not in stderr
+        if 'VerifyError' in stderr or 'ClassFormatError':
+            print(stderr)
+            assert 'VerifyError' not in stderr
+            assert 'ClassFormatError' not in stderr
         yield (stdout, stderr)
     shutil.rmtree(tdir)
 

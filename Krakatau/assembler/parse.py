@@ -834,7 +834,6 @@ class Parser(object):
             attr, w = create(b'MethodParameters')
             a.eol(), a.listu8(w, a.atendtok, a._methodparams_item), a.val('.end'), a.val('methodparameters')
         elif a.tryv('.module'):
-            print('Warning! Assembler syntax for Java 9 modules is experimental and subject to change. Please file an issue on Github if you have any opinions or feedback about the syntax')
             attr, w = create(b'Module')
             w.ref(a.utfref()), w.u16(a.flags()), a.consume(), w.ref(a.utfref()), a.eol(),
             a._mod_list(w, '.requires', a._mod_requires_item)
@@ -855,6 +854,9 @@ class Parser(object):
             w.ref(a.clsref())
         elif a.tryv('.nestmembers'):
             attr, w = create(b'NestMembers')
+            a.list(w, a.ateol, a._class_item)
+        elif a.tryv('.permittedsubclasses'):
+            attr, w = create(b'PermittedSubclasses')
             a.list(w, a.ateol, a._class_item)
 
         elif a.tryv('.record'):

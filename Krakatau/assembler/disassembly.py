@@ -675,6 +675,10 @@ class Disassembler(object):
                 a.val('.nestmembers')
                 for _ in range(r.u16()):
                     a.clsref(r.u16())
+            elif name == b'PermittedSubclasses':
+                a.val('.permittedsubclasses')
+                for _ in range(r.u16()):
+                    a.clsref(r.u16())
             elif name == b'Record':
                 a.indented_line_list(r, a._record_component, 'record')
             elif name in (b'RuntimeVisibleAnnotations', b'RuntimeVisibleParameterAnnotations',

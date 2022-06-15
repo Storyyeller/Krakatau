@@ -83,10 +83,11 @@ def deleteUnusued(cls):
     del cls.interfaces_raw, cls.cpool
     del cls.attributes
 
-def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_throws=False, magic_throw=False):
+def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_throws=False, magic_throw=False,
+                   prompt_for_missing_class=False):
     out = script_util.makeWriter(outpath, '.java')
 
-    e = Environment()
+    e = Environment(prompt_for_missing_class)
     for part in path:
         e.addToPath(part)
 
@@ -133,6 +134,7 @@ if __name__== "__main__":
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
     parser.add_argument('-xmagicthrow', action='store_true')
+    parser.add_argument('-prompt', action='store_true', help="Prompt for additional `path` argument when a class is not found instead of immediately failing")
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -155,4 +157,5 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
-    decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow)
+    decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow,
+                   prompt_for_missing_class=args.prompt)

@@ -7,9 +7,10 @@ from .classfileformat.reader import Reader
 from .error import ClassLoaderError
 
 class Environment(object):
-    def __init__(self):
+    def __init__(self, prompt_for_missing_class=False):
         self.classes = {}
         self.path = []
+        self.prompt_for_missing_class = prompt_for_missing_class
         self._open = {}
 
     def addToPath(self, path):
@@ -83,12 +84,31 @@ class Environment(object):
                 except KeyError:
                     pass
 
+    def prompt_for_class_path(self, name):
+        new_path = raw_input('where do you think {} is?:'.format(name))
+        if new_path.lower() == 'no':
+            return True
+        else:
+            self.path.append(new_path)
+            for place in self.path:
+                if place not in self._open and (place.endswith('.jar') or place.endswith('.zip')):
+                    self._open[place] = zipfile.ZipFile(place, 'r')
+            print('paths is now: {}'.format(self.path))
+            return False
+
     def _loadClass(self, name):
         print("Loading", name[:70])
         data = self._searchForFile(name)
-
+        bailed = False
         if data is None:
-            raise ClassLoaderError('ClassNotFoundException', name)
+            if self.prompt_for_missing_class:
+                while data is None and not bailed:
+                    bailed = self.prompt_for_class_path(name)
+                    data = self._searchForFile(name)
+                if bailed:
+                    raise ClassLoaderError('ClassNotFoundException', name)
+            else:
+                raise ClassLoaderError('ClassNotFoundException', name)
 
         stream = Reader(data=data)
         new = ClassFile(stream)

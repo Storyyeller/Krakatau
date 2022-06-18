@@ -3,7 +3,7 @@ import itertools
 
 from .writer import Writer
 
-TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', None, 'InvokeDynamic', 'Module', 'Package']
+TAGS = [None, 'Utf8', None, 'Int', 'Float', 'Long', 'Double', 'Class', 'String', 'Field', 'Method', 'InterfaceMethod', 'NameAndType', None, None, 'MethodHandle', 'MethodType', 'Dynamic', 'InvokeDynamic', 'Module', 'Package']
 
 class Ref(object):
     def __init__(self, tok, index=None, symbol=None, type=None, refs=None, data=None, isbs=False):

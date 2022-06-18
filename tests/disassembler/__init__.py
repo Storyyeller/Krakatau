@@ -16,5 +16,6 @@ registry = {
     'MethodParametersTest': ([],),
     'PatternMatching': ([],),
     'Primes': (['2'], ['3'], ['55555']),
+    'RecursiveDynamic': ([],),
     'SelfInner': ([],),
 }

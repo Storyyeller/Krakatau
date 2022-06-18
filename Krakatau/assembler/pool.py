@@ -250,7 +250,7 @@ class Pool(object):
 
     def resolveIDBSRefs(self, error):
         for v in self.cp.slots.values():
-            if v is not None and v.type == 'InvokeDynamic':
+            if v is not None and (v.type == 'InvokeDynamic' or v.type == 'Dynamic'):
                 v.refs[0].resolve(self, error)
 
     def write(self, error):

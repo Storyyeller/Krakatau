@@ -701,6 +701,8 @@ class Disassembler(object):
             elif name == b'SourceDebugExtension':
                 a.val('.sourcedebugextension')
                 a.val(reprbytes(attr.raw))
+                # Consume the attr stream in order to pass the extra data check at the end
+                r.getRaw(len(attr.raw))
             elif name == b'SourceFile':
                 a.val('.sourcefile'), a.utfref(r.u16())
             elif name == b'Synthetic':

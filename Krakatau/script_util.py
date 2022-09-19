@@ -175,6 +175,7 @@ class JarWriter(object):
 class SingleFileWriter(object):
     def __init__(self, path):
         self.path = path
+        self.first = True
 
     def write(self, cname, data):
         dirpath = os.path.dirname(self.path)
@@ -186,9 +187,13 @@ class SingleFileWriter(object):
             if exc.errno != errno.EEXIST:
                 raise
 
-        mode = 'wb' if isinstance(data, bytes) else 'w'
+        mode = 'w' if self.first else 'a'
+        if isinstance(data, bytes):
+            mode += 'b'
+        # mode = 'wb' if isinstance(data, bytes) else 'w'
         with open(self.path, mode) as f:
             f.write(data)
+        self.first = False
         return self.path
 
     def __enter__(self): return self

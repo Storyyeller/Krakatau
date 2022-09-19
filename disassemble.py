@@ -68,7 +68,7 @@ if __name__== "__main__":
     targets = script_util.findFiles(args.target, args.r, '.class')
 
     jar = args.path
-    if jar is None and args.target.endswith('.jar'):
+    if jar is None and args.target.endswith('.jar') or args.target.endswith('.zip'):
         jar = args.target
 
     out = script_util.makeWriter(args.out, '.j')

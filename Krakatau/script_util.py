@@ -20,7 +20,7 @@ _osname = platform.system().lower()
 IS_WINDOWS = 'win' in _osname and 'darwin' not in _osname and 'cygwin' not in _osname
 
 def findFiles(target, recursive, prefix):
-    if target.endswith('.jar'):
+    if target.endswith('.jar') or target.endswith('.zip'):
         with zipfile.ZipFile(target, 'r') as archive:
             return [name.encode('utf8') for name in archive.namelist() if name.endswith(prefix)]
     else:

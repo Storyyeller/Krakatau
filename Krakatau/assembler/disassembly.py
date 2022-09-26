@@ -380,7 +380,7 @@ class Disassembler(object):
             a.method(m)
 
         for attr in cls.attributes:
-            a.attribute(attr)
+            a.attribute(attr, in_class=True)
 
         a.constdefs()
         a.val('.end class'), a.eol()
@@ -600,7 +600,7 @@ class Disassembler(object):
 
     ###########################################################################
     ### Attributes ############################################################
-    def attribute(a, attr, in_method=False, use_raw_stackmap=False):
+    def attribute(a, attr, in_method=False, in_class=False, use_raw_stackmap=False):
         name = a.pool.getutf(attr.name)
         if not a.roundtrip and name in (b'BootstrapMethods', b'StackMapTable'):
             return
@@ -616,14 +616,14 @@ class Disassembler(object):
 
         if name == b'Code' and in_method:
             a.code(attr.stream())
-        elif name == b'BootstrapMethods' and a.cls.version >= (51, 0):
+        elif name == b'BootstrapMethods' and a.cls.version >= (51, 0) and in_class:
             a.val('.bootstrapmethods')
         elif name == b'StackMapTable' and not use_raw_stackmap:
             a.val('.stackmaptable')
         elif a.attribute_fallible(name, attr):
             pass
         else:
-            print('Nonstandard attribute', name[:70], len(attr.raw))
+            print('Nonstandard attribute', name[:70] if name else '', len(attr.raw))
             if not isnamed:
                 a.val('.attribute'), a.utfref(attr.name)
             a.val(reprbytes(attr.raw))

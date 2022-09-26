@@ -627,7 +627,6 @@ class Disassembler(object):
             if not isnamed:
                 a.val('.attribute'), a.utfref(attr.name)
             a.val(reprbytes(attr.raw))
-
         a.eol()
 
     def attribute_fallible(a, name, attr):
@@ -707,6 +706,9 @@ class Disassembler(object):
                 a.val('.sourcefile'), a.utfref(r.u16())
             elif name == b'Synthetic':
                 a.val('.synthetic')
+            else:
+                a.out = orig_out
+                return False
 
             # check for extra data in the attribute
             if r.size():

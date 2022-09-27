@@ -148,8 +148,12 @@ class DirectoryWriter(object):
                 raise
 
         mode = 'wb' if isinstance(data, bytes) else 'w'
-        with open(out, mode) as f:
-            f.write(data)
+        if mode == 'wb':
+            with open(out, mode) as f:
+                f.write(data)
+        else:
+            with open(out, mode, encoding='utf8') as f:
+                f.write(data)
         return out
 
     def __enter__(self): return self

@@ -1,0 +1,20 @@
+[package]
+name = "krakatau2"
+version = "2.0.0-alpha"
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.1.18", features = ["derive"] }
+lazy_static = "1.4.0"
+regex = "1.4.3"
+zip = "0.6.2"
+hexf-parse = "0.2.1"
+typed-arena = "2.0.1"
+
+
+[[bin]]
+name = "krak2"
+path = "src/main.rs"

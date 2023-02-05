@@ -4,6 +4,8 @@ Krakatau's assembler syntax is mostly a superset of Jasmin syntax with some mino
 
 Krakatau also provides a decompiler for converting Java binaries to readable source code. Unlike other decompilers, the Krakatau decompiler was specifically designed for working with obfuscated code and can easily handle tricks that break other decompilers. However, the Krakatau decompiler does not support some Java 8+ features such as lambdas, so it works best on older code.
 
+**Note: You are currently viewing Krakatau v1. To check out v2 go to https://github.com/Storyyeller/Krakatau/tree/v2**.
+
 ## Installation
 
 Krakatau is pure python, so assuming you have Python already installed, all you need to do is checkout this repository.

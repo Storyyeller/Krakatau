@@ -6,6 +6,7 @@ use crate::lib::classfile::attrs;
 use crate::lib::classfile::attrs::AttrBody;
 use crate::lib::classfile::attrs::Attribute;
 use crate::lib::classfile::code;
+use crate::lib::classfile::code::SwitchArena;
 use crate::lib::classfile::parse::Class;
 use crate::lib::classfile::parse::Field;
 
@@ -356,7 +357,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         write!(self.w, "{:indent$}", lhs)
     }
 
-    fn instr(&mut self, ins: &code::Instr) -> Result<()> {
+    fn instr(&mut self, ins: &code::Instr, switches: &SwitchArena) -> Result<()> {
         let rp = self.rp;
         use code::Instr::*;
         match ins {
@@ -530,7 +531,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
             Goto(v0) => writeln!(self.w, "goto {}", *v0)?,
             Jsr(v0) => writeln!(self.w, "jsr {}", *v0)?,
             Ret(v0) => writeln!(self.w, "ret {}", *v0)?,
-            Tableswitch(jumps) => {
+            Tableswitch(i) => {
+                let jumps = switches.table(*i);
                 writeln!(self.w, "tableswitch {}", jumps.low)?;
                 self.enter_block();
                 for target in jumps.table.iter().copied() {
@@ -539,7 +541,8 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 writeln!(self.w, "{}default : {}", self.sol, jumps.default)?;
                 self.exit_block();
             }
-            Lookupswitch(jumps) => {
+            Lookupswitch(i) => {
+                let jumps = switches.map(*i);
                 writeln!(self.w, "lookupswitch")?;
                 self.enter_block();
                 for (val, target) in jumps.table.iter().copied() {
@@ -627,7 +630,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
         for &(addr, ref instr) in c.bytecode.0.iter() {
             self.begin_bytecode_line(addr, &mut excepts, &mut frames)?;
-            self.instr(instr)?;
+            self.instr(instr, &c.bytecode.2)?;
         }
 
         self.begin_bytecode_line(c.bytecode.1, &mut excepts, &mut frames)?;

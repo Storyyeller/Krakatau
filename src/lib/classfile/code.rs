@@ -143,6 +143,33 @@ impl SwitchMap {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct SwitchArena {
+    pub tables: Vec<SwitchTable>,
+    pub maps: Vec<SwitchMap>,
+}
+impl SwitchArena {
+    fn alloc_table(&mut self, v: SwitchTable) -> u32 {
+        let i = self.tables.len();
+        self.tables.push(v);
+        i.try_into().unwrap()
+    }
+
+    pub fn table(&self, i: u32) -> &SwitchTable {&self.tables[i as usize]}
+
+    fn alloc_map(&mut self, v: SwitchMap) -> u32 {
+        let i = self.maps.len();
+        self.maps.push(v);
+        i.try_into().unwrap()
+    }
+
+    pub fn map(&self, i: u32) -> &SwitchMap {&self.maps[i as usize]}
+}
+
+
+
+
+
 #[derive(Clone, Copy, Debug)]
 pub enum NewArrayTag {
     Boolean,
@@ -397,8 +424,8 @@ pub enum Instr {
     Goto(Pos),
     Jsr(Pos),
     Ret(u8),
-    Tableswitch(SwitchTable),
-    Lookupswitch(SwitchMap),
+    Tableswitch(u32),
+    Lookupswitch(u32),
     Ireturn,
     Lreturn,
     Freturn,
@@ -431,7 +458,7 @@ pub enum Instr {
     JsrW(Pos),
 }
 impl Instr {
-    fn new(r: &mut Reader, pos: Pos) -> Result<Self, ParseError> {
+    fn new(r: &mut Reader, pos: Pos, switches: &mut SwitchArena) -> Result<Self, ParseError> {
         use Instr::*;
 
         Ok(match r.u8()? {
@@ -605,8 +632,8 @@ impl Instr {
             0xA7 => Goto(pos.off(r.i16()?)?),
             0xA8 => Jsr(pos.off(r.i16()?)?),
             0xA9 => Ret(r.u8()?),
-            0xAA => Tableswitch(SwitchTable::new(r, pos)?),
-            0xAB => Lookupswitch(SwitchMap::new(r, pos)?),
+            0xAA => Tableswitch(switches.alloc_table(SwitchTable::new(r, pos)?)),
+            0xAB => Lookupswitch(switches.alloc_map(SwitchMap::new(r, pos)?)),
             0xAC => Ireturn,
             0xAD => Lreturn,
             0xAE => Freturn,
@@ -642,7 +669,7 @@ impl Instr {
         })
     }
 
-    fn validate(&self, pset: &PosSet) -> Result<(), ParseError> {
+    fn validate(&self, pset: &PosSet, switches: &SwitchArena) -> Result<(), ParseError> {
         use Instr::*;
         match self {
             Ifeq(p) => pset.validate(*p)?,
@@ -661,13 +688,15 @@ impl Instr {
             IfAcmpne(p) => pset.validate(*p)?,
             Goto(p) => pset.validate(*p)?,
             Jsr(p) => pset.validate(*p)?,
-            Tableswitch(table) => {
+            Tableswitch(i) => {
+                let table = switches.table(*i);
                 for p in table.table.iter() {
                     pset.validate(*p)?;
                 }
                 pset.validate(table.default)?
             }
-            Lookupswitch(table) => {
+            Lookupswitch(i) => {
+                let table = switches.map(*i);
                 for (_, p) in table.table.iter() {
                     pset.validate(*p)?;
                 }
@@ -684,7 +713,7 @@ impl Instr {
 }
 
 #[derive(Debug)]
-pub struct Bytecode(pub Vec<(Pos, Instr)>, pub Pos);
+pub struct Bytecode(pub Vec<(Pos, Instr)>, pub Pos, pub SwitchArena);
 impl Bytecode {
     fn new(r: &mut Reader) -> Result<(Self, PosSet), ParseError> {
         let len = r.0.len();
@@ -692,10 +721,11 @@ impl Bytecode {
             return ParseError::s("Bytecode length > 0xFFFFFFFF bytes");
         }
 
+        let mut switches = SwitchArena::default();
         let mut instrs = Vec::new();
         while r.0.len() > 0 {
             let pos = Pos((len - r.0.len()) as u32);
-            instrs.push((pos, Instr::new(r, pos)?));
+            instrs.push((pos, Instr::new(r, pos, &mut switches)?));
         }
         let endpos = Pos(len as u32);
 
@@ -707,10 +737,10 @@ impl Bytecode {
         pset.add(endpos);
 
         for (_, instr) in &instrs {
-            instr.validate(&pset)?;
+            instr.validate(&pset, &switches)?;
         }
 
-        Ok((Self(instrs, endpos), pset))
+        Ok((Self(instrs, endpos, switches), pset))
     }
 }
 

@@ -1,4 +1,5 @@
 // #![allow(unused)]
+#![allow(special_module_name)]
 
 mod ass_main;
 mod dis_main;

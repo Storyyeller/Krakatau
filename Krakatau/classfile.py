@@ -13,7 +13,9 @@ cp_structFmts = {3: '>i',
                 12: '>HH',
                 15: '>BH',
                 16: '>H',
-                18: '>HH'}
+                18: '>HH',
+                19: '>H',
+                20: '>H'}
 
 def get_cp_raw(bytestream):
     const_count = bytestream.get('>H')

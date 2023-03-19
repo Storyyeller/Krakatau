@@ -34,17 +34,17 @@ The Krakatau assembler allows you to write Java bytecode in a human friendly tex
 
     python Krakatau/assemble.py -out alltests.jar -r Krakatau/tests/decompiler/source/
 
-You can either assemble an individual source file, a directory of source files, or an entire jar file containing assembly files. If the input filename ends in `.jar`, it will be treated as a jar file. To assemble a directory recursively, pass the `-r` option. In the case of the jar and directory modes, all files with the extention `.j` will be assembled.
+You can either assemble an individual source file, a directory of source files, or an entire jar file containing assembly files. If the input filename ends in `.jar`, it will be treated as a jar file. To assemble a directory recursively, pass the `-r` option. In the case of the jar and directory modes, all files with the extension `.j` will be assembled.
 
 The `-out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If it ends with `.class`, output will be written to that file. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
 
-The `-q` option surpresses all console output other than warnings and errors. This can be useful if you are using Krakatau as part of an automated build system.
+The `-q` option suppresses all console output other than warnings and errors. This can be useful if you are using Krakatau as part of an automated build system.
 
 ## Decompilation
 
 First off, make sure you have Python 2.7 installed. The Krakatau assembler and disassembler support both Python 2.7 and Python 3.5+, but the decompiler only supports Python 2.7.
 
-Next, make sure you have jars containing defintions for any external classes (i.e. libraries) that might be referenced by the jar you are trying to decompile. This includes the standard library classes (i.e. JRT). In versions of Java up to Java 8, this was conveniently provided as a `rt.jar` somewhere in your Java installation. Starting with Java 9, there is no longer any `rt.jar`, but you can use [this tool](https://github.com/Storyyeller/jrt-extractor) to create one. Finding copies of all the libraries used by the target application can unfortunately be a tedious process. In the example below, I took a large number of popular libaries and merged them into a couple of giant jars (`merged.jar`, `merged2.jar`, and `merged3.jar`) in order to save time.
+Next, make sure you have jars containing definitions for any external classes (i.e. libraries) that might be referenced by the jar you are trying to decompile. This includes the standard library classes (i.e. JRT). In versions of Java up to Java 8, this was conveniently provided as a `rt.jar` somewhere in your Java installation. Starting with Java 9, there is no longer any `rt.jar`, but you can use [this tool](https://github.com/Storyyeller/jrt-extractor) to create one. Finding copies of all the libraries used by the target application can unfortunately be a tedious process. In the example below, I took a large number of popular libraries and merged them into a couple of giant jars (`merged.jar`, `merged2.jar`, and `merged3.jar`) in order to save time.
 
 By default Krakatau will attempt to locate the pre-installed `rt.jar` and use that for convenience, but this will not work for any recent version of Java as described above. You can pass `-nauto` to disable this check, such as if you are passing the path to `rt.jar` explicitly.
 

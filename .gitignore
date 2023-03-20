@@ -1,5 +1,6 @@
 /target
 /out
 out.*
+temp
 temp.*
 Cargo.lock

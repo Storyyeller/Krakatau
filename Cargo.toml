@@ -13,6 +13,7 @@ regex = "1.4.3"
 zip = { version = "0.6.3", default-features = false, features=["deflate"] }
 hexf-parse = "0.2.1"
 typed-arena = "2.0.1"
+anyhow = "1.0.70"
 
 
 [[bin]]

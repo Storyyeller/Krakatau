@@ -155,7 +155,9 @@ impl SwitchArena {
         i.try_into().unwrap()
     }
 
-    pub fn table(&self, i: u32) -> &SwitchTable {&self.tables[i as usize]}
+    pub fn table(&self, i: u32) -> &SwitchTable {
+        &self.tables[i as usize]
+    }
 
     fn alloc_map(&mut self, v: SwitchMap) -> u32 {
         let i = self.maps.len();
@@ -163,12 +165,10 @@ impl SwitchArena {
         i.try_into().unwrap()
     }
 
-    pub fn map(&self, i: u32) -> &SwitchMap {&self.maps[i as usize]}
+    pub fn map(&self, i: u32) -> &SwitchMap {
+        &self.maps[i as usize]
+    }
 }
-
-
-
-
 
 #[derive(Clone, Copy, Debug)]
 pub enum NewArrayTag {

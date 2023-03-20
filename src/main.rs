@@ -32,9 +32,16 @@ enum Command {
 
 fn real_main() -> i32 {
     let cli = Cli::parse();
-    match cli.command {
+    let res = match cli.command {
         Command::Asm(cli) => assembler_main(cli),
         Command::Dis(cli) => disassembler_main(cli),
+    };
+    if let Err(err) = res {
+        println!("Error: {:?}", err);
+        // set exit code 1 if there were errors
+        1
+    } else {
+        0
     }
 }
 fn main() {

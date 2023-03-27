@@ -27,7 +27,7 @@ pub fn read_files(p: &Path, ext: &str, mut cb: impl FnMut(&str, &[u8]) -> Result
             // println!("found {} {:?} {} {}", i, file.name(), file.size(), file.compressed_size());
 
             let name = file.name().to_owned();
-            if !name.ends_with(&ext) {
+            if !name.trim_end_matches('/').ends_with(&ext) {
                 continue;
             }
 

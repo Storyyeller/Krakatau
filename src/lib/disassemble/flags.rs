@@ -119,14 +119,9 @@ pub static ALL_FLAGS: [&str; 24] = [
 pub(super) struct Flags(&'static [&'static str; 16], u16);
 impl fmt::Display for Flags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut first = true;
         for i in 0..16 {
             if self.1 & (1 << i) != 0 {
-                if first {
-                    first = false;
-                } else {
-                    f.write_str(" ")?;
-                }
+                f.write_str(" ")?;
                 f.write_str(self.0[i])?;
             }
         }

@@ -81,7 +81,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             }
         }
 
-        write!(self.w, ".field {} {} {}", Flags::field(f.access), rp.utf(f.name), rp.utf(f.desc))?;
+        write!(self.w, ".field{} {} {}", Flags::field(f.access), rp.utf(f.name), rp.utf(f.desc))?;
         if let Some(cv) = constant_value {
             write!(self.w, " = {}", rp.ldc(cv))?;
         } else {
@@ -110,7 +110,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
     fn method(&mut self, m: &Field<'a>) -> Result<()> {
         let rp = self.rp;
-        writeln!(self.w, "\n.method {} {} : {}", Flags::method(m.access), rp.utf(m.name), rp.utf(m.desc))?;
+        writeln!(self.w, "\n.method{} {} : {}", Flags::method(m.access), rp.utf(m.name), rp.utf(m.desc))?;
         self.enter_block();
 
         for a in &m.attrs {
@@ -155,7 +155,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 for val in lines.iter().copied() {
                     writeln!(
                         self.w,
-                        "{}{} {} {} {}",
+                        "{}{} {} {}{}",
                         self.sol,
                         rp.cls(val.0),
                         rp.cls(val.1),
@@ -189,7 +189,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
                 writeln!(self.w, ".methodparameters")?;
                 self.enter_block();
                 for val in lines.iter().copied() {
-                    writeln!(self.w, "{}{} {}", self.sol, rp.utf(val.0), Flags::mod_other(val.1))?;
+                    writeln!(self.w, "{}{}{}", self.sol, rp.utf(val.0), Flags::mod_other(val.1))?;
                 }
                 self.exit_block();
                 write!(self.w, "{}.end methodparameters", self.sol)?;
@@ -758,7 +758,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
 
         writeln!(
             self.w,
-            ".module {} {} version {}",
+            ".module {}{} version {}",
             rp.single(m.module, SingleTag::Module),
             Flags::mod_other(m.flags),
             rp.utf(m.version)
@@ -767,7 +767,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         for req in &m.requires {
             writeln!(
                 self.w,
-                "{}.requires {} {} version {}",
+                "{}.requires {}{} version {}",
                 self.sol,
                 rp.single(req.module, SingleTag::Module),
                 Flags::mod_requires(req.flags),
@@ -778,7 +778,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         for p in &m.exports {
             write!(
                 self.w,
-                "{}.exports {} {} to",
+                "{}.exports {}{} to",
                 self.sol,
                 rp.single(p.package, SingleTag::Package),
                 Flags::mod_other(p.flags)
@@ -791,7 +791,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         for p in &m.opens {
             write!(
                 self.w,
-                "{}.opens {} {} to",
+                "{}.opens {}{} to",
                 self.sol,
                 rp.single(p.package, SingleTag::Package),
                 Flags::mod_other(p.flags)
@@ -895,7 +895,7 @@ pub fn disassemble(mut w: impl Write, c: &Class, opts: DisassemblerOptions) -> R
     }
 
     writeln!(w, ".version {} {}", c.version.0, c.version.1)?;
-    writeln!(w, ".class {} {}", Flags::class(c.access), rp.cls(c.this))?;
+    writeln!(w, ".class{} {}", Flags::class(c.access), rp.cls(c.this))?;
     writeln!(w, ".super {}", rp.cls(c.super_))?;
 
     for ind in c.interfaces.iter().copied() {

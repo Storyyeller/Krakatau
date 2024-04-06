@@ -45,9 +45,8 @@ def getUsedLocals(iNodes, iNodeD, exceptions):
             data[node.key] |= used
 
         for hkey, region in except_ranges:
-            if data[hkey] != old[hkey]:
-                for key in region:
-                    data[key] |= data[hkey]
+            for key in region:
+                data[key] |= data[hkey]
 
         if data == old:
             break

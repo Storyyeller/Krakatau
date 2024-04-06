@@ -15,6 +15,7 @@ registry = {
     'For': ([],),
     'floattest': ([],),
     'JSRTests': ([], ['x'], ['x', 'x', 'x', 'x']),
+    'KrakCrash': ([],),
     # 'LClassLiteralTest': ([],), # JVM 9 no longer accepts weird class literals
     # 'NonexistentCheckcast': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),

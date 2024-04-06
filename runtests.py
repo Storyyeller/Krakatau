@@ -120,14 +120,11 @@ def runJavaAndCompare(target, testcases, good_fname, new_fname):
                 message.append('  actual stderr  : ' + repr(actual[1]))
             raise TestFailed('\n'.join(message))
 
-def runDecompilerTest(target, testcases):
+def runDecompilerTest(target, testcases, jrepath):
     print('Running decompiler test {}...'.format(target))
     tdir = tempfile.mkdtemp()
 
-    cpath = [decompile.findJRE(), dec_class_location]
-    if cpath[0] is None:
-        raise RuntimeError('Unable to locate rt.jar')
-
+    cpath = [jrepath, dec_class_location]
     decompile.decompileClass(cpath, targets=[target], outpath=tdir, add_throws=True)
     new_fname = compileJava(target, os.path.join(tdir, target + '.java'))
 
@@ -277,8 +274,12 @@ if __name__ == '__main__':
     testlist = []
 
     if do_decompile:
+        jrepath = os.environ.get('JRE_PATH') or decompile.findJRE()
+        if jrepath is None:
+            raise RuntimeError('Unable to locate rt.jar')
+
         for target, testcases in filter(target_filter, sorted(tests.decompiler.registry.items())):
-            testlist.append(('decompiler', target, map(tuple, testcases)))
+            testlist.append(('decompiler', target, map(tuple, testcases), jrepath))
     if do_disassemble:
         for target, testcases in filter(target_filter, sorted(tests.disassembler.registry.items())):
             testlist.append(('disassembler', False, dis_class_location, target, map(tuple, testcases)))

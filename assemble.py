@@ -2,6 +2,11 @@
 from __future__ import print_function
 
 import os.path, time
+import sys
+if sys.version_info[0] == 2:
+    MODE_RU = 'rU'
+else:
+    MODE_RU = 'r'
 
 import Krakatau
 from Krakatau.assembler import parse
@@ -14,10 +19,10 @@ def assembleSource(source, basename, fatal=False):
 def assembleClass(filename):
     basename = os.path.basename(filename)
     try:
-        with open(filename, 'rU') as f:
+        with open(filename, MODE_RU) as f:
             source = f.read()
     except Exception:
-        with open(filename, 'rU', encoding='utf8') as f:
+        with open(filename, MODE_RU, encoding='utf8') as f:
             source = f.read()
     return assembleSource(source, basename)
 

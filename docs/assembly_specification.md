@@ -108,18 +108,18 @@ attrbody:
     ".deprecated"
     ".enclosing" "method" clsref natref
     ".exceptions" clsref*
-    ".innerclasses" (clsref clsref utfref flags NL)* ".end" "innerclasses"
-    ".linenumbertable" (lbl u16 NL)* ".end" "linenumbertable"
-    ".localvariabletable" (local_var_table_item NL)* ".end" "localvariabletable"
-    ".localvariabletypetable" (local_var_table_item NL)* ".end" "localvariabletypetable"
-    ".methodparameters" (utfref flags NL)* ".end" "methodparameters"
+    ".innerclasses" NL (clsref clsref utfref flags NL)* ".end" "innerclasses"
+    ".linenumbertable" NL (lbl u16 NL)* ".end" "linenumbertable"
+    ".localvariabletable" NL (local_var_table_item NL)* ".end" "localvariabletable"
+    ".localvariabletypetable" NL (local_var_table_item NL)* ".end" "localvariabletypetable"
+    ".methodparameters" NL (utfref flags NL)* ".end" "methodparameters"
     ".module" module
     ".modulemainclass" clsref
     ".modulepackages" single*
     ".nesthost" clsref
     ".nestmembers" clsref*
     ".permittedsubclasses" clsref*
-    ".record" (recorD_item NL)* ".end" "record"
+    ".record" NL (recorD_item NL)* ".end" "record"
     ".runtime" runtime_visibility runtime_attr
     ".signature" utfref
     ".sourcedebugextension" STRING_LITERAL
@@ -174,9 +174,9 @@ runtime_visibility:
     "invisible"
 
 runtime_attr:
-    "annotations" (annotation NL)* ".end" "annotations"
-    "paramannotations" (param_annotation NL)* ".end" "paramannotations"
-    "typeannotations" (type_annotation NL)* ".end" "typeannotations"
+    "annotations" NL (annotation NL)* ".end" "annotations"
+    "paramannotations" NL (param_annotation NL)* ".end" "paramannotations"
+    "typeannotations" NL (type_annotation NL)* ".end" "typeannotations"
 
 param_annotation:
     ".paramannotation" NL

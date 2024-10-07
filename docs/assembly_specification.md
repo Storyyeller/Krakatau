@@ -103,6 +103,7 @@ Attributes:
 ```
 attrbody:
     ".annotationdefault" element_value
+    ".bootstrapmethods"
     ".code" code_attr
     ".constantvalue" ldc_rhs
     ".deprecated"

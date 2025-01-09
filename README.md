@@ -19,10 +19,10 @@ Example usage:
 
     krak2 dis --out disassembled.zip --roundtrip r0lling-challenge.jar
 
-You can either disassemble an individual classfile or an entire jar file. If the input filename ends in `.jar` or `.zip`, it will be treated as a jar file. 
+You can either disassemble an individual classfile or an entire jar file. If the input filename ends in `.jar` or `.zip`, it will be treated as a jar file and every `.class` file inside the jar will be disassembler. 
 
-The `--out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If it ends with `.j` or `.class`, output will be written to that file. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
-
+The `--out` option controls the output location. If the `--out` value is a directory the output will be placed in individual files under that directory. Otherwise, if the `--out` value ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If the `--out` value ends with `.j`, output will be written to that file (note that a single `.j` file can contain multiple classes - all the classes will be disassembled and written to the same file, one after another.)
+ 
 To disassemble in roundtrip mode as described above, pass the `--roundtrip` option (or `-r` for short).
 
 ## Assembly
@@ -31,11 +31,9 @@ The Krakatau assembler allows you to write Java bytecode in a human friendly tex
 
     krak2 asm --out temp Krakatau/tests/assembler/good/strictfp.j
 
-    krak2 asm --out alltests.jar -r Krakatau/tests/decompiler/source/
-
 You can either assemble an individual `.j` file or an entire jar file. If the input filename ends in `.jar` or `.zip`, it will be treated as a zip archive and every `.j` file inside will be assembled. 
 
-The `--out` option controls the output location. If it ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If it ends with `.j` or `.class`, output will be written to that file. Otherwise, it will be treated as a directory name and the output will be placed in individual files under that directory.
+The `--out` option controls the output location. If the `--out` value is a directory the output will be placed in individual files under that directory. Otherwise, if the `--out` value ends in `.jar` or `.zip`, the output will be placed in a single zipfile at that location. If the `--out` value ends with `.class`, the single output classfile will be written to that file (if the input has multiple classes, it will error out in this case.)
 
 ## Decompilation
 

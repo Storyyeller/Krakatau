@@ -1,0 +1,59 @@
+# .github/workflows/release.yml
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  release:
+    name: release ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-gnu
+            archive: zip
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz
+    steps:
+      - uses: actions/checkout@master
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
+  msys2-build-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        sys: [MINGW64, UCRT64,CLANG64]
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.sys }}
+        update: true
+        install: base-devel git
+        pacboy: >-
+          rust:p
+    - name: Run cargo
+      shell: msys2 {0}
+      run: cargo build --release
+    - name: Run tests
+      shell: msys2 {0}
+      run: cargo test --release
+    - name: Rename Compile Output
+      shell: msys2 {0}
+      run: mv target/release/krak2.exe target/release/${{ matrix.sys }}_krak2.exe
+    - name: Release with Notes
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          target/release/${{ matrix.sys }}_krak2.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

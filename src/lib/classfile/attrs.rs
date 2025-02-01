@@ -307,7 +307,7 @@ pub enum AttrBody<'a> {
     RuntimeVisibleTypeAnnotations(Vec<TypeAnnotation>),
 
     Signature(u16),
-    SourceDebugExtention(&'a [u8]),
+    SourceDebugExtension(&'a [u8]),
     SourceFile(u16),
     StackMapTable(code::StackMapTable),
     Synthetic,
@@ -378,7 +378,7 @@ impl<'a> AttrBody<'a> {
             }
 
             b"Signature" => Signature(r.u16()?),
-            b"SourceDebugExtention" => SourceDebugExtention(data),
+            b"SourceDebugExtension" => SourceDebugExtension(data),
             b"SourceFile" => SourceFile(r.u16()?),
             b"StackMapTable" => StackMapTable(code::StackMapTable::new(r, pset)?),
             b"Synthetic" => Synthetic,

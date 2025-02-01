@@ -235,7 +235,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             RuntimeVisibleTypeAnnotations(lines) => self.runtime_type_annotations("visible", lines)?,
 
             Signature(r) => write!(self.w, ".signature {}", rp.utf(*r))?,
-            SourceDebugExtention(s) => write!(self.w, ".sourcedebugextension b'{}'", escape_byte_string(s))?,
+            SourceDebugExtension(s) => write!(self.w, ".sourcedebugextension b'{}'", escape_byte_string(s))?,
             SourceFile(r) => write!(self.w, ".sourcefile {}", rp.utf(*r))?,
             StackMapTable(_) => write!(self.w, ".stackmaptable")?,
             Synthetic => write!(self.w, ".synthetic")?,

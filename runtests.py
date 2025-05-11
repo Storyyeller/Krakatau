@@ -224,7 +224,7 @@ def preprocess(source, fname):
         #     f.write(source)
     return source.decode('utf8')
 
-def runAssemblerTest(fname, exceptFailure):
+def runAssemblerTest(fname, expect_failure):
     basename = os.path.basename(fname)
     print('Running assembler test', basename)
     with open(fname, 'rb') as f: # not unicode
@@ -236,7 +236,7 @@ def runAssemblerTest(fname, exceptFailure):
         assemble.assembleSource(source, basename, fatal=True)
     except AsssemblerError:
         error = True
-    assert error == exceptFailure
+    assert error == expect_failure
 
 def runTest(data):
     try:
@@ -249,10 +249,10 @@ def runTest(data):
         import traceback
         return 'Test {} failed:\n'.format(data) + traceback.format_exc()
 
-def addAssemblerTests(testlist, target_filter, basedir, exceptFailure):
+def addAssemblerTests(testlist, target_filter, basedir, expect_failure):
     for fname in os.listdir(basedir):
         if fname.endswith('.j') and target_filter(fname.rpartition('.')):
-            testlist.append(('assembler', os.path.join(basedir, fname), exceptFailure))
+            testlist.append(('assembler', os.path.join(basedir, fname), expect_failure))
 
 if __name__ == '__main__':
     do_decompile = 'd' in sys.argv[1] if len(sys.argv) > 1 else True

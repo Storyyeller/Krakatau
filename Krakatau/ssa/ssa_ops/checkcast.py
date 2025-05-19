@@ -28,6 +28,9 @@ class CheckCast(BaseOp):
         else:
             return return_(None)
 
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.target_tt,)
+
 class InstanceOf(BaseOp):
     def __init__(self, parent, target, args):
         super(InstanceOf, self).__init__(parent, args)
@@ -38,3 +41,6 @@ class InstanceOf(BaseOp):
     def propagateConstraints(self, x):
         rvalcons = IntConstraint.range(32, 0, 1)
         return return_(rvalcons)
+
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.target_tt,)

@@ -35,6 +35,11 @@ class Phi(object):
         assert var == self.rval
         self.rval = None
 
+    def to_json(self):
+        d = sorted((b.key, kind, v.to_json()) for (b, kind), v in self.dict.items())
+        rval = self.rval and self.rval.to_json()
+        return (self.block.key, d, rval)
+
 # An extended basic block can contain multiple throwing instructions
 # but the OnException jump expects a single param. The solution is
 # to create a dummy op that behaves like a phi function, selecting

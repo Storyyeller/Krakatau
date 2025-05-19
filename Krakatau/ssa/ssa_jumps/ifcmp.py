@@ -99,3 +99,6 @@ class If(BaseJump):
                 con2 = IntConstraint.range(y.width, y1, y2) if y1 <= y2 else None
                 return con1, con2
             return propagateConstraints_int
+
+    def to_json(self):
+        return BaseJump.to_json(self) + (self.cmp, self.isObj)

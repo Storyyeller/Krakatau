@@ -19,3 +19,6 @@ class Monitor(BaseOp):
             etypes += (excepttypes.MonState,)
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         return maybeThrow(eout)
+
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.exit,)

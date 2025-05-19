@@ -7,6 +7,8 @@ slots_t = nt('slots_t', ('locals', 'stack'))
 
 def _localsAsList(self): return [t[1] for t in sorted(self.locals.items())]
 slots_t.localsAsList = property(_localsAsList)
+def _to_json(self): return ([v.to_json() for v in self.stack], {k: v.to_json() for k, v in self.locals.items()})
+slots_t.to_json = _to_json
 
 # types
 SSA_INT = 'int', 32
@@ -75,3 +77,10 @@ class BasicBlock(object):
     def __str__(self):   # pragma: no cover
         return 'Block ' + str(self.key)
     __repr__ = __str__
+
+    def to_json(self):
+        phis = self.phis and [p.to_json() for p in self.phis]
+        lines = [op.to_json() for op in self.lines]
+        preds = [(b.key, kind) for b, kind in self.predecessors]
+        return dict(key=self.key, phis=phis, lines=lines, preds=preds, jump=self.jump.to_json())
+

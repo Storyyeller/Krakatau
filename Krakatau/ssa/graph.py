@@ -29,6 +29,9 @@ class SSA_Variable(object):
         name =  self.name if self.name else "@" + hex(id(self))
         return "Var {}".format(name)
 
+    def to_json(self):
+        return dict(name=self.name, type=self.type, const=self.const, decltype=self.decltype, uninit_orig_num=self.uninit_orig_num)
+
 # This class is the main IR for bytecode level methods. It consists of a control
 # flow graph (CFG) in static single assignment form (SSA). Each node in the
 # graph is a BasicBlock. This consists of a list of phi statements representing
@@ -709,6 +712,12 @@ class SSA_Graph(object):
 
     def getConstPoolType(self, index):
         return self.class_.cpool.getType(index)
+
+    def to_json(self):
+        blocks = [b.to_json() for b in self.blocks]
+        args = [v and v.to_json() for v in self.inputArgs]
+        procs = [p.to_json() for p in self.procs]
+        return dict(blocks=blocks, args=args, entry=self.entryBlock.key, procs=procs)
 
 def ssaFromVerified(code, iNodes, opts):
     method = code.method

@@ -51,6 +51,10 @@ class Invoke(BaseOp):
             return throw(self.eout_npe)
         return returnOrThrow(self.rout, self.eout)
 
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.instruction, self.target, self.name, self.desc, self.isThisCtor, self.target_tt)
+
+
 # TODO - cleanup
 class InvokeDynamic(BaseOp):
     has_side_effects = True
@@ -85,3 +89,7 @@ class InvokeDynamic(BaseOp):
 
     def propagateConstraints(self, *incons):
         return returnOrThrow(self.rout, self.eout)
+
+
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.desc,)

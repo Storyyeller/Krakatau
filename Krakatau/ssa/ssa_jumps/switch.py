@@ -84,3 +84,7 @@ class Switch(BaseJump):
                     return None,
                 return x,
         return propagateConstraints
+
+    def to_json(self):
+        reverse = {b.key: sorted(v) for b, v in self.reverse.items()}
+        return BaseJump.to_json(self) + (reverse,)

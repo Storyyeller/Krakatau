@@ -60,3 +60,6 @@ class FieldAccess(BaseOp):
                 return throw(eout)
 
         return returnOrThrow(self.rout, eout)
+
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.instruction, self.target, self.name, self.desc)

@@ -13,6 +13,9 @@ class ProcInfo(object):
         return 'Proc{}<{}>'.format(self.target.key, ', '.join(str(b.key) for b in self.jsrblocks))
     __repr__ = __str__
 
+    def to_json(self):
+        return (self.retblock.key, self.target.key, [b.key for b in self.jsrblocks])
+
 ###########################################################################################
 class ProcJumpBase(object):
     @property
@@ -45,6 +48,9 @@ class ProcCallOp(ProcJumpBase):
 
     def getNormalSuccessors(self): return self.fallthrough, self.target
 
+    def to_json(self):
+        return ('ProcCallOp', self.fallthrough.key, self.target.key, self.input.to_json(), self.output.to_json())
+
 class DummyRet(ProcJumpBase):
     def __init__(self, inslots, target):
         self.target = target
@@ -57,3 +63,6 @@ class DummyRet(ProcJumpBase):
 
     def getNormalSuccessors(self): return ()
     def clone(self): return copy.copy(self) # target and input will be replaced later by calls to replaceBlocks/Vars
+
+    def to_json(self):
+        return ('DummyRet', self.target.key, self.input.to_json())

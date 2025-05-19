@@ -57,3 +57,6 @@ class OnException(BaseJump):
             mask = ExceptionSet(x.types.env, [(objtypes.className(tt),()) for tt in x.types.supers | x.types.exact])
         self.cs.newMask(mask)
         return self.reduceSuccessors([])
+
+    def to_json(self):
+        return BaseJump.to_json(self) + (self.cs.to_json(),)

@@ -16,3 +16,6 @@ class BaseJump(SSAFunctionBase):
     def reduceSuccessors(self, pairsToRemove): return self
 
     def clone(self): return copy.copy(self) # overriden by classes which need to do a deep copy
+
+    def to_json(self):
+        return (type(self).__name__, [v.to_json() for v in self.params], [b.key for b in self.getNormalSuccessors()])

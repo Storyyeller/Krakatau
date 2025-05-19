@@ -37,6 +37,9 @@ class ArrLoad(BaseOp):
         eout = ObjectConstraint.fromTops(self.env, [], etypes, nonnull=True)
         return returnOrThrow(rout, eout)
 
+    def to_json(self):
+        return BaseOp.to_json(self) + (self.ssatype,)
+
 class ArrStore(BaseOp):
     has_side_effects = True
 

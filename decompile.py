@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 from __future__ import print_function
 
+import json
 import os.path
 import time, random, subprocess, functools
 
@@ -83,12 +84,14 @@ def deleteUnusued(cls):
     del cls.interfaces_raw, cls.cpool
     del cls.attributes
 
-def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_throws=False, magic_throw=False):
-    out = script_util.makeWriter(outpath, '.java')
+def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_throws=False, magic_throw=False, dump_ssa=False):
+    outext = '.json' if dump_ssa else '.java'
+    out = script_util.makeWriter(outpath, outext)
 
     e = Environment()
     for part in path:
         e.addToPath(part)
+
 
     start_time = time.time()
     # random.shuffle(targets)
@@ -100,7 +103,13 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
             try:
                 c = e.getClass(target.decode('utf8'))
                 makeGraphCB = functools.partial(makeGraph, magic_throw)
-                source = printer.visit(javaclass.generateAST(c, makeGraphCB, skip_errors, add_throws=add_throws))
+                # Hack to dump SSA graph for debugging purposes
+                if dump_ssa:
+                    results = [makeGraphCB(method).to_json() for method in c.methods if method.code is not None]
+                    source = json.dumps(results, indent=2)
+                # Regular decompilation
+                else:
+                    source = printer.visit(javaclass.generateAST(c, makeGraphCB, skip_errors, add_throws=add_throws))
             except Exception as err:
                 if not skip_errors:
                     raise
@@ -112,7 +121,7 @@ def decompileClass(path=[], targets=None, outpath=None, skip_errors=False, add_t
                 continue
 
             # The single class decompiler doesn't add package declaration currently so we add it here
-            if '/' in target:
+            if '/' in target and not dump_ssa:
                 package = 'package {};\n\n'.format(escapeString(target.replace('/','.').rpartition('.')[0]))
                 source = package + source
 
@@ -133,6 +142,7 @@ if __name__== "__main__":
     parser.add_argument('-r', action='store_true', help="Process all files in the directory target and subdirectories")
     parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
     parser.add_argument('-xmagicthrow', action='store_true')
+    parser.add_argument('-xdumpssa', action='store_true')
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -155,4 +165,4 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
-    decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow)
+    decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow, dump_ssa=args.xdumpssa)

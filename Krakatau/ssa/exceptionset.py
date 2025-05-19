@@ -45,6 +45,10 @@ class CatchSetManager(object):
         assert temp == self.mask
         assert isinstance(self.sets, collections.OrderedDict)
 
+    def to_json(self):
+        sets = [(b.key, es.to_json()) for b, es in self.sets.items()]
+        return (sets, self.mask.to_json())
+
 class ExceptionSet(ValueType):
     __slots__ = "env pairs".split()
     def __init__(self, env, pairs): # assumes arguments are in reduced form
@@ -203,5 +207,8 @@ class ExceptionSet(ValueType):
                 holes = ExceptionSet.reduceHoles(subtest, holes)
                 newpairs.append((top,holes))
         return ExceptionSet(env, newpairs)
+
+    def to_json(self):
+        return sorted((x, sorted(y)) for x,y in self.pairs)
 
 ExceptionSet.EMPTY = ExceptionSet(None, [])

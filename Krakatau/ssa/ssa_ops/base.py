@@ -28,3 +28,5 @@ class BaseOp(SSAFunctionBase):
     # With None returned for unused or impossible values. This should only be defined if it is
     # actually implemented.
     # def propagateConstraints(self, *cons):
+    def to_json(self):
+        return (type(self).__name__, [v.to_json() for v in self.params], self.rval and self.rval.to_json(), self.outException and self.outException.to_json())

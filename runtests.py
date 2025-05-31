@@ -231,12 +231,15 @@ def runAssemblerTest(fname, expect_failure):
         source = f.read()
     source = preprocess(source, fname)
 
-    error = False
     try:
         assemble.assembleSource(source, basename, fatal=True)
-    except AsssemblerError:
-        error = True
-    assert error == expect_failure
+    except AsssemblerError as e:
+        if expect_failure:
+            return
+        else:
+            raise e
+    assert not expect_failure
+
 
 def runTest(data):
     try:

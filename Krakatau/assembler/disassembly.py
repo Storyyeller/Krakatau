@@ -94,10 +94,22 @@ class ReferencePrinter(object):
     def __init__(self, clsdata, roundtrip):
         self.roundtrip = roundtrip
 
+        self.parsed_bs_methods_attr = None
         self.cpslots = clsdata.pool.slots
         for attr in clsdata.getattrs(b'BootstrapMethods'):
-            self.bsslots = classdata.BootstrapMethodsData(attr.stream()).slots
-            break
+            # Try to parse as bootstrap methods table, but ignore if it isn't valid
+            stream = attr.stream()
+            try:
+                data = classdata.BootstrapMethodsData(stream)
+                if not stream.done():
+                    data = None # unexpected extra data at end
+            except TruncatedStreamError:
+                data = None
+
+            if data is not None:
+                self.bsslots = data.slots
+                self.parsed_bs_methods_attr = attr
+                break
         else:
             self.bsslots = []
 
@@ -616,7 +628,7 @@ class Disassembler(object):
 
         if name == b'Code' and in_method:
             a.code(attr.stream())
-        elif name == b'BootstrapMethods' and a.cls.version >= (51, 0) and in_class:
+        elif name == b'BootstrapMethods' and attr is a.refprinter.parsed_bs_methods_attr:
             a.val('.bootstrapmethods')
         elif name == b'StackMapTable' and not use_raw_stackmap:
             a.val('.stackmaptable')

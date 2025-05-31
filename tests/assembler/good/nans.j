@@ -55,15 +55,15 @@
         ldc -NaNf
         invokestatic Method NaNTest print (F)V
 
-        ldc +NaN<0x7f800001>F
+        ldc +NaN<0x7f800001>f
         invokestatic Method NaNTest print (F)V
-        ldc +NaN<0x7f801234>F
+        ldc +NaN<0x7f801234>f
         invokestatic Method NaNTest print (F)V
         ldc +NaN<0x7fffffff>f
         invokestatic Method NaNTest print (F)V
-        ldc +NaN<0xff800001>F
+        ldc +NaN<0xff800001>f
         invokestatic Method NaNTest print (F)V
-        ldc +NaN<0xff801234>F
+        ldc +NaN<0xff801234>f
         invokestatic Method NaNTest print (F)V
         ldc +NaN<0xFfffffff>f
         invokestatic Method NaNTest print (F)V

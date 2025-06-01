@@ -1,4 +1,8 @@
 import re
+import sys
+
+if sys.version_info[0] > 2:
+    unichr = chr
 
 # First alternative handles a single surrogate, in case input string somehow contains unmerged surrogates
 NONASTRAL_REGEX = re.compile(u'[\ud800-\udfff]|[\0-\ud7ff\ue000-\uffff]+')
@@ -13,8 +17,8 @@ def encode(s):
             x -= 1<<16
             high = 0xD800 + (x >> 10)
             low = 0xDC00 + (x % (1 << 10))
-            b += unichr(high).encode('utf8')
-            b += unichr(low).encode('utf8')
+            b += unichr(high).encode('utf8', errors='surrogatepass')
+            b += unichr(low).encode('utf8', errors='surrogatepass')
             pos += 1
         else:
             m = NONASTRAL_REGEX.match(s, pos)

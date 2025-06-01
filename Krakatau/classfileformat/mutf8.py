@@ -18,11 +18,10 @@ def encode(s):
             pos += 1
         else:
             m = NONASTRAL_REGEX.match(s, pos)
-            b += m.group().encode('utf8')
+            b += m.group().encode('utf8', errors='surrogatepass')
             pos = m.end()
     return b.replace(b'\0', b'\xc0\x80')
 
-# Warning, decode(encode(s)) != s if s contains astral characters, as they are converted to surrogate pairs
 def decode(b):
     assert isinstance(b, bytes)
-    return b.replace(b'\xc0\x80', b'\0').decode('utf8')
+    return b.replace(b'\xc0\x80', b'\0').decode('utf8', errors='surrogatepass')

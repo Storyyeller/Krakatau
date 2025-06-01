@@ -1,6 +1,6 @@
 from .pool import Pool, utf
 from .writer import Writer, Label
-
+from ..classfileformat import mutf8
 
 def writeU16Count(data, error, objects, message):
     count = len(objects)
@@ -163,7 +163,10 @@ class Class(object):
         if utfind not in cpool.slots:
             return None
 
-        return cpool.slots[utfind].data
+        raw = cpool.slots[utfind].data
+        decoded = mutf8.decode(raw)
+        # Replace surrogates with astral characters
+        return decoded.encode('utf-16', 'surrogatepass').decode('utf-16')
 
     def _assembleNoCP(self, error):
         beforepool = Writer()

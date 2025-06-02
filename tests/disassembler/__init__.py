@@ -12,6 +12,7 @@ registry = {
 
 
     'AnnotationsTest': ([],),
+    'InvalidSurrogateIdentifiers': ([],),
     'LineNumbersTest': ([],),
     'MethodParametersTest': ([],),
     'PatternMatching': ([],),

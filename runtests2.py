@@ -93,7 +93,6 @@ def test_roundtrip(apath1, name, input_is_zip, no_short_code=False, skip_pydis=F
         jpaths.append(disassemblePy3(apath1, '.j', roundtrip=False))
 
     for jpath in jpaths:
-        print 'jpath', jpath
         outpaths.append(assembleR(jpath, outext))
         if not skip_pyasm:
             outpaths.append(assemblePy2(jpath, outext))

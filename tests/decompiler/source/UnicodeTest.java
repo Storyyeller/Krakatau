@@ -9,6 +9,7 @@ public class UnicodeTest \u007b
 	{
 		System.out.println(__\u0130\u00dFI(null));
 	    System.out.println("\0\17u\\\u005c"\ff'\rr\u0027\nn \u0123\u1234O\uFFFFF");
+	    System.out.println("x\uDCA9xy\uD83Dy(null)");
 	}
 }
 

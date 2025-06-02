@@ -2,6 +2,8 @@
 registry = {
     'ArgumentTypes': (['42', 'false'], ['43', 'true'], ['1', '1', '1']),
     'ArrayTest': ([], ['x']),
+    # Fails already even with java-8-oracle
+    # 'BadInnerTest': ([],),
     'BoolizeTest': ([],),
     'ClinitFlagsTest': ([],),
     'ConditionalTest': ([],),
@@ -10,16 +12,17 @@ registry = {
                     ['95', ' ', 'x', 'x'], ['Hello, Word!']),
     'DoubleEdge': ([], ['x']),
     'DuplicateInit': ([], ['5', '-7'], ['x', 'x', 'x']),
-    # As of Java 18, test fails due to more verbose stack traces
-    # 'ExceptionHandlers': tuple([str(x)] for x in range(-1, 12)),
+    'ExceptionHandlers': tuple([str(x)] for x in range(-1, 12)),
     'For': ([],),
     'floattest': ([],),
     'JSRTests': ([], ['x'], ['x', 'x', 'x', 'x']),
     'KrakCrash': ([],),
-    # 'LClassLiteralTest': ([],), # JVM 9 no longer accepts weird class literals
+    'LClassLiteralTest': ([],), # JVM 9 no longer accepts weird class literals
+    # Not implemented in the decompiler yet
     # 'NonexistentCheckcast': ([],),
     'NullInference': ([], ['alice'], ['bob', 'carol']),
     'OddsAndEnds': ([], ['x'], ['42'], ['4'], ['-2'], ['-0x567'], ['-5678']),
+    'OldVersionTest': ([],),
     'splitnew': ([], ['-0'], ['-0', ''], ['-0', '', '', ''],
                  ['-0', '', '', '', '', '', '', '', '', '', '', '', '', '']),
     'SamSunTests': ([],),

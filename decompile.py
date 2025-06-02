@@ -143,6 +143,7 @@ if __name__== "__main__":
     parser.add_argument('-skip', action='store_true', help="Upon errors, skip class or method and continue decompiling")
     parser.add_argument('-xmagicthrow', action='store_true')
     parser.add_argument('-xdumpssa', action='store_true')
+    parser.add_argument('-xaddthrows', action='store_true')
     parser.add_argument('target',help='Name of class or jar file to decompile')
     args = parser.parse_args()
 
@@ -165,4 +166,4 @@ if __name__== "__main__":
 
     targets = script_util.findFiles(args.target, args.r, '.class')
     targets = map(script_util.normalizeClassname, targets)
-    decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow, dump_ssa=args.xdumpssa)
+    decompileClass(path, targets, args.out, args.skip, magic_throw=args.xmagicthrow, dump_ssa=args.xdumpssa, add_throws=args.xaddthrows)

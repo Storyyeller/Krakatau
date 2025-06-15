@@ -36,13 +36,13 @@ class OriginDebugger(object):
 
 def compare_files(data1, data2, ext):
     if data1 != data2:
+        with open('left' + ext, 'w') as f:
+            f.write(data1)
+        with open('right' + ext, 'w') as f:
+            f.write(data2)
+
+
         if ext == '.class':
-            with open('left.class', 'w') as f:
-                f.write(data1)
-            with open('right.class', 'w') as f:
-                f.write(data2)
-
-
             for fname in 'left right'.split():
                 path = get_hashed_path(fname + '.class')
 
@@ -70,15 +70,15 @@ def compare_zips(data1, data2, ext):
             return False
     return True
 
-def check_compare_binaries(apath1, apath2, input_is_zip):
+def check_compare_binaries(apath1, apath2, input_is_zip, ext='.class'):
     if apath1.hash != apath2.hash:
         data1 = read(apath1.path)
         data2 = read(apath2.path)
         try:
             if input_is_zip:
-                assert compare_zips(data1, data2, ext='.class')
+                assert compare_zips(data1, data2, ext=ext)
             else:
-                assert compare_files(data1, data2, ext='.class')
+                assert compare_files(data1, data2, ext=ext)
         except AssertionError:
             print 'failed comparing', apath1.path, apath2.path
 

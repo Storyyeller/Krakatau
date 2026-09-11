@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use crate::lib::assemble::span::Spanned;
-use crate::lib::util::mstr;
+use crate::assemble::span::Spanned;
+use crate::util::mstr;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Or<A, B> {

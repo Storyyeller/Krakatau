@@ -1,11 +1,9 @@
 // #![allow(unused)]
-#![allow(special_module_name)]
 
 mod ass_main;
 mod dis_main;
 mod file_input_util;
 mod file_output_util;
-mod lib;
 
 use std::str;
 use std::thread;

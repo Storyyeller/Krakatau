@@ -1,4 +1,4 @@
-use crate::lib::util::mstr;
+use crate::util::mstr;
 
 use super::base_parser::BaseParser;
 use super::class_parser::ns;

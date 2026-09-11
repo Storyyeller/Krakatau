@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use super::raw_const::RawBsMeth;
 use super::raw_const::RawConst;
 use super::types::*;
-use crate::lib::assemble::span::Error;
-use crate::lib::assemble::span::ErrorMaker;
-use crate::lib::assemble::span::Span;
-use crate::lib::assemble::span::Spanned;
-use crate::lib::assemble::writer::BufWriter;
-use crate::lib::util::mstr;
+use crate::assemble::span::Error;
+use crate::assemble::span::ErrorMaker;
+use crate::assemble::span::Span;
+use crate::assemble::span::Spanned;
+use crate::assemble::writer::BufWriter;
+use crate::util::mstr;
 
 #[derive(Debug)]
 struct Range {

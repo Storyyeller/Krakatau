@@ -3,8 +3,8 @@ use std::sync::atomic::AtomicBool;
 
 use super::cpool::types;
 use super::cpool::Or;
-use crate::lib::assemble::span::Span;
-use crate::lib::assemble::span::Spanned;
+use crate::assemble::span::Span;
+use crate::assemble::span::Spanned;
 
 #[derive(Debug)]
 pub struct Placeholder<const N: usize>(usize);

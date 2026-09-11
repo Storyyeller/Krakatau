@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use super::types::*;
-use crate::lib::assemble::span::Error;
-use crate::lib::assemble::span::ErrorMaker;
-use crate::lib::assemble::span::Span;
-use crate::lib::assemble::span::Spanned;
+use crate::assemble::span::Error;
+use crate::assemble::span::ErrorMaker;
+use crate::assemble::span::Span;
+use crate::assemble::span::Spanned;
 
 enum ResolveState<Lazy, Resolved> {
     Unresolved(Option<Lazy>),

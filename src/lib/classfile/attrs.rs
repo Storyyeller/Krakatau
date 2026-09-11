@@ -5,7 +5,7 @@ use super::code::PosSet;
 use super::cpool::ConstPool;
 use super::reader::ParseError;
 use super::reader::Reader;
-use crate::lib::util::mstr;
+use crate::util::mstr;
 
 ///////////////////////////////////////////////////////////////////////////////
 #[derive(Debug)]

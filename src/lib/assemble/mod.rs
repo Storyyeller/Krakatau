@@ -14,7 +14,7 @@ mod writer;
 
 use typed_arena::Arena;
 
-use crate::lib::disassemble::string::parse_utf8;
+use crate::disassemble::string::parse_utf8;
 use base_parser::BaseParser;
 use class_parser::ClassParser;
 pub use span::Error;

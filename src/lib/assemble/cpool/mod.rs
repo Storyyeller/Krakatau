@@ -4,10 +4,10 @@ mod sym_ref_resolver;
 pub mod types;
 use std::collections::HashMap;
 
-use crate::lib::assemble::span::Error;
-use crate::lib::assemble::span::ErrorMaker;
-use crate::lib::assemble::span::Span;
-use crate::lib::assemble::span::Spanned;
+use crate::assemble::span::Error;
+use crate::assemble::span::ErrorMaker;
+use crate::assemble::span::Span;
+use crate::assemble::span::Spanned;
 pub use builder::BsAttrNameNeeded;
 use builder::PoolBuilder;
 use sym_ref_resolver::PoolSymDefs;

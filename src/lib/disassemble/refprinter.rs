@@ -5,10 +5,10 @@ use std::fmt::Display;
 
 use super::string::escape;
 use super::string::StrLitType;
-use crate::lib::classfile::attrs::BootstrapMethod;
-use crate::lib::classfile::cpool::Const;
-use crate::lib::classfile::cpool::ConstPool;
-use crate::lib::mhtags::MHTAGS;
+use crate::classfile::attrs::BootstrapMethod;
+use crate::classfile::cpool::Const;
+use crate::classfile::cpool::ConstPool;
+use crate::mhtags::MHTAGS;
 
 struct UtfData<'a> {
     stype: StrLitType,

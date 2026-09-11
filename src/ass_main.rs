@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use crate::file_input_util;
 use crate::file_output_util::Writer;
-use crate::lib::assemble;
-use crate::lib::AssemblerOptions;
+use krakatau2::assemble;
+use krakatau2::AssemblerOptions;
 
 #[derive(Parser)]
 pub struct AssemblerCli {

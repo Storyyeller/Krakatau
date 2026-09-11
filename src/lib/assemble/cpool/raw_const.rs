@@ -1,4 +1,4 @@
-use crate::lib::assemble::writer::BufWriter;
+use crate::assemble::writer::BufWriter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RawConst<'a> {

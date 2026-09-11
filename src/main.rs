@@ -6,7 +6,6 @@ mod file_input_util;
 mod file_output_util;
 
 use std::str;
-use std::thread;
 
 use clap::{Parser, Subcommand};
 
@@ -43,8 +42,9 @@ fn real_main() -> i32 {
     }
 }
 fn main() {
-    // Workaround for limited stack size in Rust: Spawn a thread with 256mb stack and run everything there.
-    let child = thread::Builder::new().stack_size(256 * 1024 * 1024).spawn(real_main).unwrap();
-    std::process::exit(child.join().unwrap());
-    // std::process::exit(real_main());
+    // The actual deeply-recursive work (parsing/assembling and disassembling)
+    // now runs on an oversized-stack thread inside `krakatau2::assemble`/
+    // `krakatau2::disassemble` themselves, so `real_main` no longer needs to
+    // be re-run on one here too.
+    std::process::exit(real_main());
 }

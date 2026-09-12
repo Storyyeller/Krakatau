@@ -66,7 +66,7 @@ impl<'a> Writer<'a> {
                 let name = name.ok_or_else(|| {
                     anyhow!("Class has missing or invalid name. Try specifying a single file output name explicitly.")
                 })?;
-                let options = zip::write::FileOptions::default()
+                let options = zip::write::SimpleFileOptions::default()
                     .compression_method(zip::CompressionMethod::Stored)
                     .last_modified_time(zip::DateTime::default());
 

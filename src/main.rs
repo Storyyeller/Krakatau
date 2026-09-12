@@ -44,6 +44,9 @@ fn real_main() -> i32 {
 }
 fn main() {
     // Workaround for limited stack size in Rust: Spawn a thread with 256mb stack and run everything there.
+    // (`krakatau2::assemble`/`krakatau2::disassemble` no longer do this themselves -- they run
+    // directly on the caller's own thread by default -- so the CLI, as a caller that knows it
+    // needs the extra room, still sets it up itself here rather than assuming a library default.)
     let child = thread::Builder::new().stack_size(256 * 1024 * 1024).spawn(real_main).unwrap();
     std::process::exit(child.join().unwrap());
     // std::process::exit(real_main());

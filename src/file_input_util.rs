@@ -23,7 +23,12 @@ pub fn read_files(p: &Path, ext: &str, mut cb: impl FnMut(&str, &[u8]) -> Result
         let ext = format!(".{}", ext); // temp hack
 
         for i in 0..zip.len() {
-            let mut file = zip.by_index(i)?;
+            // Some real-world jars (deliberately obfuscated/patched class
+            // files especially) carry a local/central-directory CRC32 that
+            // doesn't match their actual contents -- the JVM's own
+            // classloader never checks this, so Krakatau shouldn't refuse
+            // to read a file over it either.
+            let mut file = zip.by_index_with_options(i, zip::read::ZipReadOptions::new().ignore_crc32(true))?;
             // println!("found {} {:?} {} {}", i, file.name(), file.size(), file.compressed_size());
 
             let name = file.name().to_owned();

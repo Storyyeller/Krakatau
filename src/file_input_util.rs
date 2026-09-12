@@ -22,8 +22,12 @@ pub fn read_files(p: &Path, ext: &str, mut cb: impl FnMut(&str, &[u8]) -> Result
         let mut zip = zip::ZipArchive::new(file)?;
         let ext = format!(".{}", ext); // temp hack
 
+        // Java doesn't check CRC32 when loading jar entries, so obfuscators sometimes
+        // ship intentionally-invalid CRCs to break tooling. Match JVM behavior by
+        // ignoring the CRC instead of rejecting the entry (see krakatau2#170).
         for i in 0..zip.len() {
-            let mut file = zip.by_index(i)?;
+            let read_opts = zip::read::ZipReadOptions::default().ignore_crc32(true);
+            let mut file = zip.by_index_with_options(i, read_opts)?;
             // println!("found {} {:?} {} {}", i, file.name(), file.size(), file.compressed_size());
 
             let name = file.name().to_owned();

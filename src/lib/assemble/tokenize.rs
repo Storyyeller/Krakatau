@@ -25,7 +25,7 @@ pub enum TokenType {
 #[derive(Debug, Clone, Copy)]
 pub struct Token<'a>(pub TokenType, pub Span<'a>);
 
-pub fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
+pub fn tokenize(source: &str) -> Result<Vec<Token<'_>>, Error> {
     use TokenType::*;
 
     static SET_PATTERNS: &[&str] = &[

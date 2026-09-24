@@ -97,7 +97,7 @@ impl<'a> Class<'a> {
     }
 }
 
-pub fn parse(data: &[u8], opts: ParserOptions) -> Result<Class, ParseError> {
+pub fn parse(data: &[u8], opts: ParserOptions) -> Result<Class<'_>, ParseError> {
     let mut r = Reader(data);
     Class::new(&mut r, opts)
 }

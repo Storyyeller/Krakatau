@@ -238,7 +238,7 @@ impl<'a> RefPrinter<'a> {
         }
     }
 
-    fn ident(&self, ind: u16) -> Option<StringLit> {
+    fn ident(&self, ind: u16) -> Option<StringLit<'_>> {
         if let Some(ConstData::Utf8(d)) = self.get(ind) {
             d.ident()
         } else {
@@ -246,12 +246,12 @@ impl<'a> RefPrinter<'a> {
         }
     }
 
-    fn symref(&self, ind: u16) -> RefOrString {
+    fn symref(&self, ind: u16) -> RefOrString<'_> {
         self.cpool[ind as usize].sym_used.set(true);
         Sym(ind)
     }
 
-    pub(super) fn cpref(&self, ind: u16) -> RefOrString {
+    pub(super) fn cpref(&self, ind: u16) -> RefOrString<'_> {
         if let Some(_) = self.get(ind) {
             self.symref(ind)
         } else {
@@ -259,7 +259,7 @@ impl<'a> RefPrinter<'a> {
         }
     }
 
-    pub(super) fn utf(&self, ind: u16) -> RefOrString {
+    pub(super) fn utf(&self, ind: u16) -> RefOrString<'_> {
         if let Some(ConstData::Utf8(d)) = self.get(ind) {
             if let Some(sl) = d.ident() {
                 Str(sl)
@@ -271,7 +271,7 @@ impl<'a> RefPrinter<'a> {
         }
     }
 
-    pub(super) fn single(&self, ind: u16, expected: SingleTag) -> RefOrString {
+    pub(super) fn single(&self, ind: u16, expected: SingleTag) -> RefOrString<'_> {
         if let Some(ConstData::Single(tag, v)) = self.get(ind) {
             if *tag != expected {
                 return Raw(ind);
@@ -286,7 +286,7 @@ impl<'a> RefPrinter<'a> {
         }
     }
 
-    pub(super) fn cls(&self, ind: u16) -> RefOrString {
+    pub(super) fn cls(&self, ind: u16) -> RefOrString<'_> {
         self.single(ind, SingleTag::Class)
     }
 

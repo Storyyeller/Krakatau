@@ -67,7 +67,7 @@ pub enum StrLitType {
     Binary,
 }
 
-pub(super) fn escape(s: &[u8]) -> (StrLitType, Cow<str>) {
+pub(super) fn escape(s: &[u8]) -> (StrLitType, Cow<'_, str>) {
     if let Ok(s) = str::from_utf8(s) {
         if is_word(s) {
             return (StrLitType::Unquoted, Cow::from(s));

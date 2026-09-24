@@ -23,7 +23,7 @@ pub fn read_files(p: &Path, ext: &str, mut cb: impl FnMut(&str, &[u8]) -> Result
         let ext = format!(".{}", ext); // temp hack
 
         for i in 0..zip.len() {
-            let mut file = zip.by_index(i)?;
+            let mut file = zip.by_index_with_options(i, zip::read::ZipReadOptions::default().ignore_crc32(true))?;
             // println!("found {} {:?} {} {}", i, file.name(), file.size(), file.compressed_size());
 
             let name = file.name().to_owned();

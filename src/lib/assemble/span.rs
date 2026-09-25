@@ -82,7 +82,17 @@ impl<'a> ErrorPrinter<'a> {
         // const MAXLINELEN: usize = 80; // todo
         const TABWIDTH: usize = 8;
 
-        let line_no = self.lines.partition_point(|(_, bounds)| bounds.end < span.start);
+        if self.lines.is_empty() {
+            eprintln!("{}:1:1 {}", self.fname, msg);
+            return;
+        }
+
+        // A span at EOF (e.g. unexpected end of input) starts past the end of every
+        // line, so partition_point returns lines.len(); clamp it to the last line.
+        let line_no = self
+            .lines
+            .partition_point(|(_, bounds)| bounds.end < span.start)
+            .min(self.lines.len() - 1);
         let (Span(line), line_bounds) = self.lines[line_no];
 
         // convert byte positions to character positions (within the line)

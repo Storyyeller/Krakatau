@@ -23,6 +23,12 @@ impl<const N: usize> Placeholder<N> {
         std::mem::forget(self); // avoid drop check
         off..(off + N)
     }
+
+    // Intentionally drop a placeholder whose bytes will never be written, without
+    // tripping the unused-placeholder debug check.
+    fn forget(self) {
+        std::mem::forget(self);
+    }
 }
 // temporary debug check to make sure placeholders are all used
 pub static UNUSED_PH: AtomicBool = AtomicBool::new(false);
@@ -145,6 +151,17 @@ impl<'a> Writer<'a> {
             self.w.fill(ph, f(r)?);
         }
         Ok(self.w)
+    }
+
+    // Discard a sub-writer whose bytes will not be emitted (e.g. stack map frames
+    // suppressed by legacy .noimplicitstackmap). 
+    pub fn discard(self) {
+        for (ph, _) in self.refs {
+            ph.forget();
+        }
+        for (ph, _, _) in self.ldc_refs {
+            ph.forget();
+        }
     }
 
     pub fn extend_from_writer(&mut self, w: Writer<'a>) {

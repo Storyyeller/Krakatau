@@ -1,0 +1,5 @@
+asm/bad/const0.j:3:8 Invalid constant pool index
+.super java/lang/Object
+.const [0] = Int 8
+       ^~~         
+.end class

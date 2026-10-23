@@ -1,0 +1,4 @@
+asm/bad/badescapes2.j:1:18 Illegal hex escape
+.class public '\x3'
+                 ^~ 
+.super java/lang/Object

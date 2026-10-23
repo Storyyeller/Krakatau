@@ -1,0 +1,5 @@
+asm/bad/missingmethod.j:7:24 Expected Field, Method, InterfaceMethod, or ref
+    .code stack 94 locals 2
+        invokeinterface
+                       ^
+

@@ -1,0 +1,5 @@
+asm/bad/ldc256.j:6:9 ldc constant index must be <= 255. Try using ldc_w instead.
+    .code stack 10 locals 10
+        ldc [256]
+        ^~~       
+        return

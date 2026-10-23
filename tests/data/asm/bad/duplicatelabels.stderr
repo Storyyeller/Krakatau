@@ -1,0 +1,5 @@
+asm/bad/duplicatelabels.j:8:9 Duplicate label.
+        nop
+        LFOO:
+        ^~~~~ 
+        return

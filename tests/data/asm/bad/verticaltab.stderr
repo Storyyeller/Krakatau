@@ -1,0 +1,4 @@
+asm/bad/verticaltab.j:1:18 Error: Expected end of line
+.class public vt.super java/lang/Object
+                 ^~~~~~                  
+.end class

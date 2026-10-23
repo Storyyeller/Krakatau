@@ -1,0 +1,8 @@
+asm/bad/dupsymdef.j:5:8 Error: Duplicate definition of symbolic ref
+.const [x1] = Int 4
+.const [x1] = Int 5
+       ^~~~         
+.end class
+asm/bad/dupsymdef.j:4:8 Note: Previous definition was here
+.const [x1] = Int 4
+       ^~~~         

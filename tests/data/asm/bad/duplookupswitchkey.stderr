@@ -1,0 +1,5 @@
+asm/bad/duplookupswitchkey.j:11:13 Duplicate lookupswitch key
+            2 : L2
+            1 : L2
+            ^      
+            default : LFOO

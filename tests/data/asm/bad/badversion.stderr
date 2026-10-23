@@ -1,0 +1,4 @@
+asm/bad/badversion.j:1:10 Value must be in range 0 <= 99999999999 <= 65535
+.version 99999999999 0
+         ^~~~~~~~~~~   
+.class public whocares

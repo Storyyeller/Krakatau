@@ -1,0 +1,5 @@
+asm/bad/bscpmixup3.j:4:21 Expected 'Bootstrap' or bootstrap reference
+
+.bootstrap [bs:0] = Int 3
+                    ^~~   
+.end class

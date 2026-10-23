@@ -1,0 +1,5 @@
+asm/bad/undeflabel.j:6:14 Undefined label
+    .code stack 10 locals 10
+        goto LFOO
+             ^~~~ 
+        return

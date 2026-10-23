@@ -1,0 +1,5 @@
+asm/bad/toomanyldcs.j:261:5 Exceeded maximum 65534 constants per class in constant pool
+ldc 254
+ldc 255
+    ^~~ 
+

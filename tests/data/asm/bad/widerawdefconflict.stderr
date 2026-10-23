@@ -1,0 +1,8 @@
+asm/bad/widerawdefconflict.j:4:8 Conflicting raw const definition
+
+.const [2] = Int 5
+       ^~~         
+.const [1] = Long 4L
+asm/bad/widerawdefconflict.j:5:8 Note: Conflicts with wide const definition here
+.const [1] = Long 4L
+       ^~~           

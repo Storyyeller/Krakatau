@@ -1,0 +1,5 @@
+asm/bad/adjacentframes.j:9:16 Stack frame must have strictly greater bytecode offset than previous frame
+        .end stack
+        .stack same
+               ^~~~ 
+L1:     return

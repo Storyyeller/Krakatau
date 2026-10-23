@@ -1,0 +1,5 @@
+asm/bad/bs_raw_65535.j:6:12 Bootstrap method index must be <= 65534.
+.bootstrap [bs:0] = Bootstrap [mh] [mh] :
+.bootstrap [bs:65535] = Bootstrap [mh] [mh] :
+           ^~~~~~~~~~                         
+.end class

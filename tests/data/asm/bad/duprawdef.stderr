@@ -1,0 +1,8 @@
+asm/bad/duprawdef.j:5:8 Duplicate raw const definition
+.const [1] = Int 4
+.const [1] = Int 5
+       ^~~         
+.end class
+asm/bad/duprawdef.j:4:8 Note: Previously defined here
+.const [1] = Int 4
+       ^~~         

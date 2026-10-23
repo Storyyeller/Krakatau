@@ -1,0 +1,5 @@
+asm/bad/bscpmixup.j:4:15 Error: Unexpected token
+
+.const [bs:0] = Bootstrap [1] :
+              ^                 
+.end class

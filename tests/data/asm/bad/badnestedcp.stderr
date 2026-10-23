@@ -1,0 +1,5 @@
+asm/bad/badnestedcp.j:17:22 Reference must resolve to raw or Utf8 reference.
+.const [r12] = Class [r13]
+.const [r13] = Class [r14]
+                     ^~~~~ 
+.const [r14] = Class Foo

@@ -1,0 +1,4 @@
+asm/bad/unexpected_eof.j:6:27 Error: Unexpected end of file
+.method public static main : ([Ljava/lang/String;)V
+    .code stack 1 locals 1
+                          ^

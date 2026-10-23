@@ -1,0 +1,5 @@
+asm/bad/badmhcode.j:3:27 Invalid method handle tag
+.super [0]
+.const [1] = MethodHandle notACode Method java/lang/Runtime getRuntime ()Ljava/lang/Runtime;
+                          ^~~~~~~~                                                           
+.end class

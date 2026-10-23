@@ -438,6 +438,14 @@ impl<'a> ClassParser<'a> {
     }
 
     fn record_item(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
+        let debug_span = self.peek()?.1;
+        // Record attributes can only appear at classfile level.
+        // Krakatau is more lenient and merely prevents nesting.
+        if self.in_record_attr {
+            return self.err1("Invalid nested Record attribute", debug_span);
+        }
+        self.in_record_attr = true;
+
         w.cp(self.utf()?);
         w.cp(self.utf()?);
         if self.tryv(".attributes") {
@@ -455,6 +463,7 @@ impl<'a> ClassParser<'a> {
         } else {
             w.u16(0);
         }
+        self.in_record_attr = false;
         self.eol()
     }
 

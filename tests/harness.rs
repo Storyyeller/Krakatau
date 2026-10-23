@@ -29,7 +29,6 @@ use krakatau2::ParserOptions;
 const IGNORED_BAD: &[&str] = &[
     // Accepted by v2 but rejected by v1. v2 may be changed to reject them.
     "code_in_record",
-    "named_record_in_record",
     "record_in_code",
     // Accepted by the v2 assembler. The CLI only fails afterwards because the class name can't be
     // used as an output file name.

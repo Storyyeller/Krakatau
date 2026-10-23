@@ -36,8 +36,11 @@ pub struct ClassParser<'a> {
     pub version: (u16, u16),
     pub pool: cpool::Pool<'a>,
     // Temporary values only set during parsing of Code attributes
+    pub in_code_attr: bool,
     pub labels: HashMap<&'a str, Pos>,
     pub stack_map_table: Option<(u16, Writer<'a>)>,
+    // Only set while parsing a Record attribute
+    pub in_record_attr: bool,
 }
 impl<'a> std::ops::Deref for ClassParser<'a> {
     type Target = BaseParser<'a>;
@@ -59,8 +62,10 @@ impl<'a> ClassParser<'a> {
             arena,
             version: (49, 0),
             pool,
+            in_code_attr: false,
             labels: HashMap::new(),
             stack_map_table: None,
+            in_record_attr: false,
         }
     }
 

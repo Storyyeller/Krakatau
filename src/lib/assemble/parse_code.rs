@@ -492,9 +492,15 @@ impl<'a> ClassParser<'a> {
 
         let bytecode_len = w.len() - start_buf_len;
 
-        if !self.labels.is_empty() || !self.stack_map_table.is_none() {
+        // Code attributes can only appear at method level.
+        // Krakatau is more lenient and merely prevents nesting.
+        // Note that this check also guards the in-place use of self.labels/stack_map_table.
+        if self.in_code_attr {
             return self.err1("Invalid nested Code attribute", debug_span);
         }
+        self.in_code_attr = true;
+        assert!(self.labels.is_empty());
+        assert!(self.stack_map_table.is_none());
 
         self.labels = state.labels;
         for jump in state.short_jumps {
@@ -545,6 +551,7 @@ impl<'a> ClassParser<'a> {
         w.fill(ph, attr_count);
 
         self.labels.clear();
+        self.in_code_attr = false;
         Ok(bytecode_len)
     }
 

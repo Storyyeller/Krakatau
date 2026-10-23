@@ -1,6 +1,7 @@
 use std::cmp::Eq;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
+use std::fmt::Write;
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -78,12 +79,12 @@ impl<'a> ErrorPrinter<'a> {
         Self { fname, lines }
     }
 
-    fn print(&self, is_first: bool, msg: &str, span: SpanBounds) {
+    fn print(&self, out: &mut String, is_first: bool, msg: &str, span: SpanBounds) {
         // const MAXLINELEN: usize = 80; // todo
         const TABWIDTH: usize = 8;
 
         if self.lines.is_empty() {
-            eprintln!("{}:1:1 {}", self.fname, msg);
+            writeln!(out, "{}:1:1 {}", self.fname, msg).unwrap();
             return;
         }
 
@@ -137,7 +138,7 @@ impl<'a> ErrorPrinter<'a> {
             &s[0..std::cmp::min(115, s.len())]
         }
 
-        eprintln!("{}:{}:{} {}", self.fname, line_no + 1, start_ci + 1, msg);
+        writeln!(out, "{}:{}:{} {}", self.fname, line_no + 1, start_ci + 1, msg).unwrap();
         // eprintln!(
         //     "{}:{}:{} {} {}",
         //     self.fname,
@@ -147,12 +148,12 @@ impl<'a> ErrorPrinter<'a> {
         //     trim(&self.source[span.start..span.end])
         // );
         if is_first && line_no > 0 {
-            eprintln!("{}", trim(self.lines[line_no - 1].0 .0));
+            writeln!(out, "{}", trim(self.lines[line_no - 1].0 .0)).unwrap();
         }
-        eprintln!("{}", trim(line));
-        eprintln!("{}", trim(&underline));
+        writeln!(out, "{}", trim(line)).unwrap();
+        writeln!(out, "{}", trim(&underline)).unwrap();
         if is_first && line_no + 1 < self.lines.len() {
-            eprintln!("{}", trim(self.lines[line_no + 1].0 .0));
+            writeln!(out, "{}", trim(self.lines[line_no + 1].0 .0)).unwrap();
         }
     }
 }
@@ -169,13 +170,15 @@ impl Error {
         )
     }
 
-    pub fn display(&self, fname: &str, source: &str) {
+    pub fn format(&self, fname: &str, source: &str) -> String {
         let printer = ErrorPrinter::new(fname, source);
+        let mut out = String::new();
         let mut is_first = true;
         for (msg, span) in self.0.iter() {
-            printer.print(is_first, msg, *span);
+            printer.print(&mut out, is_first, msg, *span);
             is_first = false;
         }
+        out
     }
 }
 

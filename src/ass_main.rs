@@ -27,7 +27,7 @@ pub fn assembler_main(cli: AssemblerCli) -> Result<()> {
         let classes = match res {
             Ok(classes) => classes,
             Err(err) => {
-                err.display(fname, data);
+                eprint!("{}", err.format(fname, data));
                 error_count += 1;
                 return Ok(());
             }

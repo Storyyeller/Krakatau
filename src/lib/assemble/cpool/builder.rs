@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::interner::*;
+use super::raw_const::FlatConst;
 use super::raw_const::RawBsMeth;
 use super::raw_const::RawConst;
 use super::types::*;
@@ -106,7 +107,7 @@ impl BsAttrInfo {
 pub struct PoolBuilder<'a> {
     error_maker: ErrorMaker<'a>,
 
-    interner: Interner<'a>,
+    pub(super) interner: Interner<'a>,
     // Allocated slot for each interned constant, indexed by ConstId
     slots: Vec<Option<u16>>,
     pending: Vec<(u16, Span<'a>, ConstId)>,
@@ -140,12 +141,12 @@ impl<'a> PoolBuilder<'a> {
             interner,
             slots: Vec::new(),
             // Raw defs are added to pending directly, without recording their index in slots. This means that
-            // allocate_id won't reuse them for equal inline constants, which instead get their own slot.
+            // allocate won't reuse them for equal inline constants, which instead get their own slot.
             // Suppose a class has .const [5] = Utf8 foo and later uses an inline Class foo. The inline
             // Utf8 foo interns to the same ConstId as the raw def's contents. The Or doesn't keep them apart,
             // because both are the identical FlatConst::Utf8(foo). The only thing that keeps them apart is that
             // new puts (5, span, id) in pending without setting slots[id] = Some(5). When the inline constant
-            // comes through allocate_id, the early exit finds nothing, and it gets a fresh slot. If new did
+            // comes through allocate, the early exit finds nothing, and it gets a fresh slot. If new did
             // record the slot, the inline constant would silently reuse [5].
             pending: raw_defs,
             allocator: ConstSlotAllocator::new(ranges),
@@ -153,12 +154,7 @@ impl<'a> PoolBuilder<'a> {
         }
     }
 
-    pub fn allocate(&mut self, span: Span<'a>, c: RawConstInline<'a>, is_ldc: bool) -> Result<u16, Error> {
-        let id = self.interner.intern_inline_const(c);
-        self.allocate_id(span, id, is_ldc)
-    }
-
-    fn allocate_id(&mut self, span: Span<'a>, id: ConstId, is_ldc: bool) -> Result<u16, Error> {
+    pub(super) fn allocate(&mut self, span: Span<'a>, id: ConstId, is_ldc: bool) -> Result<u16, Error> {
         if let Some(&Some(ind)) = self.slots.get(id.index()) {
             return Ok(ind);
         }
@@ -184,7 +180,7 @@ impl<'a> PoolBuilder<'a> {
     fn fix(&mut self, span: Span<'a>, r: ConstRef) -> Result<u16, Error> {
         match r {
             Or::A(ind) => Ok(ind),
-            Or::B(id) => self.allocate_id(span, id, false),
+            Or::B(id) => self.allocate(span, id, false),
         }
     }
 
@@ -218,7 +214,7 @@ impl<'a> PoolBuilder<'a> {
         let bs = self.interner.get_bs(id).clone();
         let mut fix = |r: Or<u16, Spanned<'a, ConstId>>| match r {
             Or::A(ind) => Ok(ind),
-            Or::B(c) => self.allocate_id(c.span, c.v, false),
+            Or::B(c) => self.allocate(c.span, c.v, false),
         };
         let mhref = fix(bs.mhref)?;
         let args = bs.args.into_iter().map(fix).collect::<Result<_, _>>()?;
@@ -265,8 +261,8 @@ impl<'a> PoolBuilder<'a> {
 
         let name = if name_needed {
             let s = mstr::new(b"BootstrapMethods");
-            let c = InlineConst::Utf8(s);
-            let slot = self.allocate(bs_name_span.unwrap(), c, false)?;
+            let id = self.interner.intern_const(FlatConst::Utf8(s));
+            let slot = self.allocate(bs_name_span.unwrap(), id, false)?;
             table[slot as usize] = Some(RawConst::Utf8(s));
             Some(slot)
         } else {

@@ -1,29 +1,135 @@
 use std::collections::HashMap;
 
+use super::interner::*;
+use super::raw_const::*;
 use super::types::*;
 use crate::assemble::span::Error;
 use crate::assemble::span::ErrorMaker;
 use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
 
+#[derive(Debug, Clone, Copy)]
+pub(super) enum Unresolved<'a> {
+    Index(u32), // index into consts or bs_consts table
+    Sym(Spanned<'a, &'a str>),
+}
+pub(super) type MaybeResolved<'a, T> = Or<Unresolved<'a>, T>;
+pub(super) type MaybeConstRef<'a> = MaybeResolved<'a, ConstRef>;
+pub(super) type MaybeBsRef<'a> = MaybeResolved<'a, BsRef>;
+type UnresolvedConst<'a> = FlatConst<'a, MaybeConstRef<'a>, MaybeBsRef<'a>>;
+type UnresolvedBs<'a> = FlatBsMeth<MaybeConstRef<'a>>;
+
+// What a symbolic reference is required to resolve to, based on where it is used
+#[derive(Clone, Copy)]
+enum Expect {
+    Any,
+    Utf8,
+    Class,
+    Nat,
+}
+
 enum ResolveState<Lazy, Resolved> {
     Unresolved(Option<Lazy>),
     Resolved(Resolved),
 }
 
-pub struct PoolSymDefs<'a> {
+pub(super) struct UnresolvedSymsDefsAndConsts<'a> {
     error_maker: ErrorMaker<'a>,
 
-    sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<SymConstRef<'a>, RawConstRef<'a>>)>,
-    bs_sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<SymBsRef<'a>, RawBsRef<'a>>)>,
+    // Inline literals - these are not interned prior to sym def resolution, as they're only referenced once
+    // and they have to be interned after resolution anyway. The span is used when allocating a slot for
+    // a top level constant or bootstrap argument, for error reporting.
+    consts: Vec<(Span<'a>, UnresolvedConst<'a>)>,
+    bs_consts: Vec<UnresolvedBs<'a>>,
+    sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<MaybeConstRef<'a>, ConstRef>)>,
+    bs_sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<MaybeBsRef<'a>, BsRef>)>,
 }
-impl<'a> PoolSymDefs<'a> {
-    pub fn new(error_maker: ErrorMaker<'a>) -> Self {
+impl<'a> UnresolvedSymsDefsAndConsts<'a> {
+    pub(super) fn new(error_maker: ErrorMaker<'a>) -> Self {
         Self {
             error_maker,
+            consts: Vec::new(),
+            bs_consts: Vec::new(),
             sym_defs: HashMap::new(),
             bs_sym_defs: HashMap::new(),
         }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Temporary conversion from the parser's nested constants to table entries,
+    // until the parser adds constants to the table directly.
+    fn add_ref<T>(r: RefType<'a>) -> MaybeResolved<'a, Or<u16, T>> {
+        match r {
+            RefType::Raw(ind) => Or::B(Or::A(ind)),
+            RefType::Sym(name) => Or::A(Unresolved::Sym(name)),
+        }
+    }
+
+    pub(super) fn add_const(&mut self, r: SymSpanConst<'a>) -> MaybeConstRef<'a> {
+        match r {
+            Or::A(r) => Self::add_ref(r),
+            Or::B(c) => Or::A(Unresolved::Index(self.add_inline(c.span, c.v))),
+        }
+    }
+
+    // Nested constants don't have their own spans, so use the parent's span
+    fn add_sub(&mut self, span: Span<'a>, r: Or<RefType<'a>, impl ToConst<'a, RefType<'a>>>) -> MaybeConstRef<'a> {
+        match r {
+            Or::A(r) => Self::add_ref(r),
+            Or::B(c) => Or::A(Unresolved::Index(self.add_inline(span, c.to_const()))),
+        }
+    }
+
+    pub(super) fn add_inline(&mut self, span: Span<'a>, c: SymConstInline<'a>) -> u32 {
+        use FlatConst as F;
+        use InlineConst as I;
+        let c = match c {
+            I::Utf8(v) => F::Utf8(v),
+
+            I::Int(v) => F::Int(v),
+            I::Float(v) => F::Float(v),
+            I::Long(v) => F::Long(v),
+            I::Double(v) => F::Double(v),
+            I::Class(v) => F::Class(self.add_sub(span, v)),
+            I::Str(v) => F::Str(self.add_sub(span, v)),
+            I::Field(cls, nat) => F::Field(self.add_sub(span, cls), self.add_sub(span, nat)),
+            I::Method(cls, nat) => F::Method(self.add_sub(span, cls), self.add_sub(span, nat)),
+            I::InterfaceMethod(cls, nat) => F::InterfaceMethod(self.add_sub(span, cls), self.add_sub(span, nat)),
+            I::NameAndType(u1, u2) => F::NameAndType(self.add_sub(span, u1), self.add_sub(span, u2)),
+
+            I::MethodHandle(tag, val) => F::MethodHandle(tag, self.add_sub(span, *val)),
+            I::MethodType(v) => F::MethodType(self.add_sub(span, v)),
+            I::Dynamic(bs, nat) => F::Dynamic(self.add_bs(bs), self.add_sub(span, nat)),
+            I::InvokeDynamic(bs, nat) => F::InvokeDynamic(self.add_bs(bs), self.add_sub(span, nat)),
+            I::Module(v) => F::Module(self.add_sub(span, v)),
+            I::Package(v) => F::Package(self.add_sub(span, v)),
+        };
+
+        let ind = self.consts.len().try_into().unwrap();
+        self.consts.push((span, c));
+        ind
+    }
+
+    fn add_bs(&mut self, r: SymBsRef<'a>) -> MaybeBsRef<'a> {
+        match r {
+            Or::A(r) => Self::add_ref(r),
+            Or::B(bs) => Or::A(Unresolved::Index(self.add_bs_inline(bs))),
+        }
+    }
+
+    pub(super) fn add_bs_inline(&mut self, bs: SymBsInline<'a>) -> u32 {
+        let mut iter = bs.0.into_iter();
+        let mhref = self.add_const(iter.next().unwrap());
+        let args = iter.map(|c| self.add_const(c)).collect();
+
+        let ind = self.bs_consts.len().try_into().unwrap();
+        self.bs_consts.push(FlatBsMeth { mhref, args });
+        ind
+    }
+    ///////////////////////////////////////////////////////////////////////////
+
+    pub(super) fn const_span(&self, ind: u32) -> Span<'a> {
+        self.consts[ind as usize].0
     }
 
     fn add_def_generic<Before, After>(
@@ -45,30 +151,33 @@ impl<'a> PoolSymDefs<'a> {
         }
     }
 
-    pub fn add_def(&mut self, name: Spanned<'a, &'a str>, r: SymConstRef<'a>) -> Result<(), Error> {
+    pub(super) fn add_def(&mut self, name: Spanned<'a, &'a str>, r: SymConstRef<'a>) -> Result<(), Error> {
+        let r = self.add_sub(name.span, r);
         self.add_def_generic(name, r, |this| &mut this.sym_defs)
     }
 
-    pub fn add_bs_def(&mut self, name: Spanned<'a, &'a str>, r: SymBsRef<'a>) -> Result<(), Error> {
+    pub(super) fn add_bs_def(&mut self, name: Spanned<'a, &'a str>, r: SymBsRef<'a>) -> Result<(), Error> {
+        let r = self.add_bs(r);
         self.add_def_generic(name, r, |this| &mut this.bs_sym_defs)
     }
 
-    fn resolve_sym_generic<Before, After: Clone>(
+    fn resolve_sym_generic<Before, After: Copy>(
         &mut self,
+        interner: &mut Interner<'a>,
         name: Spanned<'_, &str>,
         get_map: fn(&mut Self) -> &mut HashMap<&'a str, (Span<'a>, ResolveState<Before, After>)>,
-        resolve: fn(&mut Self, Before) -> Result<After, Error>,
+        resolve: fn(&mut Self, &mut Interner<'a>, Before) -> Result<After, Error>,
     ) -> Result<After, Error> {
         if let Some((_, v)) = get_map(self).get_mut(name.v) {
             use ResolveState::*;
             let to_resolve = match v {
                 Unresolved(r) => r.take(),
-                Resolved(r) => return Ok(r.clone()),
+                Resolved(r) => return Ok(*r),
             };
 
             if let Some(r) = to_resolve {
-                let r = resolve(self, r)?;
-                get_map(self).get_mut(name.v).unwrap().1 = Resolved(r.clone());
+                let r = resolve(self, interner, r)?;
+                get_map(self).get_mut(name.v).unwrap().1 = Resolved(r);
                 Ok(r)
             } else {
                 self.err1("Circular definition of symbolic reference", name.span)
@@ -78,122 +187,113 @@ impl<'a> PoolSymDefs<'a> {
         }
     }
 
-    fn resolve_sym(&mut self, name: Spanned<'_, &str>) -> Result<RawConstRef<'a>, Error> {
-        self.resolve_sym_generic(name, |this| &mut this.sym_defs, Self::resolve_ref)
+    pub(super) fn resolve_ref(&mut self, interner: &mut Interner<'a>, r: MaybeConstRef<'a>) -> Result<ConstRef, Error> {
+        self.resolve_expect(interner, r, Expect::Any)
     }
 
-    fn resolve_bs_sym(&mut self, name: Spanned<'_, &str>) -> Result<RawBsRef<'a>, Error> {
-        self.resolve_sym_generic(name, |this| &mut this.bs_sym_defs, Self::resolve_bs_ref)
-    }
-
-    fn resolve_utf8(&mut self, r: SymUtf8Ref<'a>) -> Result<RawUtf8Ref<'a>, Error> {
+    fn resolve_expect(
+        &mut self,
+        interner: &mut Interner<'a>,
+        r: MaybeConstRef<'a>,
+        expect: Expect,
+    ) -> Result<ConstRef, Error> {
         Ok(match r {
-            Or::A(RefType::Raw(r)) => Or::A(r),
-            Or::A(RefType::Sym(name)) => {
-                let resolved = self.resolve_sym(name)?;
-                match resolved {
-                    Or::A(r) => Or::A(r),
-                    Or::B(InlineConst::Utf8(sym)) => Or::B(InlineUtf8(sym)),
-                    _ => self.err1("Reference must resolve to raw or Utf8 reference.", name.span)?,
+            Or::B(r) => r,
+            // Inline constants always have the expected type, since the parser enforces it
+            Or::A(Unresolved::Index(ind)) => Or::B(self.resolve_index(interner, ind)?),
+            Or::A(Unresolved::Sym(name)) => {
+                let r = self.resolve_sym_generic(interner, name, |this| &mut this.sym_defs, Self::resolve_ref)?;
+                if let Or::B(id) = r {
+                    let msg = match (expect, interner.get_const(id)) {
+                        (Expect::Utf8, FlatConst::Utf8(_)) => None,
+                        (Expect::Utf8, _) => Some("Reference must resolve to raw or Utf8 reference."),
+                        (Expect::Class, FlatConst::Class(_)) => None,
+                        (Expect::Class, _) => Some("Reference must resolve to raw or Class reference."),
+                        (Expect::Nat, FlatConst::NameAndType(..)) => None,
+                        (Expect::Nat, _) => Some("Reference must resolve to raw or NameAndType reference."),
+                        (Expect::Any, _) => None,
+                    };
+                    if let Some(msg) = msg {
+                        return self.err1(msg, name.span);
+                    }
                 }
+                r
             }
-            Or::B(sym) => Or::B(sym),
         })
     }
 
-    fn resolve_class(&mut self, r: SymClassRef<'a>) -> Result<RawClassRef<'a>, Error> {
-        Ok(match r {
-            Or::A(RefType::Raw(r)) => Or::A(r),
-            Or::A(RefType::Sym(name)) => {
-                let resolved = self.resolve_sym(name)?;
-                match resolved {
-                    Or::A(r) => Or::A(r),
-                    Or::B(InlineConst::Class(r)) => Or::B(InlineClass(r)),
-                    _ => self.err1("Reference must resolve to raw or Class reference.", name.span)?,
-                }
+    // Resolve a top level constant or bootstrap argument, along with the span to use if it needs to be allocated
+    pub(super) fn resolve_spanned(
+        &mut self,
+        interner: &mut Interner<'a>,
+        r: MaybeConstRef<'a>,
+    ) -> Result<Or<u16, Spanned<'a, ConstId>>, Error> {
+        let span = match r {
+            Or::A(Unresolved::Index(ind)) => self.const_span(ind),
+            Or::A(Unresolved::Sym(name)) => name.span,
+            Or::B(Or::A(ind)) => return Ok(Or::A(ind)),
+            Or::B(Or::B(_)) => unreachable!("parser never produces interned constants"),
+        };
+        Ok(self.resolve_ref(interner, r)?.map_b(|id| span.of(id)))
+    }
+
+    pub(super) fn resolve_index(&mut self, interner: &mut Interner<'a>, ind: u32) -> Result<ConstId, Error> {
+        use Expect::*;
+        use FlatConst as F;
+        let (_, c) = self.consts[ind as usize];
+        let mut r = |this: &mut Self, r, expect| this.resolve_expect(interner, r, expect);
+        let c = match c {
+            F::Utf8(v) => F::Utf8(v),
+
+            F::Int(v) => F::Int(v),
+            F::Float(v) => F::Float(v),
+            F::Long(v) => F::Long(v),
+            F::Double(v) => F::Double(v),
+            F::Class(v) => F::Class(r(self, v, Utf8)?),
+            F::Str(v) => F::Str(r(self, v, Utf8)?),
+            F::Field(cls, nat) => F::Field(r(self, cls, Class)?, r(self, nat, Nat)?),
+            F::Method(cls, nat) => F::Method(r(self, cls, Class)?, r(self, nat, Nat)?),
+            F::InterfaceMethod(cls, nat) => F::InterfaceMethod(r(self, cls, Class)?, r(self, nat, Nat)?),
+            F::NameAndType(u1, u2) => F::NameAndType(r(self, u1, Utf8)?, r(self, u2, Utf8)?),
+
+            F::MethodHandle(tag, val) => F::MethodHandle(tag, r(self, val, Any)?),
+            F::MethodType(v) => F::MethodType(r(self, v, Utf8)?),
+            F::Dynamic(bs, nat) => {
+                let bs = self.resolve_bs_ref(interner, bs)?;
+                F::Dynamic(bs, self.resolve_expect(interner, nat, Nat)?)
             }
-            Or::B(InlineClass(u)) => Or::B(InlineClass(self.resolve_utf8(u)?)),
-        })
-    }
-
-    fn resolve_nat(&mut self, r: SymNatRef<'a>) -> Result<RawNatRef<'a>, Error> {
-        Ok(match r {
-            Or::A(RefType::Raw(r)) => Or::A(r),
-            Or::A(RefType::Sym(name)) => {
-                let resolved = self.resolve_sym(name)?;
-                match resolved {
-                    Or::A(r) => Or::A(r),
-                    Or::B(InlineConst::NameAndType(r1, r2)) => Or::B(InlineNat(r1, r2)),
-                    _ => self.err1("Reference must resolve to raw or NameAndType reference.", name.span)?,
-                }
+            F::InvokeDynamic(bs, nat) => {
+                let bs = self.resolve_bs_ref(interner, bs)?;
+                F::InvokeDynamic(bs, self.resolve_expect(interner, nat, Nat)?)
             }
-            Or::B(InlineNat(r1, r2)) => Or::B(InlineNat(self.resolve_utf8(r1)?, self.resolve_utf8(r2)?)),
-        })
+            F::Module(v) => F::Module(r(self, v, Utf8)?),
+            F::Package(v) => F::Package(r(self, v, Utf8)?),
+        };
+        Ok(interner.intern_const(c))
     }
 
-    pub fn resolve_bsmeth(&mut self, bs: SymBsInline<'a>) -> Result<RawBsInline<'a>, Error> {
-        Ok(InlineBs(bs.0.into_iter().map(|r| self.resolve_ref2(r)).collect::<Result<_, _>>()?))
-    }
-
-    fn resolve_bs_ref(&mut self, r: SymBsRef<'a>) -> Result<RawBsRef<'a>, Error> {
+    fn resolve_bs_ref(&mut self, interner: &mut Interner<'a>, r: MaybeBsRef<'a>) -> Result<BsRef, Error> {
         Ok(match r {
-            Or::A(RefType::Raw(r)) => Or::A(r),
-            Or::A(RefType::Sym(name)) => self.resolve_bs_sym(name)?,
-            Or::B(bs) => Or::B(self.resolve_bsmeth(bs)?),
+            Or::B(r) => r,
+            Or::A(Unresolved::Index(ind)) => Or::B(self.resolve_bs_index(interner, ind)?),
+            Or::A(Unresolved::Sym(name)) => {
+                self.resolve_sym_generic(interner, name, |this| &mut this.bs_sym_defs, Self::resolve_bs_ref)?
+            }
         })
     }
 
-    pub fn resolve_const(&mut self, c: SymConstInline<'a>) -> Result<RawConstInline<'a>, Error> {
-        use InlineConst::*;
-
-        Ok(match c {
-            Utf8(v) => Utf8(v),
-            Int(v) => Int(v),
-            Float(v) => Float(v),
-            Long(v) => Long(v),
-            Double(v) => Double(v),
-
-            Class(v) => Class(self.resolve_utf8(v)?),
-            Str(v) => Str(self.resolve_utf8(v)?),
-            Field(clsr, natr) => Field(self.resolve_class(clsr)?, self.resolve_nat(natr)?),
-            Method(clsr, natr) => Method(self.resolve_class(clsr)?, self.resolve_nat(natr)?),
-            InterfaceMethod(clsr, natr) => InterfaceMethod(self.resolve_class(clsr)?, self.resolve_nat(natr)?),
-            NameAndType(r1, r2) => NameAndType(self.resolve_utf8(r1)?, self.resolve_utf8(r2)?),
-            MethodHandle(tag, r) => MethodHandle(tag, Box::new(self.resolve_ref(*r)?)),
-            MethodType(v) => MethodType(self.resolve_utf8(v)?),
-            Dynamic(dynr, natr) => Dynamic(self.resolve_bs_ref(dynr)?, self.resolve_nat(natr)?),
-            InvokeDynamic(dynr, natr) => InvokeDynamic(self.resolve_bs_ref(dynr)?, self.resolve_nat(natr)?),
-            Module(v) => Module(self.resolve_utf8(v)?),
-            Package(v) => Package(self.resolve_utf8(v)?),
-        })
-    }
-
-    fn resolve_ref(&mut self, r: SymConstRef<'a>) -> Result<RawConstRef<'a>, Error> {
-        Ok(match r {
-            Or::A(RefType::Raw(r)) => Or::A(r),
-            Or::A(RefType::Sym(name)) => self.resolve_sym(name)?,
-            Or::B(c) => Or::B(self.resolve_const(c)?),
-        })
-    }
-
-    // temp hack
-    pub fn resolve_ref2(&mut self, r: SymSpanConst<'a>) -> Result<RawSpanConst<'a>, Error> {
-        Ok(match r {
-            Or::A(RefType::Raw(r)) => Or::A(r),
-            Or::A(RefType::Sym(name)) => self.resolve_sym(name)?.map_b(|c| name.span.of(c)),
-            Or::B(c) => Or::B(c.span.of(self.resolve_const(c.v)?)),
-        })
-    }
-
-    pub fn resolve_bsmeth2(&mut self, bs: SymSpanBsInline<'a>) -> Result<RawSpanBsInline<'a>, Error> {
-        Ok(bs.span.of(self.resolve_bsmeth(bs.v)?))
-    }
-
-    pub fn resolve_const2(&mut self, c: SymSpanConstInline<'a>) -> Result<RawSpanConstInline<'a>, Error> {
-        Ok(c.span.of(self.resolve_const(c.v)?))
+    pub(super) fn resolve_bs_index(&mut self, interner: &mut Interner<'a>, ind: u32) -> Result<BsId, Error> {
+        let bs = self.bs_consts[ind as usize].clone();
+        let mhref = self.resolve_spanned(interner, bs.mhref)?;
+        let args = bs
+            .args
+            .into_iter()
+            .map(|r| self.resolve_spanned(interner, r))
+            .collect::<Result<_, _>>()?;
+        Ok(interner.intern_bs(FlatBsMeth { mhref, args }))
     }
 }
-impl<'a> std::ops::Deref for PoolSymDefs<'a> {
+impl<'a> std::ops::Deref for UnresolvedSymsDefsAndConsts<'a> {
     type Target = ErrorMaker<'a>;
 
     fn deref(&self) -> &Self::Target {

@@ -12,22 +12,23 @@ use crate::assemble::span::Spanned;
 pub use builder::BsAttrNameNeeded;
 use builder::PoolBuilder;
 use interner::Interner;
-use sym_ref_resolver::PoolSymDefs;
+use sym_ref_resolver::UnresolvedSymsDefsAndConsts;
 pub use types::*;
 
 pub type RefOr<'a, T> = Or<RefType<'a>, T>;
 
 pub struct Pool<'a> {
-    sym_defs: PoolSymDefs<'a>,
+    sym_defs: UnresolvedSymsDefsAndConsts<'a>,
     interner: Interner<'a>,
-    raw_defs: HashMap<u16, (Span<'a>, Option<SymSpanConstInline<'a>>)>,
-    bs_raw_defs: HashMap<u16, (Span<'a>, SymSpanBsInline<'a>)>,
+    // Indexes into the unresolved constant table
+    raw_defs: HashMap<u16, (Span<'a>, Option<u32>)>,
+    bs_raw_defs: HashMap<u16, (Span<'a>, Spanned<'a, u32>)>,
 }
 // Real instance methods
 impl<'a> Pool<'a> {
     pub fn new(error_maker: ErrorMaker<'a>) -> Self {
         Self {
-            sym_defs: PoolSymDefs::new(error_maker),
+            sym_defs: UnresolvedSymsDefsAndConsts::new(error_maker),
             interner: Interner::default(),
             raw_defs: HashMap::new(),
             bs_raw_defs: HashMap::new(),
@@ -60,6 +61,7 @@ impl<'a> Pool<'a> {
             }
         }
 
+        let r = self.sym_defs.add_inline(r.span, r.v);
         if let Some((old_span, old)) = self.raw_defs.insert(ind, (new_span, Some(r))) {
             if old.is_some() {
                 self.err2("Duplicate raw const definition", new_span, "Note: Previously defined here", old_span)
@@ -81,6 +83,7 @@ impl<'a> Pool<'a> {
             return self.err1("Bootstrap method index must be <= 65534.", new_span);
         }
 
+        let r = r.span.of(self.sym_defs.add_bs_inline(r.v));
         if let Some((old_span, _)) = self.bs_raw_defs.insert(ind, (new_span, r)) {
             self.err2("Duplicate raw bootstrap definition", new_span, "Note: Previously defined here", old_span)
         } else {
@@ -95,18 +98,15 @@ impl<'a> Pool<'a> {
             .into_iter()
             .filter_map(|(ind, (_span, slot))| {
                 slot.map(|c| {
-                    let c = self.sym_defs.resolve_const2(c)?;
-                    Ok((ind, c.span, self.interner.intern_inline_const(c.v)))
+                    let span = self.sym_defs.const_span(c);
+                    Ok((ind, span, self.sym_defs.resolve_index(&mut self.interner, c)?))
                 })
             })
             .collect::<Result<_, _>>()?;
         let bs_raw_defs = self
             .bs_raw_defs
             .into_iter()
-            .map(|(ind, (_span, bs))| {
-                let bs = self.sym_defs.resolve_bsmeth2(bs)?;
-                Ok((ind, bs.span, self.interner.intern_inline_bs(bs.v)))
-            })
+            .map(|(ind, (_span, bs))| Ok((ind, bs.span, self.sym_defs.resolve_bs_index(&mut self.interner, bs.v)?)))
             .collect::<Result<_, _>>()?;
 
         Ok(PoolResolver {
@@ -124,24 +124,24 @@ impl<'a> std::ops::Deref for Pool<'a> {
 }
 
 pub struct PoolResolver<'a> {
-    sym_defs: PoolSymDefs<'a>,
+    sym_defs: UnresolvedSymsDefsAndConsts<'a>,
     builder: PoolBuilder<'a>,
 }
 impl<'a> PoolResolver<'a> {
     pub fn resolve(&mut self, c: SymSpanConst<'a>) -> Result<u16, Error> {
-        let c = self.sym_defs.resolve_ref2(c)?;
-        match c {
+        let c = self.sym_defs.add_const(c);
+        match self.sym_defs.resolve_spanned(&mut self.builder.interner, c)? {
             Or::A(ind) => Ok(ind),
-            Or::B(c) => self.builder.allocate(c.span, c.v, false),
+            Or::B(id) => self.builder.allocate(id.span, id.v, false),
         }
     }
 
     pub fn resolve_ldc(&mut self, c: SymSpanConst<'a>, span: Span<'a>) -> Result<u8, Error> {
-        let c = self.sym_defs.resolve_ref2(c)?;
-        let ind = match c {
-            Or::A(ind) => Ok(ind),
-            Or::B(c) => self.builder.allocate(c.span, c.v, true),
-        }?;
+        let c = self.sym_defs.add_const(c);
+        let ind = match self.sym_defs.resolve_spanned(&mut self.builder.interner, c)? {
+            Or::A(ind) => ind,
+            Or::B(id) => self.builder.allocate(id.span, id.v, true)?,
+        };
 
         ind.try_into().map_err(|_| {
             self.sym_defs

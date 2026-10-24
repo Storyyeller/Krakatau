@@ -118,33 +118,21 @@ pub enum RefType<'a> {
 
 pub type SymUtf8Ref<'a> = Utf8<'a, RefType<'a>>;
 pub type SymSpanUtf8<'a> = Or<RefType<'a>, Spanned<'a, InlineUtf8<'a>>>;
-pub type RawUtf8Ref<'a> = Utf8<'a, u16>;
 
 pub type SymClassRef<'a> = Class<'a, RefType<'a>>;
 pub type SymSpanClass<'a> = Or<RefType<'a>, Spanned<'a, InlineClass<'a, RefType<'a>>>>;
 // pub type SymClassInline<'a> = InlineClass<'a, RefType<'a>>;
-pub type RawClassRef<'a> = Class<'a, u16>;
-// pub type RawClassInline<'a> = InlineClass<'a, u16>;
 
 pub type SymNatRef<'a> = Nat<'a, RefType<'a>>;
 pub type SymSpanNat<'a> = Or<RefType<'a>, Spanned<'a, InlineNat<'a, RefType<'a>>>>;
 // pub type SymNatInline<'a> = InlineNat<'a, RefType<'a>>;
-pub type RawNatRef<'a> = Nat<'a, u16>;
-// pub type RawNatInline<'a> = InlineNat<'a, u16>;
 
 pub type SymConstRef<'a> = Const<'a, RefType<'a>>;
 pub type SymSpanConst<'a> = Or<RefType<'a>, Spanned<'a, InlineConst<'a, RefType<'a>>>>;
 pub type SymConstInline<'a> = InlineConst<'a, RefType<'a>>;
 pub type SymSpanConstInline<'a> = Spanned<'a, InlineConst<'a, RefType<'a>>>;
-pub type RawConstRef<'a> = Const<'a, u16>;
-pub type RawSpanConst<'a> = Or<u16, Spanned<'a, InlineConst<'a, u16>>>;
-pub type RawConstInline<'a> = InlineConst<'a, u16>;
-pub type RawSpanConstInline<'a> = Spanned<'a, InlineConst<'a, u16>>;
 
 pub type SymBsRef<'a> = Bs<'a, RefType<'a>>;
 pub type SymSpanBs<'a> = Or<RefType<'a>, Spanned<'a, InlineBs<'a, RefType<'a>>>>;
 pub type SymBsInline<'a> = InlineBs<'a, RefType<'a>>;
 pub type SymSpanBsInline<'a> = Spanned<'a, InlineBs<'a, RefType<'a>>>;
-pub type RawBsRef<'a> = Bs<'a, u16>;
-pub type RawBsInline<'a> = InlineBs<'a, u16>;
-pub type RawSpanBsInline<'a> = Spanned<'a, InlineBs<'a, u16>>;

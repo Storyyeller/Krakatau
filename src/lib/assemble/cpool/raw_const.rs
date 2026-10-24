@@ -28,7 +28,12 @@ impl<'a, Ref, BsRef> FlatConst<'a, Ref, BsRef> {
         matches!(self, FlatConst::Long(_) | FlatConst::Double(_))
     }
 
-    pub(super) fn try_map<C, Ref2, BsRef2, E>(self, ctx: &mut C, mut f1: impl FnMut(&mut C, Ref) -> Result<Ref2, E>, mut f2: impl FnMut(&mut C, BsRef) -> Result<BsRef2, E>) -> Result<FlatConst<'a, Ref2, BsRef2>, E> {
+    pub(super) fn try_map<C, Ref2, BsRef2, E>(
+        self,
+        ctx: &mut C,
+        mut f1: impl FnMut(&mut C, Ref) -> Result<Ref2, E>,
+        mut f2: impl FnMut(&mut C, BsRef) -> Result<BsRef2, E>,
+    ) -> Result<FlatConst<'a, Ref2, BsRef2>, E> {
         use FlatConst::*;
         match self {
             Utf8(s) => Ok(Utf8(s)),
@@ -51,8 +56,6 @@ impl<'a, Ref, BsRef> FlatConst<'a, Ref, BsRef> {
         }
     }
 }
-
-
 
 pub(super) type RawConst<'a> = FlatConst<'a, u16, u16>;
 impl FlatConst<'_, u16, u16> {

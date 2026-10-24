@@ -114,51 +114,43 @@ pub struct PoolBuilder<'a> {
     raw_bs_defs: Vec<(u16, Span<'a>, BsId)>,
 }
 impl<'a> PoolBuilder<'a> {
-    pub fn new(
+    pub(super) fn new(
         error_maker: ErrorMaker<'a>,
-        mut raw_defs: Vec<(u16, Spanned<'a, RawConstInline<'a>>)>,
-        mut raw_bs_defs: Vec<(u16, Spanned<'a, RawBsInline<'a>>)>,
+        interner: Interner<'a>,
+        mut raw_defs: Vec<(u16, Span<'a>, ConstId)>,
+        mut raw_bs_defs: Vec<(u16, Span<'a>, BsId)>,
     ) -> Self {
         raw_defs.sort_unstable_by_key(|p| p.0);
         raw_bs_defs.sort_unstable_by_key(|p| !p.0); // use bitwise not to reverse sort order
 
         let mut ranges = Vec::new();
         let mut first = 1;
-        for &(ind, ref c) in &raw_defs {
+        for &(ind, _, id) in &raw_defs {
             if ind > first {
                 ranges.push(Range { first, last: ind - 1 });
             }
-            first = ind + if c.v.is_long() { 2 } else { 1 };
+            first = ind + if interner.get_const(id).is_long() { 2 } else { 1 };
         }
         if first <= 65534 {
             ranges.push(Range { first, last: 65534 });
         }
 
-        let mut new = Self {
+        Self {
             error_maker,
-            interner: Interner::default(),
+            interner,
             slots: Vec::new(),
-            pending: Vec::new(),
+            // Raw defs are added to pending directly, without recording their index in slots. This means that
+            // allocate_id won't reuse them for equal inline constants, which instead get their own slot.
+            // Suppose a class has .const [5] = Utf8 foo and later uses an inline Class foo. The inline
+            // Utf8 foo interns to the same ConstId as the raw def's contents. The Or doesn't keep them apart,
+            // because both are the identical FlatConst::Utf8(foo). The only thing that keeps them apart is that
+            // new puts (5, span, id) in pending without setting slots[id] = Some(5). When the inline constant
+            // comes through allocate_id, the early exit finds nothing, and it gets a fresh slot. If new did
+            // record the slot, the inline constant would silently reuse [5].
+            pending: raw_defs,
             allocator: ConstSlotAllocator::new(ranges),
-            raw_bs_defs: Vec::new(),
-        };
-        // Raw defs are added to pending directly, without recording their index in slots. This means that
-        // allocate_id won't reuse them for equal inline constants, which instead get their own slot.
-        // Suppose a class has .const [5] = Utf8 foo and later uses an inline Class foo. The inline
-        // Utf8 foo interns to the same ConstId as the raw def's contents. The Or doesn't keep them apart,
-        // because both are the identical FlatConst::Utf8(foo). The only thing that keeps them apart is that
-        // new pushes (5, span, id) to pending without setting slots[id] = Some(5). When the inline constant
-        // comes through allocate_id, the early exit finds nothing, and it gets a fresh slot. If new did
-        // record the slot, the inline constant would silently reuse [5].
-        for (ind, c) in raw_defs {
-            let id = new.interner.intern_inline_const(c.v);
-            new.pending.push((ind, c.span, id));
+            raw_bs_defs,
         }
-        for (ind, bs) in raw_bs_defs {
-            let id = new.interner.intern_inline_bs(bs.v);
-            new.raw_bs_defs.push((ind, bs.span, id));
-        }
-        new
     }
 
     pub fn allocate(&mut self, span: Span<'a>, c: RawConstInline<'a>, is_ldc: bool) -> Result<u16, Error> {

@@ -11,6 +11,7 @@ use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
 pub use builder::BsAttrNameNeeded;
 use builder::PoolBuilder;
+use interner::Interner;
 use sym_ref_resolver::PoolSymDefs;
 pub use types::*;
 
@@ -18,6 +19,7 @@ pub type RefOr<'a, T> = Or<RefType<'a>, T>;
 
 pub struct Pool<'a> {
     sym_defs: PoolSymDefs<'a>,
+    interner: Interner<'a>,
     raw_defs: HashMap<u16, (Span<'a>, Option<SymSpanConstInline<'a>>)>,
     bs_raw_defs: HashMap<u16, (Span<'a>, SymSpanBsInline<'a>)>,
 }
@@ -26,6 +28,7 @@ impl<'a> Pool<'a> {
     pub fn new(error_maker: ErrorMaker<'a>) -> Self {
         Self {
             sym_defs: PoolSymDefs::new(error_maker),
+            interner: Interner::default(),
             raw_defs: HashMap::new(),
             bs_raw_defs: HashMap::new(),
         }
@@ -90,17 +93,25 @@ impl<'a> Pool<'a> {
         let raw_defs = self
             .raw_defs
             .into_iter()
-            .filter_map(|(ind, (_span, slot))| slot.map(|c| Ok((ind, self.sym_defs.resolve_const2(c)?))))
+            .filter_map(|(ind, (_span, slot))| {
+                slot.map(|c| {
+                    let c = self.sym_defs.resolve_const2(c)?;
+                    Ok((ind, c.span, self.interner.intern_inline_const(c.v)))
+                })
+            })
             .collect::<Result<_, _>>()?;
         let bs_raw_defs = self
             .bs_raw_defs
             .into_iter()
-            .map(|(ind, (_span, bs))| Ok((ind, self.sym_defs.resolve_bsmeth2(bs)?)))
+            .map(|(ind, (_span, bs))| {
+                let bs = self.sym_defs.resolve_bsmeth2(bs)?;
+                Ok((ind, bs.span, self.interner.intern_inline_bs(bs.v)))
+            })
             .collect::<Result<_, _>>()?;
 
         Ok(PoolResolver {
             sym_defs: self.sym_defs,
-            builder: PoolBuilder::new(error_maker, raw_defs, bs_raw_defs),
+            builder: PoolBuilder::new(error_maker, self.interner, raw_defs, bs_raw_defs),
         })
     }
 }

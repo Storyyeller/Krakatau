@@ -282,7 +282,7 @@ impl<'a> PoolBuilder<'a> {
             // todo - test this
             if range.last == 65534 { range.first } else { 65535 }
         } else {
-            65535
+            65535 // if there were no ranges, that means every possible slot was occupied by raw refs
         };
 
         let class_name = match table[class_name_ind as usize] {

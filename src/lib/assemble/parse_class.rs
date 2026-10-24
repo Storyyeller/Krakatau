@@ -159,7 +159,7 @@ impl<'a> ClassParser<'a> {
         let mut method_w = Writer::default();
         let mut method_count = 0;
 
-        // We won't know how the contents of the bootstrap attr, and thus how long it should be,
+        // We won't know the contents of the bootstrap attr, and thus how long it should be,
         // until the constant pool has been fully resolved at the end. Therefore, we use two
         // writers, one for attributes before the .bootstrapmethods attr (if any), including the
         // name of the later, and second writer for any attributes that appear after the
@@ -198,7 +198,7 @@ impl<'a> ClassParser<'a> {
                     if bs_attr_placeholder_info.is_none() {
                         match self.parse_attr_allow_bsm(&mut attr_w1, &mut attr_count)? {
                             AttrResult::Normal => (),
-                            AttrResult::ImplicitBootstrap { name, len, span: _ } => {
+                            AttrResult::ImplicitBootstrap { name, len, span } => {
                                 let bs_name_ph = match name {
                                     Some(name) => {
                                         // attr has name explicitly provided, so just write it and don't store a placeholder
@@ -212,7 +212,7 @@ impl<'a> ClassParser<'a> {
                                     }
                                 };
 
-                                bs_attr_placeholder_info = Some((bs_name_ph, len));
+                                bs_attr_placeholder_info = Some((bs_name_ph, len, span));
                             }
                         }
                     } else {
@@ -252,8 +252,8 @@ impl<'a> ClassParser<'a> {
         w.u16(self.version.0);
 
         let bs_attr_needed = match bs_attr_placeholder_info {
-            Some((Some(_), _)) => BsAttrNameNeeded::Always,
-            Some((None, _)) => BsAttrNameNeeded::Never,
+            Some((Some(_), _, _span)) => BsAttrNameNeeded::Always,
+            Some((None, _, _)) => BsAttrNameNeeded::Never,
             None => BsAttrNameNeeded::IfPresent,
         };
         let class_name_ind = field_w.read_u16(2);
@@ -264,7 +264,7 @@ impl<'a> ClassParser<'a> {
         w.extend(&method_w);
 
         // println!("bsattr info {:?}", bs_attr_placeholder_info);
-        if let Some((name_ph, len)) = bs_attr_placeholder_info {
+        if let Some((name_ph, len, span)) = bs_attr_placeholder_info {
             if let Some(ph) = name_ph {
                 attr_w1.fill(ph, assembled_bs_attr_info.name.unwrap());
             }
@@ -274,7 +274,7 @@ impl<'a> ClassParser<'a> {
 
             let actual_length = assembled_bs_attr_info.data_len().ok_or_else(|| {
                 self.parser
-                    .error1("BootstrapMethods table exceeds maximum attribute length", debug_span)
+                    .error1("BootstrapMethods table exceeds maximum attribute length", span)
             })?;
 
             w.u32(len.unwrap_or(actual_length));

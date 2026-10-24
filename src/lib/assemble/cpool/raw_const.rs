@@ -1,32 +1,36 @@
 use crate::assemble::writer::BufWriter;
+use crate::util::mstr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum RawConst<'a> {
-    Utf8(&'a [u8]),
+pub(super) enum FlatConst<'a, Ref, BsRef> {
+    Utf8(&'a mstr),
 
     Int(u32),
     Float(u32),
     Long(u64),
     Double(u64),
-    Class(u16),
-    Str(u16),
-    Field(u16, u16),
-    Method(u16, u16),
-    InterfaceMethod(u16, u16),
-    NameAndType(u16, u16),
+    Class(Ref),
+    Str(Ref),
+    Field(Ref, Ref),
+    Method(Ref, Ref),
+    InterfaceMethod(Ref, Ref),
+    NameAndType(Ref, Ref),
 
-    MethodHandle(u8, u16),
-    MethodType(u16),
-    Dynamic(u16, u16),
-    InvokeDynamic(u16, u16),
-    Module(u16),
-    Package(u16),
+    MethodHandle(u8, Ref),
+    MethodType(Ref),
+    Dynamic(BsRef, Ref),
+    InvokeDynamic(BsRef, Ref),
+    Module(Ref),
+    Package(Ref),
 }
-impl RawConst<'_> {
+
+pub(super) type RawConst<'a> = FlatConst<'a, u16, u16>;
+impl FlatConst<'_, u16, u16> {
     pub(super) fn write(self, w: &mut BufWriter) {
-        use RawConst::*;
+        use FlatConst::*;
         match self {
             Utf8(s) => {
+                let s = s.as_bytes();
                 w.u8(1);
                 w.u16(s.len().try_into().unwrap());
                 w.write(s);
@@ -107,11 +111,12 @@ impl RawConst<'_> {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
-pub(super) struct RawBsMeth {
-    pub(super) mhref: u16,
-    pub(super) args: Vec<u16>,
+pub(super) struct FlatBsMeth<Ref> {
+    pub(super) mhref: Ref,
+    pub(super) args: Vec<Ref>,
 }
-impl RawBsMeth {
+pub(super) type RawBsMeth = FlatBsMeth<u16>;
+impl FlatBsMeth<u16> {
     pub(super) fn write(&self, w: &mut BufWriter) {
         w.u16(self.mhref);
         w.u16(self.args.len().try_into().unwrap());

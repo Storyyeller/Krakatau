@@ -197,7 +197,7 @@ impl<'a> PoolBuilder<'a> {
     ) -> Result<RawConst<'a>, Error> {
         let span = c.span;
         Ok(match c.v {
-            InlineConst::Utf8(v) => RawConst::Utf8(v.as_bytes()),
+            InlineConst::Utf8(v) => RawConst::Utf8(v),
 
             InlineConst::Int(v) => RawConst::Int(v),
             InlineConst::Float(v) => RawConst::Float(v),
@@ -234,7 +234,7 @@ impl<'a> PoolBuilder<'a> {
         cpwriter: &mut BufWriter,
         bs_name_needed: BsAttrNameNeeded,
         class_name_ind: u16,
-    ) -> Result<(BsAttrInfo, Option<&'a [u8]>), Error> {
+    ) -> Result<(BsAttrInfo, Option<&'a mstr>), Error> {
         let raw_bs_defs = std::mem::take(&mut self.raw_bs_defs);
         let resolved_bs_defs = raw_bs_defs
             .into_iter()
@@ -246,7 +246,7 @@ impl<'a> PoolBuilder<'a> {
         // a name for an implicit BootstrapMethods attribute later.
         let bs_name_span = self.pending.last().map(|(_, c)| c.span);
 
-        let filler_const = RawConst::Utf8(b"");
+        let filler_const = RawConst::Utf8(mstr::new(b""));
         let mut table = [Some(filler_const); 65535];
         table[0] = None;
 
@@ -268,8 +268,8 @@ impl<'a> PoolBuilder<'a> {
         };
 
         let name = if name_needed {
-            let s = b"BootstrapMethods";
-            let c = InlineConst::Utf8(mstr::new(s));
+            let s = mstr::new(b"BootstrapMethods");
+            let c = InlineConst::Utf8(s);
             let slot = self.allocate(bs_name_span.unwrap(), c, false)?;
             table[slot as usize] = Some(RawConst::Utf8(s));
             Some(slot)

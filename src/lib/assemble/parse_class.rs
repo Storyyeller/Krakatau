@@ -310,6 +310,6 @@ impl<'a> ClassParser<'a> {
         // println!("finish bs stuff");
 
         // println!("data {:?}", w);
-        Ok((self.parser, (class_name.map(mstr::new), w.into_buf())))
+        Ok((self.parser, (class_name, w.into_buf())))
     }
 }

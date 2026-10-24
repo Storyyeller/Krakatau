@@ -19,15 +19,6 @@ pub(super) type MaybeBsRef<'a> = MaybeResolved<'a, BsRef>;
 type UnresolvedConst<'a> = FlatConst<'a, MaybeConstRef<'a>, MaybeBsRef<'a>>;
 type UnresolvedBs<'a> = FlatBsMeth<MaybeConstRef<'a>>;
 
-// What a symbolic reference is required to resolve to, based on where it is used
-#[derive(Clone, Copy)]
-enum Expect {
-    Any,
-    Utf8,
-    Class,
-    Nat,
-}
-
 enum ResolveState<Lazy, Resolved> {
     Unresolved(Option<Lazy>),
     Resolved(Resolved),
@@ -188,36 +179,11 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
     }
 
     pub(super) fn resolve_ref(&mut self, interner: &mut Interner<'a>, r: MaybeConstRef<'a>) -> Result<ConstRef, Error> {
-        self.resolve_expect(interner, r, Expect::Any)
-    }
-
-    fn resolve_expect(
-        &mut self,
-        interner: &mut Interner<'a>,
-        r: MaybeConstRef<'a>,
-        expect: Expect,
-    ) -> Result<ConstRef, Error> {
         Ok(match r {
             Or::B(r) => r,
-            // Inline constants always have the expected type, since the parser enforces it
             Or::A(Unresolved::Index(ind)) => Or::B(self.resolve_index(interner, ind)?),
             Or::A(Unresolved::Sym(name)) => {
-                let r = self.resolve_sym_generic(interner, name, |this| &mut this.sym_defs, Self::resolve_ref)?;
-                if let Or::B(id) = r {
-                    let msg = match (expect, interner.get_const(id)) {
-                        (Expect::Utf8, FlatConst::Utf8(_)) => None,
-                        (Expect::Utf8, _) => Some("Reference must resolve to raw or Utf8 reference."),
-                        (Expect::Class, FlatConst::Class(_)) => None,
-                        (Expect::Class, _) => Some("Reference must resolve to raw or Class reference."),
-                        (Expect::Nat, FlatConst::NameAndType(..)) => None,
-                        (Expect::Nat, _) => Some("Reference must resolve to raw or NameAndType reference."),
-                        (Expect::Any, _) => None,
-                    };
-                    if let Some(msg) = msg {
-                        return self.err1(msg, name.span);
-                    }
-                }
-                r
+                self.resolve_sym_generic(interner, name, |this| &mut this.sym_defs, Self::resolve_ref)?
             }
         })
     }
@@ -238,37 +204,12 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
     }
 
     pub(super) fn resolve_index(&mut self, interner: &mut Interner<'a>, ind: u32) -> Result<ConstId, Error> {
-        use Expect::*;
-        use FlatConst as F;
         let (_, c) = self.consts[ind as usize];
-        let mut r = |this: &mut Self, r, expect| this.resolve_expect(interner, r, expect);
-        let c = match c {
-            F::Utf8(v) => F::Utf8(v),
-
-            F::Int(v) => F::Int(v),
-            F::Float(v) => F::Float(v),
-            F::Long(v) => F::Long(v),
-            F::Double(v) => F::Double(v),
-            F::Class(v) => F::Class(r(self, v, Utf8)?),
-            F::Str(v) => F::Str(r(self, v, Utf8)?),
-            F::Field(cls, nat) => F::Field(r(self, cls, Class)?, r(self, nat, Nat)?),
-            F::Method(cls, nat) => F::Method(r(self, cls, Class)?, r(self, nat, Nat)?),
-            F::InterfaceMethod(cls, nat) => F::InterfaceMethod(r(self, cls, Class)?, r(self, nat, Nat)?),
-            F::NameAndType(u1, u2) => F::NameAndType(r(self, u1, Utf8)?, r(self, u2, Utf8)?),
-
-            F::MethodHandle(tag, val) => F::MethodHandle(tag, r(self, val, Any)?),
-            F::MethodType(v) => F::MethodType(r(self, v, Utf8)?),
-            F::Dynamic(bs, nat) => {
-                let bs = self.resolve_bs_ref(interner, bs)?;
-                F::Dynamic(bs, self.resolve_expect(interner, nat, Nat)?)
-            }
-            F::InvokeDynamic(bs, nat) => {
-                let bs = self.resolve_bs_ref(interner, bs)?;
-                F::InvokeDynamic(bs, self.resolve_expect(interner, nat, Nat)?)
-            }
-            F::Module(v) => F::Module(r(self, v, Utf8)?),
-            F::Package(v) => F::Package(r(self, v, Utf8)?),
-        };
+        let c = c.try_map(
+            &mut (self, &mut *interner),
+            |(s, i), r| s.resolve_ref(i, r),
+            |(s, i), r| s.resolve_bs_ref(i, r),
+        )?;
         Ok(interner.intern_const(c))
     }
 

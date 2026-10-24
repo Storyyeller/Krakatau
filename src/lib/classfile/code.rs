@@ -9,6 +9,10 @@ use std::fmt::Display;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CodeOptions {
     pub allow_short: bool,
+    // Set while parsing the contents of a Code or Record attribute. Nested Code and Record
+    // attributes are left unparsed, to match the assembler, which rejects them.
+    pub in_code: bool,
+    pub in_record: bool,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
@@ -781,7 +785,7 @@ impl<'a> Code<'a> {
         let (bytecode, pset) = Bytecode::new(&mut Reader(r.get(bclen)?))?;
 
         let exceptions = r.parse_list(|r| Except::new(r, &pset))?;
-        let attrs = Attribute::new_list(r, cp, Some(&pset), opts)?;
+        let attrs = Attribute::new_list(r, cp, Some(&pset), CodeOptions { in_code: true, ..opts })?;
 
         if r.0.len() > 0 {
             return ParseError::s("Extra data at end of Code attribute");
@@ -804,7 +808,11 @@ impl<'a> Code<'a> {
     ) -> Result<(Box<Self>, Option<Box<Self>>), ParseError> {
         if opts.allow_short {
             let short = Self::new(&mut r.clone(), cp, opts);
-            let long = Self::new(&mut r, cp, CodeOptions { allow_short: false });
+            let long_opts = CodeOptions {
+                allow_short: false,
+                ..opts
+            };
+            let long = Self::new(&mut r, cp, long_opts);
 
             if let Ok(short) = short {
                 if let Ok(long) = long {

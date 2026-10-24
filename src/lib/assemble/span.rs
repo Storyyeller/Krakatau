@@ -148,12 +148,12 @@ impl<'a> ErrorPrinter<'a> {
         //     trim(&self.source[span.start..span.end])
         // );
         if is_first && line_no > 0 {
-            writeln!(out, "{}", trim(self.lines[line_no - 1].0 .0)).unwrap();
+            writeln!(out, "{}", trim(self.lines[line_no - 1].0.0)).unwrap();
         }
         writeln!(out, "{}", trim(line)).unwrap();
         writeln!(out, "{}", trim(&underline)).unwrap();
         if is_first && line_no + 1 < self.lines.len() {
-            writeln!(out, "{}", trim(self.lines[line_no + 1].0 .0)).unwrap();
+            writeln!(out, "{}", trim(self.lines[line_no + 1].0.0)).unwrap();
         }
     }
 }

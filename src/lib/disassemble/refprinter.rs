@@ -3,8 +3,8 @@ use std::cell::Cell;
 use std::fmt;
 use std::fmt::Display;
 
-use super::string::escape;
 use super::string::StrLitType;
+use super::string::escape;
 use crate::classfile::attrs::BootstrapMethod;
 use crate::classfile::cpool::Const;
 use crate::classfile::cpool::ConstPool;
@@ -261,11 +261,7 @@ impl<'a> RefPrinter<'a> {
 
     pub(super) fn utf(&self, ind: u16) -> RefOrString<'_> {
         if let Some(ConstData::Utf8(d)) = self.get(ind) {
-            if let Some(sl) = d.ident() {
-                Str(sl)
-            } else {
-                self.symref(ind)
-            }
+            if let Some(sl) = d.ident() { Str(sl) } else { self.symref(ind) }
         } else {
             Raw(ind)
         }

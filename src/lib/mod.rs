@@ -4,11 +4,11 @@ mod disassemble;
 mod mhtags;
 mod util;
 
-pub use assemble::assemble;
 pub use assemble::AssemblerOptions;
+pub use assemble::assemble;
 pub use classfile::ParserOptions;
-pub use disassemble::string::parse_utf8;
 pub use disassemble::DisassemblerOptions;
+pub use disassemble::string::parse_utf8;
 
 pub fn disassemble(
     data: &[u8],

@@ -1,8 +1,8 @@
-use super::class_parser::ns;
 use super::class_parser::ClassParser;
-use super::cpool::types;
+use super::class_parser::ns;
 use super::cpool::InlineConst;
 use super::cpool::Or;
+use super::cpool::types;
 use super::label::Pos;
 use super::span::Error;
 use super::span::Span;
@@ -56,7 +56,7 @@ impl<'a> ClassParser<'a> {
 
         if self.has_type(TokenType::Ref) {
             self.next()?; // consume first
-                          // Legacy method syntax
+            // Legacy method syntax
             if self.has_type(TokenType::Word) || self.has_type(TokenType::StringLit) {
                 let nat = self.nat()?;
                 return Ok(Or::B(first.of(f(self.ref_from(first)?, ns(nat)))));
@@ -96,7 +96,7 @@ impl<'a> ClassParser<'a> {
         let (cls, name, desc) = match words.len() {
             3 => (self.cls_from(words[0])?, self.utf_from(words[1])?, self.utf_from(words[2])?),
             2 => {
-                let cnn = words[0].1 .0;
+                let cnn = words[0].1.0;
                 let (left, right) = cnn.rsplit_once('/').unwrap_or((cnn, cnn));
 
                 let cls = self.cls_from(tok_from_substr(left))?;
@@ -105,7 +105,7 @@ impl<'a> ClassParser<'a> {
                 (cls, name, desc)
             }
             1 => {
-                let cnnd = words[0].1 .0;
+                let cnnd = words[0].1.0;
                 let (cnn, _) = cnnd.split_once('(').unwrap_or((cnnd, cnnd));
                 let (_, d) = cnnd.split_at(cnn.len()); // include the ( back into d
                 let (left, right) = cnn.rsplit_once('/').unwrap_or((cnn, cnn));
@@ -130,7 +130,9 @@ impl<'a> ClassParser<'a> {
             let desc = r
                 .as_b()
                 .and_then(|const_| match &const_.v {
-                    InlineConst::InterfaceMethod(_, nat) => nat.as_b().and_then(|nat| nat.1.as_b().map(|utf| utf.0 .as_bytes())),
+                    InlineConst::InterfaceMethod(_, nat) => {
+                        nat.as_b().and_then(|nat| nat.1.as_b().map(|utf| utf.0.as_bytes()))
+                    }
                     _ => None,
                 })
                 .ok_or_else(|| self.error1("Exceeded maximum bytecode length", debug_span))?;
@@ -294,7 +296,7 @@ impl<'a> ClassParser<'a> {
 
     fn parse_wide(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
         let tok = self.next()?;
-        match tok.1 .0 {
+        match tok.1.0 {
             "aload" => (w.u8(25), w.u16(self.u16()?)).0,
             "astore" => (w.u8(58), w.u16(self.u16()?)).0,
             "dload" => (w.u8(24), w.u16(self.u16()?)).0,
@@ -469,7 +471,7 @@ impl<'a> ClassParser<'a> {
 
             match tok.0 {
                 TokenType::LabelDef => {
-                    let lbl = self.next()?.1 .0.trim_end_matches(':');
+                    let lbl = self.next()?.1.0.trim_end_matches(':');
                     if state.labels.insert(lbl, pos).is_some() {
                         return self.err1("Duplicate label.", tok.1);
                     }

@@ -1,6 +1,6 @@
 use super::class_parser::ClassParser;
-use super::cpool::types;
 use super::cpool::InlineConst;
+use super::cpool::types;
 use super::span::Error;
 use super::span::Span;
 use super::string;
@@ -106,14 +106,14 @@ impl<'a> ClassParser<'a> {
             ".record" => ("Record", dotend_list! {"record", p, w, p.record_item(w)?}),
             ".runtime" => {
                 let tok = self.next()?;
-                let visible = match tok.1 .0 {
+                let visible = match tok.1.0 {
                     "visible" => true,
                     "invisible" => false,
                     _ => return self.err1("Expected visible or invisible", tok.1),
                 };
 
                 let tok = self.next()?;
-                match tok.1 .0 {
+                match tok.1.0 {
                     "annotations" => (
                         if visible {
                             "RuntimeVisibleAnnotations"
@@ -273,7 +273,7 @@ impl<'a> ClassParser<'a> {
 
     fn element_value(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
         let tok = self.next()?;
-        match tok.1 .0 {
+        match tok.1.0 {
             "annotation" => {
                 w.u8(64);
                 self.annotation(w, false)?;

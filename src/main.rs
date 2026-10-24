@@ -10,10 +10,10 @@ use std::thread;
 
 use clap::{Parser, Subcommand};
 
-use ass_main::assembler_main;
 use ass_main::AssemblerCli;
-use dis_main::disassembler_main;
+use ass_main::assembler_main;
 use dis_main::DisassemblerCli;
+use dis_main::disassembler_main;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]

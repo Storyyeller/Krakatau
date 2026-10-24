@@ -38,7 +38,9 @@ const IGNORED_BAD: &[&str] = &[
 // The only test inputs with short code attributes (version < 45.3).
 const SHORT_CODE: &[&str] = &["OldVersionTest"];
 
-const DEFAULT_PARSE: ParserOptions = ParserOptions { no_short_code_attr: false };
+const DEFAULT_PARSE: ParserOptions = ParserOptions {
+    no_short_code_attr: false,
+};
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_owned()
@@ -65,7 +67,12 @@ fn files_with_ext(dir: &Path, exts: &[&str], recursive: bool) -> Vec<PathBuf> {
 }
 
 fn rel_name(path: &Path, base: &Path) -> String {
-    path.strip_prefix(base).unwrap().with_extension("").to_str().unwrap().replace('\\', "/")
+    path.strip_prefix(base)
+        .unwrap()
+        .with_extension("")
+        .to_str()
+        .unwrap()
+        .replace('\\', "/")
 }
 
 // Like Trial::test, but run on a large stack like the CLI does (see main.rs), since the assembler
@@ -393,7 +400,12 @@ fn dis_tests(trials: &mut Vec<Trial>, hashes: &Arc<Hashes>, dir: &Path) {
         if SHORT_CODE.contains(&stem.as_str()) {
             trials.push(trial(format!("dis/{}/roundtrip_no_short_code", stem), move || {
                 for (_, data) in read_classes(&path) {
-                    check_roundtrip(&data, ParserOptions { no_short_code_attr: true })?;
+                    check_roundtrip(
+                        &data,
+                        ParserOptions {
+                            no_short_code_attr: true,
+                        },
+                    )?;
                 }
                 Ok(())
             }));

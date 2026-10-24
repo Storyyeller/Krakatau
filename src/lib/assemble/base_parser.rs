@@ -11,8 +11,8 @@ macro_rules! define_int_parse {
     ($t:ident) => {
         pub fn $t(&mut self) -> Result<$t, Error> {
             let tok = self.int()?;
-            parse_literal::int(tok.1 .0).ok_or_else(|| {
-                self.error1(&format!("Value must be in range {} <= {} <= {}", $t::MIN, tok.1 .0, $t::MAX), tok.1)
+            parse_literal::int(tok.1.0).ok_or_else(|| {
+                self.error1(&format!("Value must be in range {} <= {} <= {}", $t::MIN, tok.1.0, $t::MAX), tok.1)
             })
         }
     };
@@ -56,11 +56,11 @@ impl<'a> BaseParser<'a> {
     }
 
     pub fn tryv(&mut self, v: &str) -> bool {
-        self.tokens.next_if(|tok| tok.1 .0 == v).is_some()
+        self.tokens.next_if(|tok| tok.1.0 == v).is_some()
     }
 
     pub fn tryv2(&mut self, v: &str) -> Option<Span<'a>> {
-        self.tokens.next_if(|tok| tok.1 .0 == v).map(|tok| tok.1)
+        self.tokens.next_if(|tok| tok.1.0 == v).map(|tok| tok.1)
     }
 
     pub fn has_type(&mut self, ty: TokenType) -> bool {
@@ -82,11 +82,7 @@ impl<'a> BaseParser<'a> {
 
     pub fn assert_type(&mut self, ty: TokenType) -> Result<Span<'a>, Error> {
         let tok = self.next()?;
-        if tok.0 == ty {
-            Ok(tok.1)
-        } else {
-            self.fail()
-        }
+        if tok.0 == ty { Ok(tok.1) } else { self.fail() }
     }
 
     pub fn eol(&mut self) -> Result<(), Error> {

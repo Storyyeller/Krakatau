@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use super::cpool::types;
 use super::cpool::Or;
+use super::cpool::types;
 use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
 

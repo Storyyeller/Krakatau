@@ -1,13 +1,13 @@
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use clap::Parser;
 use std::path::PathBuf;
 
 use crate::file_input_util;
 use crate::file_output_util::Writer;
-use krakatau2::disassemble;
 use krakatau2::DisassemblerOptions;
 use krakatau2::ParserOptions;
+use krakatau2::disassemble;
 
 #[derive(Parser)]
 pub struct DisassemblerCli {

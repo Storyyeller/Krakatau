@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use super::interner::*;
 use super::raw_const::RawBsMeth;
 use super::raw_const::RawConst;
 use super::types::*;
@@ -105,10 +106,12 @@ impl BsAttrInfo {
 pub struct PoolBuilder<'a> {
     error_maker: ErrorMaker<'a>,
 
-    pending: Vec<(u16, Spanned<'a, RawConstInline<'a>>)>,
-    allocated: HashMap<RawConstInline<'a>, u16>,
+    interner: Interner<'a>,
+    // Allocated slot for each interned constant, indexed by ConstId
+    slots: Vec<Option<u16>>,
+    pending: Vec<(u16, Span<'a>, ConstId)>,
     allocator: ConstSlotAllocator,
-    raw_bs_defs: Vec<(u16, Spanned<'a, RawBsInline<'a>>)>,
+    raw_bs_defs: Vec<(u16, Span<'a>, BsId)>,
 }
 impl<'a> PoolBuilder<'a> {
     pub fn new(
@@ -131,57 +134,73 @@ impl<'a> PoolBuilder<'a> {
             ranges.push(Range { first, last: 65534 });
         }
 
-        Self {
+        let mut new = Self {
             error_maker,
-            pending: raw_defs,
-            allocated: HashMap::new(),
+            interner: Interner::default(),
+            slots: Vec::new(),
+            pending: Vec::new(),
             allocator: ConstSlotAllocator::new(ranges),
-            raw_bs_defs,
+            raw_bs_defs: Vec::new(),
+        };
+        // Raw defs are added to pending directly, without recording their index in slots. This means that
+        // allocate_id won't reuse them for equal inline constants, which instead get their own slot.
+        // Suppose a class has .const [5] = Utf8 foo and later uses an inline Class foo. The inline
+        // Utf8 foo interns to the same ConstId as the raw def's contents. The Or doesn't keep them apart,
+        // because both are the identical FlatConst::Utf8(foo). The only thing that keeps them apart is that
+        // new pushes (5, span, id) to pending without setting slots[id] = Some(5). When the inline constant
+        // comes through allocate_id, the early exit finds nothing, and it gets a fresh slot. If new did
+        // record the slot, the inline constant would silently reuse [5].
+        for (ind, c) in raw_defs {
+            let id = new.interner.intern_inline_const(c.v);
+            new.pending.push((ind, c.span, id));
         }
+        for (ind, bs) in raw_bs_defs {
+            let id = new.interner.intern_inline_bs(bs.v);
+            new.raw_bs_defs.push((ind, bs.span, id));
+        }
+        new
     }
 
     pub fn allocate(&mut self, span: Span<'a>, c: RawConstInline<'a>, is_ldc: bool) -> Result<u16, Error> {
-        // println!("allocate {} {:?} {}", span.0, c, is_ldc);
-        self.allocated
-            .get(&c)
-            .copied()
-            .or_else(|| {
-                let slot = if c.is_long() {
-                    self.allocator.alloc_wide()
-                } else {
-                    self.allocator.alloc(is_ldc)
-                };
-                if let Some(ind) = slot {
-                    self.allocated.insert(c.clone(), ind);
-                    self.pending.push((ind, span.of(c)));
-                }
-                slot
-            })
-            .ok_or_else(|| {
-                self.error_maker
-                    .error1("Exceeded maximum 65534 constants per class in constant pool", span)
-            })
+        let id = self.interner.intern_inline_const(c);
+        self.allocate_id(span, id, is_ldc)
     }
 
-    fn fix(&mut self, span: Span<'a>, r: Or<u16, impl ToConst<'a, u16>>) -> Result<u16, Error> {
+    fn allocate_id(&mut self, span: Span<'a>, id: ConstId, is_ldc: bool) -> Result<u16, Error> {
+        if let Some(&Some(ind)) = self.slots.get(id.index()) {
+            return Ok(ind);
+        }
+
+        let slot = if self.interner.get_const(id).is_long() {
+            self.allocator.alloc_wide()
+        } else {
+            self.allocator.alloc(is_ldc)
+        };
+        let ind = slot.ok_or_else(|| {
+            self.error_maker
+                .error1("Exceeded maximum 65534 constants per class in constant pool", span)
+        })?;
+
+        if self.slots.len() <= id.index() {
+            self.slots.resize(id.index() + 1, None);
+        }
+        self.slots[id.index()] = Some(ind);
+        self.pending.push((ind, span, id));
+        Ok(ind)
+    }
+
+    fn fix(&mut self, span: Span<'a>, r: ConstRef) -> Result<u16, Error> {
         match r {
             Or::A(ind) => Ok(ind),
-            Or::B(u) => self.allocate(span, u.to_const(), false),
+            Or::B(id) => self.allocate_id(span, id, false),
         }
     }
 
-    fn fix2(&mut self, r: Or<u16, Spanned<'a, impl ToConst<'a, u16>>>) -> Result<u16, Error> {
+    fn fix_bs(&mut self, span: Span<'a>, r: BsRef, bs_table: &mut BootstrapBuilder) -> Result<u16, Error> {
         match r {
             Or::A(ind) => Ok(ind),
-            Or::B(u) => self.allocate(u.span, u.v.to_const(), false),
-        }
-    }
-
-    fn fix_bs(&mut self, span: Span<'a>, r: RawBsRef<'a>, bs_table: &mut BootstrapBuilder) -> Result<u16, Error> {
-        match r {
-            Or::A(ind) => Ok(ind),
-            Or::B(bs) => {
-                let bs = self.resolve_bs_sub_refs(span.of(bs))?;
+            Or::B(id) => {
+                let bs = self.resolve_bs_sub_refs(id)?;
                 bs_table.allocate(bs).ok_or_else(|| {
                     self.error_maker
                         .error1("Exceeded maximum 65535 bootstrap methods per class", span)
@@ -192,40 +211,25 @@ impl<'a> PoolBuilder<'a> {
 
     fn resolve_cp_sub_refs(
         &mut self,
-        c: Spanned<'a, RawConstInline<'a>>,
+        span: Span<'a>,
+        id: ConstId,
         bs_table: &mut BootstrapBuilder,
     ) -> Result<RawConst<'a>, Error> {
-        let span = c.span;
-        Ok(match c.v {
-            InlineConst::Utf8(v) => RawConst::Utf8(v),
-
-            InlineConst::Int(v) => RawConst::Int(v),
-            InlineConst::Float(v) => RawConst::Float(v),
-            InlineConst::Long(v) => RawConst::Long(v),
-            InlineConst::Double(v) => RawConst::Double(v),
-            InlineConst::Class(v) => RawConst::Class(self.fix(span, v)?),
-            InlineConst::Str(v) => RawConst::Str(self.fix(span, v)?),
-            InlineConst::Field(cls, nat) => RawConst::Field(self.fix(span, cls)?, self.fix(span, nat)?),
-            InlineConst::Method(cls, nat) => RawConst::Method(self.fix(span, cls)?, self.fix(span, nat)?),
-            InlineConst::InterfaceMethod(cls, nat) => RawConst::InterfaceMethod(self.fix(span, cls)?, self.fix(span, nat)?),
-            InlineConst::NameAndType(u1, u2) => RawConst::NameAndType(self.fix(span, u1)?, self.fix(span, u2)?),
-
-            InlineConst::MethodHandle(tag, val) => RawConst::MethodHandle(tag, self.fix(span, *val)?),
-            InlineConst::MethodType(v) => RawConst::MethodType(self.fix(span, v)?),
-            InlineConst::Dynamic(bs, nat) => RawConst::Dynamic(self.fix_bs(span, bs, bs_table)?, self.fix(span, nat)?),
-            InlineConst::InvokeDynamic(bs, nat) => {
-                RawConst::InvokeDynamic(self.fix_bs(span, bs, bs_table)?, self.fix(span, nat)?)
-            }
-            InlineConst::Module(v) => RawConst::Module(self.fix(span, v)?),
-            InlineConst::Package(v) => RawConst::Package(self.fix(span, v)?),
-        })
+        self.interner.get_const(id).try_map(
+            &mut (self, bs_table),
+            |(s, _), r| s.fix(span, r),
+            |(s, bs_table), r| s.fix_bs(span, r, bs_table),
+        )
     }
 
-    fn resolve_bs_sub_refs(&mut self, bs: Spanned<'a, RawBsInline<'a>>) -> Result<RawBsMeth, Error> {
-        let mut iter = bs.v.0.into_iter();
-        let mh = iter.next().unwrap();
-        let mhref = self.fix2(mh)?;
-        let args = iter.map(|c| self.fix2(c)).collect::<Result<_, _>>()?;
+    fn resolve_bs_sub_refs(&mut self, id: BsId) -> Result<RawBsMeth, Error> {
+        let bs = self.interner.get_bs(id).clone();
+        let mut fix = |r: Or<u16, Spanned<'a, ConstId>>| match r {
+            Or::A(ind) => Ok(ind),
+            Or::B(c) => self.allocate_id(c.span, c.v, false),
+        };
+        let mhref = fix(bs.mhref)?;
+        let args = bs.args.into_iter().map(fix).collect::<Result<_, _>>()?;
         Ok(RawBsMeth { mhref, args })
     }
 
@@ -238,22 +242,22 @@ impl<'a> PoolBuilder<'a> {
         let raw_bs_defs = std::mem::take(&mut self.raw_bs_defs);
         let resolved_bs_defs = raw_bs_defs
             .into_iter()
-            .map(|(ind, bs)| Ok((ind, self.resolve_bs_sub_refs(bs)?)))
+            .map(|(ind, _span, id)| Ok((ind, self.resolve_bs_sub_refs(id)?)))
             .collect::<Result<_, _>>()?;
         let mut bs_table = BootstrapBuilder::new(resolved_bs_defs);
 
         // Just choose a span arbitrarily to use for the case where we can't allocate
         // a name for an implicit BootstrapMethods attribute later.
-        let bs_name_span = self.pending.last().map(|(_, c)| c.span);
+        let bs_name_span = self.pending.last().map(|&(_, span, _)| span);
 
         let filler_const = RawConst::Utf8(mstr::new(b""));
         let mut table = [Some(filler_const); 65535];
         table[0] = None;
 
-        while let Some((ind, c)) = self.pending.pop() {
-            let is_long = c.v.is_long();
+        while let Some((ind, span, id)) = self.pending.pop() {
+            let is_long = self.interner.get_const(id).is_long();
             assert!(table[ind as usize] == Some(filler_const));
-            table[ind as usize] = Some(self.resolve_cp_sub_refs(c, &mut bs_table)?);
+            table[ind as usize] = Some(self.resolve_cp_sub_refs(span, id, &mut bs_table)?);
             if is_long {
                 assert!(table[ind as usize + 1] == Some(filler_const));
                 table[ind as usize + 1] = None;

@@ -1,4 +1,5 @@
 mod builder;
+mod interner;
 mod raw_const;
 mod sym_ref_resolver;
 pub mod types;

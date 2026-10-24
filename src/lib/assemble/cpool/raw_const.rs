@@ -1,7 +1,7 @@
 use crate::assemble::writer::BufWriter;
 use crate::util::mstr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum FlatConst<'a, Ref, BsRef> {
     Utf8(&'a mstr),
 
@@ -23,6 +23,36 @@ pub(super) enum FlatConst<'a, Ref, BsRef> {
     Module(Ref),
     Package(Ref),
 }
+impl<'a, Ref, BsRef> FlatConst<'a, Ref, BsRef> {
+    pub(super) fn is_long(&self) -> bool {
+        matches!(self, FlatConst::Long(_) | FlatConst::Double(_))
+    }
+
+    pub(super) fn try_map<C, Ref2, BsRef2, E>(self, ctx: &mut C, mut f1: impl FnMut(&mut C, Ref) -> Result<Ref2, E>, mut f2: impl FnMut(&mut C, BsRef) -> Result<BsRef2, E>) -> Result<FlatConst<'a, Ref2, BsRef2>, E> {
+        use FlatConst::*;
+        match self {
+            Utf8(s) => Ok(Utf8(s)),
+            Int(v) => Ok(Int(v)),
+            Float(v) => Ok(Float(v)),
+            Long(v) => Ok(Long(v)),
+            Double(v) => Ok(Double(v)),
+            Class(r) => Ok(Class(f1(ctx, r)?)),
+            Str(r) => Ok(Str(f1(ctx, r)?)),
+            Field(r1, r2) => Ok(Field(f1(ctx, r1)?, f1(ctx, r2)?)),
+            Method(r1, r2) => Ok(Method(f1(ctx, r1)?, f1(ctx, r2)?)),
+            InterfaceMethod(r1, r2) => Ok(InterfaceMethod(f1(ctx, r1)?, f1(ctx, r2)?)),
+            NameAndType(r1, r2) => Ok(NameAndType(f1(ctx, r1)?, f1(ctx, r2)?)),
+            MethodHandle(tag, r) => Ok(MethodHandle(tag, f1(ctx, r)?)),
+            MethodType(r) => Ok(MethodType(f1(ctx, r)?)),
+            Dynamic(r1, r2) => Ok(Dynamic(f2(ctx, r1)?, f1(ctx, r2)?)),
+            InvokeDynamic(r1, r2) => Ok(InvokeDynamic(f2(ctx, r1)?, f1(ctx, r2)?)),
+            Module(r) => Ok(Module(f1(ctx, r)?)),
+            Package(r) => Ok(Package(f1(ctx, r)?)),
+        }
+    }
+}
+
+
 
 pub(super) type RawConst<'a> = FlatConst<'a, u16, u16>;
 impl FlatConst<'_, u16, u16> {
@@ -110,7 +140,7 @@ impl FlatConst<'_, u16, u16> {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub(super) struct FlatBsMeth<Ref> {
     pub(super) mhref: Ref,
     pub(super) args: Vec<Ref>,

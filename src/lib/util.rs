@@ -29,5 +29,3 @@ impl std::fmt::Display for mstr {
         <Self as Debug>::fmt(self, f)
     }
 }
-
-pub type MString = Box<mstr>;

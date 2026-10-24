@@ -410,6 +410,7 @@ pub struct Attribute<'a> {
     pub name: u16,
     pub length: u32,
     pub actual_length: u32,
+    #[allow(unused)]
     pub name_utf: &'a mstr,
     pub body: AttrBody<'a>,
 }

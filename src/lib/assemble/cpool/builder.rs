@@ -8,7 +8,6 @@ use super::types::*;
 use crate::assemble::span::Error;
 use crate::assemble::span::ErrorMaker;
 use crate::assemble::span::Span;
-use crate::assemble::span::Spanned;
 use crate::assemble::writer::BufWriter;
 use crate::util::mstr;
 
@@ -177,47 +176,38 @@ impl<'a> PoolBuilder<'a> {
         Ok(ind)
     }
 
-    fn fix(&mut self, span: Span<'a>, r: ConstRef) -> Result<u16, Error> {
+    fn fix(&mut self, r: SpannedConstRef<'a>) -> Result<u16, Error> {
         match r {
             Or::A(ind) => Ok(ind),
-            Or::B(id) => self.allocate(span, id, false),
+            Or::B(id) => self.allocate(id.span, id.v, false),
         }
     }
 
-    fn fix_bs(&mut self, span: Span<'a>, r: BsRef, bs_table: &mut BootstrapBuilder) -> Result<u16, Error> {
+    fn fix_bs(&mut self, r: SpannedBsRef<'a>, bs_table: &mut BootstrapBuilder) -> Result<u16, Error> {
         match r {
             Or::A(ind) => Ok(ind),
             Or::B(id) => {
-                let bs = self.resolve_bs_sub_refs(id)?;
+                let bs = self.resolve_bs_sub_refs(id.v)?;
                 bs_table.allocate(bs).ok_or_else(|| {
                     self.error_maker
-                        .error1("Exceeded maximum 65535 bootstrap methods per class", span)
+                        .error1("Exceeded maximum 65535 bootstrap methods per class", id.span)
                 })
             }
         }
     }
 
-    fn resolve_cp_sub_refs(
-        &mut self,
-        span: Span<'a>,
-        id: ConstId,
-        bs_table: &mut BootstrapBuilder,
-    ) -> Result<RawConst<'a>, Error> {
+    fn resolve_cp_sub_refs(&mut self, id: ConstId, bs_table: &mut BootstrapBuilder) -> Result<RawConst<'a>, Error> {
         self.interner.get_const(id).try_map(
             &mut (self, bs_table),
-            |(s, _), r| s.fix(span, r),
-            |(s, bs_table), r| s.fix_bs(span, r, bs_table),
+            |(s, _), r| s.fix(r),
+            |(s, bs_table), r| s.fix_bs(r, bs_table),
         )
     }
 
     fn resolve_bs_sub_refs(&mut self, id: BsId) -> Result<RawBsMeth, Error> {
         let bs = self.interner.get_bs(id).clone();
-        let mut fix = |r: Or<u16, Spanned<'a, ConstId>>| match r {
-            Or::A(ind) => Ok(ind),
-            Or::B(c) => self.allocate(c.span, c.v, false),
-        };
-        let mhref = fix(bs.mhref)?;
-        let args = bs.args.into_iter().map(fix).collect::<Result<_, _>>()?;
+        let mhref = self.fix(bs.mhref)?;
+        let args = bs.args.into_iter().map(|r| self.fix(r)).collect::<Result<_, _>>()?;
         Ok(RawBsMeth { mhref, args })
     }
 
@@ -242,10 +232,10 @@ impl<'a> PoolBuilder<'a> {
         let mut table = [Some(filler_const); 65535];
         table[0] = None;
 
-        while let Some((ind, span, id)) = self.pending.pop() {
+        while let Some((ind, _span, id)) = self.pending.pop() {
             let is_long = self.interner.get_const(id).is_long();
             assert!(table[ind as usize] == Some(filler_const));
-            table[ind as usize] = Some(self.resolve_cp_sub_refs(span, id, &mut bs_table)?);
+            table[ind as usize] = Some(self.resolve_cp_sub_refs(id, &mut bs_table)?);
             if is_long {
                 assert!(table[ind as usize + 1] == Some(filler_const));
                 table[ind as usize + 1] = None;

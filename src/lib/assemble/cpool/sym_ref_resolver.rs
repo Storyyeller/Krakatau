@@ -128,7 +128,7 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         &mut self,
         interner: &mut Interner<'a>,
         r: RefType<'a>,
-    ) -> Result<Or<u16, Spanned<'a, ConstId>>, Error> {
+    ) -> Result<SpannedConstRef<'a>, Error> {
         let span = match r {
             RefType::Raw(ind) => return Ok(Or::A(ind)),
             RefType::Index(ind) => self.const_span(ind),
@@ -141,8 +141,8 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         let (_, c) = self.consts[ind as usize];
         let c = c.try_map(
             &mut (self, &mut *interner),
-            |(s, i), r| s.resolve_ref(i, r),
-            |(s, i), r| s.resolve_bs_ref(i, r),
+            |(s, i), r| s.resolve_spanned(i, r),
+            |(s, i), r| s.resolve_bs_spanned(i, r),
         )?;
         Ok(interner.intern_const(c))
     }
@@ -155,6 +155,15 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
                 self.resolve_sym_generic(interner, name, |this| &mut this.bs_sym_defs, Self::resolve_bs_ref)?
             }
         })
+    }
+
+    fn resolve_bs_spanned(&mut self, interner: &mut Interner<'a>, r: RefType<'a>) -> Result<SpannedBsRef<'a>, Error> {
+        let span = match r {
+            RefType::Raw(ind) => return Ok(Or::A(ind)),
+            RefType::Index(ind) => self.bs_span(ind),
+            RefType::Sym(name) => name.span,
+        };
+        Ok(self.resolve_bs_ref(interner, r)?.map_b(|id| span.of(id)))
     }
 
     pub(super) fn resolve_bs_index(&mut self, interner: &mut Interner<'a>, ind: u32) -> Result<BsId, Error> {

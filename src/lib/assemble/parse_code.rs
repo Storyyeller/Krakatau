@@ -80,7 +80,7 @@ impl<'a> ClassParser<'a> {
                 let cls = self.cls_from(words[0])?;
                 let name = self.utf_from(words[1])?;
                 let desc = self.utf()?;
-                let nat = self.pool.add_const(first, FlatConst::NameAndType(name, desc));
+                let nat = self.pool.add_const(words[1].1, FlatConst::NameAndType(name, desc));
                 return Ok(self.pool.add_const(first, f(cls, nat)));
             } else if words.len() == 1 {
                 let cls = self.cls_from(words[0])?;
@@ -93,8 +93,8 @@ impl<'a> ClassParser<'a> {
             Token(TokenType::Word, Span(s))
         }
 
-        let (cls, name, desc) = match words.len() {
-            3 => (self.cls_from(words[0])?, self.utf_from(words[1])?, self.utf_from(words[2])?),
+        let (cls, name, name_span, desc) = match words.len() {
+            3 => (self.cls_from(words[0])?, self.utf_from(words[1])?, words[1].1, self.utf_from(words[2])?),
             2 => {
                 let cnn = words[0].1.0;
                 let (left, right) = cnn.rsplit_once('/').unwrap_or((cnn, cnn));
@@ -102,7 +102,7 @@ impl<'a> ClassParser<'a> {
                 let cls = self.cls_from(tok_from_substr(left))?;
                 let name = self.utf_from(tok_from_substr(right))?;
                 let desc = self.utf_from(words[1])?;
-                (cls, name, desc)
+                (cls, name, Span(right), desc)
             }
             1 => {
                 let cnnd = words[0].1.0;
@@ -113,12 +113,12 @@ impl<'a> ClassParser<'a> {
                 let cls = self.cls_from(tok_from_substr(left))?;
                 let name = self.utf_from(tok_from_substr(right))?;
                 let desc = self.utf_from(tok_from_substr(d))?;
-                (cls, name, desc)
+                (cls, name, Span(right), desc)
             }
             _ => return self.err1("Expected Field, Method, InterfaceMethod, or ref", first),
         };
 
-        let nat = self.pool.add_const(first, FlatConst::NameAndType(name, desc));
+        let nat = self.pool.add_const(name_span, FlatConst::NameAndType(name, desc));
         Ok(self.pool.add_const(first, f(cls, nat)))
     }
 

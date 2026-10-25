@@ -14,10 +14,12 @@ pub(super) struct BsId(u32);
 // Or::A is a raw reference (constant pool or bootstrap method index)
 pub(super) type ConstRef = Or<u16, ConstId>;
 pub(super) type BsRef = Or<u16, BsId>;
-pub(super) type InternedConst<'a> = FlatConst<'a, ConstRef, BsRef>;
-// Bootstrap arguments keep the span of their first occurrence for error reporting.
+// Interned constants keep the span of the first occurrence of each child for error reporting.
 // Spanned ignores the span when comparing and hashing, so this doesn't affect deduplication.
-pub(super) type InternedBs<'a> = FlatBsMeth<Or<u16, Spanned<'a, ConstId>>>;
+pub(super) type SpannedConstRef<'a> = Or<u16, Spanned<'a, ConstId>>;
+pub(super) type SpannedBsRef<'a> = Or<u16, Spanned<'a, BsId>>;
+pub(super) type InternedConst<'a> = FlatConst<'a, SpannedConstRef<'a>, SpannedBsRef<'a>>;
+pub(super) type InternedBs<'a> = FlatBsMeth<SpannedConstRef<'a>>;
 
 // Assigns ids to constants and bootstrap methods. Children are always interned before
 // their parents, so equal constants always get equal ids.

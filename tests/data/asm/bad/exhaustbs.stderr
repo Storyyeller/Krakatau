@@ -1,5 +1,5 @@
-asm/bad/exhaustbs.j:6:14 Exceeded maximum 65535 bootstrap methods per class
+asm/bad/exhaustbs.j:6:28 Exceeded maximum 65535 bootstrap methods per class
 .const [mymeth] = Method [mycls] mybsm (Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/
 .const [2] = InvokeDynamic invokeStatic [mymeth] : whatever (I)V
-             ^~~~~~~~~~~~~                                       
+                           ^~~~~~~~~~~~                          
 

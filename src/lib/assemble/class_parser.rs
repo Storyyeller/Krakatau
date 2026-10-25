@@ -315,7 +315,7 @@ impl<'a> ClassParser<'a> {
             Ref => return self.ref_type(tok.1),
             Word => self.tagged_const_from(tok.1)?,
             _ => {
-                return self.err1("Expected constant pool tag (Utf8, Int, String, NameAndType, etc.) or reference", tok.1);
+                return self.err1("Expected int, float, long, double, or string literal, constant pool tag (Class, String, etc.) or reference", tok.1);
             }
         };
         Ok(self.pool.add_const(tok.1, c))

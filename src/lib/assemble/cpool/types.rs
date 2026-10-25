@@ -36,17 +36,13 @@ impl<A, B> Or<A, B> {
     }
 }
 
-pub type Utf8<'a, Ref> = Or<Ref, InlineUtf8<'a>>;
+pub type Class<'a, Ref> = Or<Ref, InlineClass<Ref>>;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct InlineUtf8<'a>(pub &'a mstr);
+pub struct InlineClass<Ref>(pub Ref);
 
-pub type Class<'a, Ref> = Or<Ref, InlineClass<'a, Ref>>;
+pub type Nat<'a, Ref> = Or<Ref, InlineNat<Ref>>;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct InlineClass<'a, Ref>(pub Utf8<'a, Ref>);
-
-pub type Nat<'a, Ref> = Or<Ref, InlineNat<'a, Ref>>;
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct InlineNat<'a, Ref>(pub Utf8<'a, Ref>, pub Utf8<'a, Ref>);
+pub struct InlineNat<Ref>(pub Ref, pub Ref);
 
 pub type Bs<'a, Ref> = Or<Ref, InlineBs<'a, Ref>>;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -63,19 +59,19 @@ pub enum InlineConst<'a, Ref> {
     Float(u32),
     Long(u64),
     Double(u64),
-    Class(Utf8<'a, Ref>),
-    Str(Utf8<'a, Ref>),
+    Class(Ref),
+    Str(Ref),
     Field(Class<'a, Ref>, Nat<'a, Ref>),
     Method(Class<'a, Ref>, Nat<'a, Ref>),
     InterfaceMethod(Class<'a, Ref>, Nat<'a, Ref>),
-    NameAndType(Utf8<'a, Ref>, Utf8<'a, Ref>),
+    NameAndType(Ref, Ref),
 
     MethodHandle(u8, Box<Const<'a, Ref>>),
-    MethodType(Utf8<'a, Ref>),
+    MethodType(Ref),
     Dynamic(Bs<'a, Ref>, Nat<'a, Ref>),
     InvokeDynamic(Bs<'a, Ref>, Nat<'a, Ref>),
-    Module(Utf8<'a, Ref>),
-    Package(Utf8<'a, Ref>),
+    Module(Ref),
+    Package(Ref),
 }
 impl<'a, Ref> InlineConst<'a, Ref> {
     pub fn is_long(&self) -> bool {
@@ -89,17 +85,12 @@ impl<'a, Ref> InlineConst<'a, Ref> {
 pub trait ToConst<'a, Ref> {
     fn to_const(self) -> InlineConst<'a, Ref>;
 }
-impl<'a, Ref> ToConst<'a, Ref> for InlineUtf8<'a> {
-    fn to_const(self) -> InlineConst<'a, Ref> {
-        InlineConst::Utf8(self.0)
-    }
-}
-impl<'a, Ref> ToConst<'a, Ref> for InlineClass<'a, Ref> {
+impl<'a, Ref> ToConst<'a, Ref> for InlineClass<Ref> {
     fn to_const(self) -> InlineConst<'a, Ref> {
         InlineConst::Class(self.0)
     }
 }
-impl<'a, Ref> ToConst<'a, Ref> for InlineNat<'a, Ref> {
+impl<'a, Ref> ToConst<'a, Ref> for InlineNat<Ref> {
     fn to_const(self) -> InlineConst<'a, Ref> {
         InlineConst::NameAndType(self.0, self.1)
     }
@@ -110,6 +101,21 @@ impl<'a, Ref> ToConst<'a, Ref> for InlineConst<'a, Ref> {
     }
 }
 
+// Temporary conversion for Writer::cp, until all constants are added to the table during parsing
+pub trait ToSpanConst<'a> {
+    fn to_span_const(self) -> SymSpanConst<'a>;
+}
+impl<'a> ToSpanConst<'a> for RefType<'a> {
+    fn to_span_const(self) -> SymSpanConst<'a> {
+        Or::A(self)
+    }
+}
+impl<'a, T: ToConst<'a, RefType<'a>>> ToSpanConst<'a> for Or<RefType<'a>, Spanned<'a, T>> {
+    fn to_span_const(self) -> SymSpanConst<'a> {
+        self.map_b(|c| c.span.of(c.v.to_const()))
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum RefType<'a> {
     Raw(u16),
@@ -117,16 +123,13 @@ pub enum RefType<'a> {
     Sym(Spanned<'a, &'a str>),
 }
 
-pub type SymUtf8Ref<'a> = Utf8<'a, RefType<'a>>;
-pub type SymSpanUtf8<'a> = Or<RefType<'a>, Spanned<'a, InlineUtf8<'a>>>;
-
 pub type SymClassRef<'a> = Class<'a, RefType<'a>>;
-pub type SymSpanClass<'a> = Or<RefType<'a>, Spanned<'a, InlineClass<'a, RefType<'a>>>>;
-// pub type SymClassInline<'a> = InlineClass<'a, RefType<'a>>;
+pub type SymSpanClass<'a> = Or<RefType<'a>, Spanned<'a, InlineClass<RefType<'a>>>>;
+// pub type SymClassInline<'a> = InlineClass<RefType<'a>>;
 
 pub type SymNatRef<'a> = Nat<'a, RefType<'a>>;
-pub type SymSpanNat<'a> = Or<RefType<'a>, Spanned<'a, InlineNat<'a, RefType<'a>>>>;
-// pub type SymNatInline<'a> = InlineNat<'a, RefType<'a>>;
+pub type SymSpanNat<'a> = Or<RefType<'a>, Spanned<'a, InlineNat<RefType<'a>>>>;
+// pub type SymNatInline<'a> = InlineNat<RefType<'a>>;
 
 pub type SymConstRef<'a> = Const<'a, RefType<'a>>;
 pub type SymSpanConst<'a> = Or<RefType<'a>, Spanned<'a, InlineConst<'a, RefType<'a>>>>;

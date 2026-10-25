@@ -92,38 +92,47 @@ impl<'a> ClassParser<'a> {
         Ok(Or::A(self.ref_type(span)?))
     }
 
-    pub fn make_utf_ref(&self, b: &'a [u8], span: Span<'a>) -> Result<types::SymSpanUtf8<'a>, Error> {
+    fn make_utf(&self, b: &'a [u8], span: Span<'a>) -> Result<&'a mstr, Error> {
         if b.len() > u16::MAX as usize {
             self.err1("Constant strings must be at most 65535 bytes in MUTF8 encoding.", span)
         } else {
-            Ok(Or::B(span.of(types::InlineUtf8(mstr::new(b)))))
+            Ok(mstr::new(b))
         }
     }
 
-    pub fn utf_from(&self, tok: Token<'a>) -> Result<types::SymSpanUtf8<'a>, Error> {
+    // Parse a utf8 ref or literal without adding the literal to the unresolved constant table or interner.
+    // Parsed string literals are still allocated in the string arena.
+    fn utf_str_from(&self, tok: Token<'a>) -> Result<Or<types::RefType<'a>, &'a mstr>, Error> {
         use TokenType::*;
         match tok.0 {
-            Word => self.make_utf_ref(tok.1.0.as_bytes(), tok.1),
+            Word => Ok(Or::B(self.make_utf(tok.1.0.as_bytes(), tok.1)?)),
             Ref => self.ref_from(tok.1),
             StringLit => {
                 // let bs = string::unescape(tok.1 .0).ok_or_else(|| self.error1("Invalid string literal", tok.1))?;
                 let bs = string::unescape(tok.1.0).map_err(|(msg, s)| self.error1(msg, Span(s)))?;
                 let bs = self.arena.alloc(bs);
-                self.make_utf_ref(bs, tok.1)
+                Ok(Or::B(self.make_utf(bs, tok.1)?))
             }
             _ => self.err1("Expected identifier or constant pool ref", tok.1),
         }
     }
 
-    pub fn utf(&mut self) -> Result<types::SymSpanUtf8<'a>, Error> {
+    pub fn utf_from(&mut self, tok: Token<'a>) -> Result<types::RefType<'a>, Error> {
+        Ok(match self.utf_str_from(tok)? {
+            Or::A(r) => r,
+            Or::B(s) => self.pool.add_utf8(tok.1, s),
+        })
+    }
+
+    pub fn utf(&mut self) -> Result<types::RefType<'a>, Error> {
         let tok = self.next()?;
         self.utf_from(tok)
     }
 
-    pub fn cls_from(&self, tok: Token<'a>) -> Result<types::SymSpanClass<'a>, Error> {
+    pub fn cls_from(&mut self, tok: Token<'a>) -> Result<types::SymSpanClass<'a>, Error> {
         match tok.0 {
             TokenType::Ref => self.ref_from(tok.1),
-            _ => Ok(Or::B(tok.1.of(types::InlineClass(ns(self.utf_from(tok)?))))),
+            _ => Ok(Or::B(tok.1.of(types::InlineClass(self.utf_from(tok)?)))),
         }
     }
 
@@ -134,12 +143,12 @@ impl<'a> ClassParser<'a> {
 
     pub fn single(
         &mut self,
-        f: fn(types::SymUtf8Ref<'a>) -> types::SymConstInline<'a>,
+        f: fn(types::RefType<'a>) -> types::SymConstInline<'a>,
     ) -> Result<types::SymSpanConst<'a>, Error> {
         let tok = self.next()?;
         match tok.0 {
             TokenType::Ref => self.ref_from(tok.1),
-            _ => Ok(Or::B(tok.1.of(f(ns(self.utf_from(tok)?))))),
+            _ => Ok(Or::B(tok.1.of(f(self.utf_from(tok)?)))),
         }
     }
 
@@ -148,8 +157,8 @@ impl<'a> ClassParser<'a> {
         if tok.0 == TokenType::Ref {
             self.ref_from(tok.1)
         } else {
-            let name = ns(self.utf_from(tok)?);
-            let desc = ns(self.utf()?);
+            let name = self.utf_from(tok)?;
+            let desc = self.utf()?;
             Ok(Or::B(tok.1.of(types::InlineNat(name, desc))))
         }
     }
@@ -215,9 +224,9 @@ impl<'a> ClassParser<'a> {
         Ok(match span.0 {
             "Utf8" => {
                 let tok = self.next()?;
-                Utf8(match self.utf_from(tok)? {
+                Utf8(match self.utf_str_from(tok)? {
                     Or::A(_) => return self.err1("Expected identifier or string, not ref", span),
-                    Or::B(b) => b.v.0,
+                    Or::B(s) => s,
                 })
             }
             "Int" => Int(self.i32()? as u32),
@@ -234,17 +243,17 @@ impl<'a> ClassParser<'a> {
                 self.double_from(span)?
             }
 
-            "Class" => Class(ns(self.utf()?)),
-            "String" => Str(ns(self.utf()?)),
-            "MethodType" => MethodType(ns(self.utf()?)),
-            "Module" => Module(ns(self.utf()?)),
-            "Package" => Package(ns(self.utf()?)),
+            "Class" => Class(self.utf()?),
+            "String" => Str(self.utf()?),
+            "MethodType" => MethodType(self.utf()?),
+            "Module" => Module(self.utf()?),
+            "Package" => Package(self.utf()?),
 
             "Field" => Field(ns(self.cls()?), ns(self.nat()?)),
             "Method" => Method(ns(self.cls()?), ns(self.nat()?)),
             "InterfaceMethod" => InterfaceMethod(ns(self.cls()?), ns(self.nat()?)),
 
-            "NameAndType" => NameAndType(ns(self.utf()?), ns(self.utf()?)),
+            "NameAndType" => NameAndType(self.utf()?, self.utf()?),
             "MethodHandle" => {
                 let tag_span = self.assert_type(TokenType::Word)?;
                 self.mhnotref(tag_span)?.v
@@ -300,7 +309,7 @@ impl<'a> ClassParser<'a> {
             FloatLit => Ok(Or::B(tok.1.of(self.float_from(tok.1)?))),
             LongLit => Ok(Or::B(tok.1.of(self.long_from(tok.1)?))),
             DoubleLit => Ok(Or::B(tok.1.of(self.double_from(tok.1)?))),
-            StringLit => Ok(Or::B(tok.1.of(types::InlineConst::Str(ns(self.utf_from(tok)?))))),
+            StringLit => Ok(Or::B(tok.1.of(types::InlineConst::Str(self.utf_from(tok)?)))),
 
             Ref => self.ref_from(tok.1),
             Word => Ok(Or::B(tok.1.of(self.tagged_const_from(tok.1)?))),
@@ -308,8 +317,8 @@ impl<'a> ClassParser<'a> {
         }
     }
 
-    pub fn static_utf(name: &'static str, span: Span<'a>) -> types::SymSpanUtf8<'a> {
-        Or::B(span.of(types::InlineUtf8(mstr::new(name.as_bytes()))))
+    pub fn static_utf(&mut self, name: &'static str, span: Span<'a>) -> types::RefType<'a> {
+        self.pool.add_utf8(span, mstr::new(name.as_bytes()))
     }
 
     pub fn flags(&mut self) -> Result<u16, Error> {

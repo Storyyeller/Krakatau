@@ -1,9 +1,7 @@
 use std::fmt::Debug;
 
-use super::cpool::Or;
 use super::cpool::types;
 use crate::assemble::span::Span;
-use crate::assemble::span::Spanned;
 
 #[derive(Debug)]
 #[must_use]
@@ -110,10 +108,9 @@ pub struct Writer<'a> {
     refs: Vec<(Placeholder<2>, types::SymSpanConst<'a>)>,
 }
 impl<'a> Writer<'a> {
-    pub fn cp(&mut self, r: Or<types::RefType<'a>, Spanned<'a, impl types::ToConst<'a, types::RefType<'a>>>>) {
+    pub fn cp(&mut self, r: impl types::ToSpanConst<'a>) {
         let ph = self.ph();
-        // self.refs.push((ph, r.map_b(types::ToConst::to_const)));
-        self.refs.push((ph, r.map_b(|c| c.span.of(c.v.to_const()))));
+        self.refs.push((ph, r.to_span_const()));
     }
 
     pub fn cp_ldc(&mut self, r: types::SymSpanConst<'a>, ldc_span: Span<'a>) {

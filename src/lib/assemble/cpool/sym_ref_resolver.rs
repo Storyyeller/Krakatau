@@ -7,6 +7,7 @@ use crate::assemble::span::Error;
 use crate::assemble::span::ErrorMaker;
 use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
+use crate::util::mstr;
 
 type UnresolvedConst<'a> = FlatConst<'a, RefType<'a>, RefType<'a>>;
 type UnresolvedBs<'a> = FlatBsMeth<RefType<'a>>;
@@ -66,19 +67,19 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
             I::Float(v) => F::Float(v),
             I::Long(v) => F::Long(v),
             I::Double(v) => F::Double(v),
-            I::Class(v) => F::Class(self.add_sub(span, v)),
-            I::Str(v) => F::Str(self.add_sub(span, v)),
+            I::Class(v) => F::Class(v),
+            I::Str(v) => F::Str(v),
             I::Field(cls, nat) => F::Field(self.add_sub(span, cls), self.add_sub(span, nat)),
             I::Method(cls, nat) => F::Method(self.add_sub(span, cls), self.add_sub(span, nat)),
             I::InterfaceMethod(cls, nat) => F::InterfaceMethod(self.add_sub(span, cls), self.add_sub(span, nat)),
-            I::NameAndType(u1, u2) => F::NameAndType(self.add_sub(span, u1), self.add_sub(span, u2)),
+            I::NameAndType(u1, u2) => F::NameAndType(u1, u2),
 
             I::MethodHandle(tag, val) => F::MethodHandle(tag, self.add_sub(span, *val)),
-            I::MethodType(v) => F::MethodType(self.add_sub(span, v)),
+            I::MethodType(v) => F::MethodType(v),
             I::Dynamic(bs, nat) => F::Dynamic(self.add_bs(bs), self.add_sub(span, nat)),
             I::InvokeDynamic(bs, nat) => F::InvokeDynamic(self.add_bs(bs), self.add_sub(span, nat)),
-            I::Module(v) => F::Module(self.add_sub(span, v)),
-            I::Package(v) => F::Package(self.add_sub(span, v)),
+            I::Module(v) => F::Module(v),
+            I::Package(v) => F::Package(v),
         };
 
         let ind = self.consts.len().try_into().unwrap();
@@ -103,6 +104,13 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         ind
     }
     ///////////////////////////////////////////////////////////////////////////
+
+    pub(super) fn inline_utf8(&self, ind: u32) -> Option<&'a mstr> {
+        match self.consts[ind as usize].1 {
+            FlatConst::Utf8(s) => Some(s),
+            _ => None,
+        }
+    }
 
     pub(super) fn const_span(&self, ind: u32) -> Span<'a> {
         self.consts[ind as usize].0

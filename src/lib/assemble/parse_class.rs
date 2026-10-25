@@ -70,7 +70,7 @@ impl<'a> ClassParser<'a> {
         let mut attr_count = 0;
 
         if let Some(span) = self.tryv2("=") {
-            w.cp(Self::static_utf("ConstantValue", span));
+            w.cp(self.static_utf("ConstantValue", span));
             w.u32(2);
             w.cp(self.ldc_rhs()?);
             attr_count += 1;

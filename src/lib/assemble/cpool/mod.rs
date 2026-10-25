@@ -9,6 +9,7 @@ use crate::assemble::span::Error;
 use crate::assemble::span::ErrorMaker;
 use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
+use crate::util::mstr;
 pub use builder::BsAttrNameNeeded;
 use builder::PoolBuilder;
 use interner::Interner;
@@ -32,6 +33,18 @@ impl<'a> Pool<'a> {
             interner: Interner::default(),
             raw_defs: HashMap::new(),
             bs_raw_defs: HashMap::new(),
+        }
+    }
+
+    pub fn add_utf8(&mut self, span: Span<'a>, s: &'a mstr) -> RefType<'a> {
+        RefType::Index(self.sym_defs.add_inline(span, InlineConst::Utf8(s)))
+    }
+
+    // Returns the contents of r if it is an inline Utf8 constant
+    pub fn inline_utf8(&self, r: RefType<'a>) -> Option<&'a mstr> {
+        match r {
+            RefType::Index(ind) => self.sym_defs.inline_utf8(ind),
+            _ => None,
         }
     }
 

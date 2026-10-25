@@ -80,7 +80,7 @@ impl<'a> ClassParser<'a> {
                 let cls = self.cls_from(words[0])?;
                 let name = self.utf_from(words[1])?;
                 let desc = self.utf()?;
-                let nat = types::InlineNat(ns(name), ns(desc));
+                let nat = types::InlineNat(name, desc);
                 return Ok(Or::B(first.of(f(ns(cls), Or::B(nat)))));
             } else if words.len() == 1 {
                 let cls = self.cls_from(words[0])?;
@@ -118,7 +118,7 @@ impl<'a> ClassParser<'a> {
             _ => return self.err1("Expected Field, Method, InterfaceMethod, or ref", first),
         };
 
-        let nat = types::InlineNat(ns(name), ns(desc));
+        let nat = types::InlineNat(name, desc);
         Ok(Or::B(first.of(f(ns(cls), Or::B(nat)))))
     }
 
@@ -130,9 +130,9 @@ impl<'a> ClassParser<'a> {
             let desc = r
                 .as_b()
                 .and_then(|const_| match &const_.v {
-                    InlineConst::InterfaceMethod(_, nat) => {
-                        nat.as_b().and_then(|nat| nat.1.as_b().map(|utf| utf.0.as_bytes()))
-                    }
+                    InlineConst::InterfaceMethod(_, nat) => nat
+                        .as_b()
+                        .and_then(|nat| self.pool.inline_utf8(nat.1).map(|utf| utf.as_bytes())),
                     _ => None,
                 })
                 .ok_or_else(|| self.error1("Exceeded maximum bytecode length", debug_span))?;
@@ -542,7 +542,7 @@ impl<'a> ClassParser<'a> {
         if let Some((count, buf)) = self.stack_map_table.take() {
             if count > 0 && !state.no_implicit_stackmap {
                 let span = state.stack_map_table.debug_span.unwrap();
-                w.cp(Self::static_utf("StackMapTable", span));
+                w.cp(self.static_utf("StackMapTable", span));
                 w.u32(2 + buf.len() as u32);
                 w.u16(count);
                 w.extend_from_writer(buf);
@@ -593,7 +593,7 @@ impl<'a> ClassParser<'a> {
 
     pub fn parse_legacy_method_body(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
         let debug_span = self.peek()?.1;
-        w.cp(Self::static_utf("Code", debug_span));
+        w.cp(self.static_utf("Code", debug_span));
 
         let code_len_ph = w.ph32();
         let start_buf_len = w.len();

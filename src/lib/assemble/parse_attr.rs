@@ -10,7 +10,7 @@ use super::writer::Writer;
 pub enum AttrResult<'a> {
     Normal,
     ImplicitBootstrap {
-        name: Option<types::SymSpanUtf8<'a>>,
+        name: Option<types::RefType<'a>>,
         len: Option<u32>,
         span: Span<'a>,
     },
@@ -208,7 +208,11 @@ impl<'a> ClassParser<'a> {
         }
 
         let (name_str, body_cb) = self.get_parse_attr_body_fn(directive)?;
-        w.cp(name.unwrap_or(Self::static_utf(name_str, directive)));
+        let name = match name {
+            Some(name) => name,
+            None => self.static_utf(name_str, directive),
+        };
+        w.cp(name);
         let ph = w.ph32();
         let start_buf_len = w.len();
 

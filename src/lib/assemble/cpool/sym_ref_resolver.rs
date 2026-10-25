@@ -69,15 +69,15 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
             I::Double(v) => F::Double(v),
             I::Class(v) => F::Class(v),
             I::Str(v) => F::Str(v),
-            I::Field(cls, nat) => F::Field(self.add_sub(span, cls), self.add_sub(span, nat)),
-            I::Method(cls, nat) => F::Method(self.add_sub(span, cls), self.add_sub(span, nat)),
-            I::InterfaceMethod(cls, nat) => F::InterfaceMethod(self.add_sub(span, cls), self.add_sub(span, nat)),
+            I::Field(cls, nat) => F::Field(cls, nat),
+            I::Method(cls, nat) => F::Method(cls, nat),
+            I::InterfaceMethod(cls, nat) => F::InterfaceMethod(cls, nat),
             I::NameAndType(u1, u2) => F::NameAndType(u1, u2),
 
             I::MethodHandle(tag, val) => F::MethodHandle(tag, self.add_sub(span, *val)),
             I::MethodType(v) => F::MethodType(v),
-            I::Dynamic(bs, nat) => F::Dynamic(self.add_bs(bs), self.add_sub(span, nat)),
-            I::InvokeDynamic(bs, nat) => F::InvokeDynamic(self.add_bs(bs), self.add_sub(span, nat)),
+            I::Dynamic(bs, nat) => F::Dynamic(self.add_bs(bs), nat),
+            I::InvokeDynamic(bs, nat) => F::InvokeDynamic(self.add_bs(bs), nat),
             I::Module(v) => F::Module(v),
             I::Package(v) => F::Package(v),
         };
@@ -108,6 +108,13 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
     pub(super) fn inline_utf8(&self, ind: u32) -> Option<&'a mstr> {
         match self.consts[ind as usize].1 {
             FlatConst::Utf8(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub(super) fn inline_nat(&self, ind: u32) -> Option<(RefType<'a>, RefType<'a>)> {
+        match self.consts[ind as usize].1 {
+            FlatConst::NameAndType(name, desc) => Some((name, desc)),
             _ => None,
         }
     }

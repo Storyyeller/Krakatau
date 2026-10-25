@@ -1,5 +1,4 @@
 use super::class_parser::ClassParser;
-use super::class_parser::ns;
 use super::cpool::InlineConst;
 use super::cpool::Or;
 use super::cpool::types;
@@ -14,7 +13,7 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 struct ExceptionHandler<'a> {
-    cls: types::SymSpanClass<'a>,
+    cls: types::RefType<'a>,
     start: Span<'a>,
     end: Span<'a>,
     target: Span<'a>,
@@ -49,7 +48,7 @@ struct StackMapTable<'a> {
 impl<'a> ClassParser<'a> {
     fn legacy_fmim(
         &mut self,
-        f: fn(types::SymClassRef<'a>, types::SymNatRef<'a>) -> types::SymConstInline<'a>,
+        f: fn(types::RefType<'a>, types::RefType<'a>) -> types::SymConstInline<'a>,
     ) -> Result<types::SymSpanConst<'a>, Error> {
         // Hacks to support undocumented legacy syntax
         let first = self.peek()?.1;
@@ -59,7 +58,7 @@ impl<'a> ClassParser<'a> {
             // Legacy method syntax
             if self.has_type(TokenType::Word) || self.has_type(TokenType::StringLit) {
                 let nat = self.nat()?;
-                return Ok(Or::B(first.of(f(self.ref_from(first)?, ns(nat)))));
+                return Ok(Or::B(first.of(f(self.ref_type(first)?, nat))));
             }
             return self.ref_from(first);
         }
@@ -80,12 +79,12 @@ impl<'a> ClassParser<'a> {
                 let cls = self.cls_from(words[0])?;
                 let name = self.utf_from(words[1])?;
                 let desc = self.utf()?;
-                let nat = types::InlineNat(name, desc);
-                return Ok(Or::B(first.of(f(ns(cls), Or::B(nat)))));
+                let nat = self.pool.add_nat(first, name, desc);
+                return Ok(Or::B(first.of(f(cls, nat))));
             } else if words.len() == 1 {
                 let cls = self.cls_from(words[0])?;
                 let nat = self.nat()?;
-                return Ok(Or::B(first.of(f(ns(cls), ns(nat)))));
+                return Ok(Or::B(first.of(f(cls, nat))));
             }
         }
 
@@ -118,8 +117,8 @@ impl<'a> ClassParser<'a> {
             _ => return self.err1("Expected Field, Method, InterfaceMethod, or ref", first),
         };
 
-        let nat = types::InlineNat(name, desc);
-        Ok(Or::B(first.of(f(ns(cls), Or::B(nat)))))
+        let nat = self.pool.add_nat(first, name, desc);
+        Ok(Or::B(first.of(f(cls, nat))))
     }
 
     fn parse_invokeinterface(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
@@ -130,9 +129,10 @@ impl<'a> ClassParser<'a> {
             let desc = r
                 .as_b()
                 .and_then(|const_| match &const_.v {
-                    InlineConst::InterfaceMethod(_, nat) => nat
-                        .as_b()
-                        .and_then(|nat| self.pool.inline_utf8(nat.1).map(|utf| utf.as_bytes())),
+                    &InlineConst::InterfaceMethod(_, nat) => {
+                        let (_, desc) = self.pool.inline_nat(nat)?;
+                        self.pool.inline_utf8(desc).map(|utf| utf.as_bytes())
+                    }
                     _ => None,
                 })
                 .ok_or_else(|| self.error1("Exceeded maximum bytecode length", debug_span))?;

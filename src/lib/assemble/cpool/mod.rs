@@ -40,10 +40,26 @@ impl<'a> Pool<'a> {
         RefType::Index(self.sym_defs.add_inline(span, InlineConst::Utf8(s)))
     }
 
+    pub fn add_class(&mut self, span: Span<'a>, utf: RefType<'a>) -> RefType<'a> {
+        RefType::Index(self.sym_defs.add_inline(span, InlineConst::Class(utf)))
+    }
+
+    pub fn add_nat(&mut self, span: Span<'a>, name: RefType<'a>, desc: RefType<'a>) -> RefType<'a> {
+        RefType::Index(self.sym_defs.add_inline(span, InlineConst::NameAndType(name, desc)))
+    }
+
     // Returns the contents of r if it is an inline Utf8 constant
     pub fn inline_utf8(&self, r: RefType<'a>) -> Option<&'a mstr> {
         match r {
             RefType::Index(ind) => self.sym_defs.inline_utf8(ind),
+            _ => None,
+        }
+    }
+
+    // Returns the name and descriptor of r if it is an inline NameAndType constant
+    pub fn inline_nat(&self, r: RefType<'a>) -> Option<(RefType<'a>, RefType<'a>)> {
+        match r {
+            RefType::Index(ind) => self.sym_defs.inline_nat(ind),
             _ => None,
         }
     }

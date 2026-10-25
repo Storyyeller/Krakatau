@@ -129,14 +129,17 @@ impl<'a> ClassParser<'a> {
         self.utf_from(tok)
     }
 
-    pub fn cls_from(&mut self, tok: Token<'a>) -> Result<types::SymSpanClass<'a>, Error> {
-        match tok.0 {
-            TokenType::Ref => self.ref_from(tok.1),
-            _ => Ok(Or::B(tok.1.of(types::InlineClass(self.utf_from(tok)?)))),
-        }
+    pub fn cls_from(&mut self, tok: Token<'a>) -> Result<types::RefType<'a>, Error> {
+        Ok(match tok.0 {
+            TokenType::Ref => self.ref_type(tok.1)?,
+            _ => {
+                let utf = self.utf_from(tok)?;
+                self.pool.add_class(tok.1, utf)
+            }
+        })
     }
 
-    pub fn cls(&mut self) -> Result<types::SymSpanClass<'a>, Error> {
+    pub fn cls(&mut self) -> Result<types::RefType<'a>, Error> {
         let tok = self.next()?;
         self.cls_from(tok)
     }
@@ -152,14 +155,14 @@ impl<'a> ClassParser<'a> {
         }
     }
 
-    pub fn nat(&mut self) -> Result<types::SymSpanNat<'a>, Error> {
+    pub fn nat(&mut self) -> Result<types::RefType<'a>, Error> {
         let tok = self.next()?;
         if tok.0 == TokenType::Ref {
-            self.ref_from(tok.1)
+            self.ref_type(tok.1)
         } else {
             let name = self.utf_from(tok)?;
             let desc = self.utf()?;
-            Ok(Or::B(tok.1.of(types::InlineNat(name, desc))))
+            Ok(self.pool.add_nat(tok.1, name, desc))
         }
     }
 
@@ -249,9 +252,9 @@ impl<'a> ClassParser<'a> {
             "Module" => Module(self.utf()?),
             "Package" => Package(self.utf()?),
 
-            "Field" => Field(ns(self.cls()?), ns(self.nat()?)),
-            "Method" => Method(ns(self.cls()?), ns(self.nat()?)),
-            "InterfaceMethod" => InterfaceMethod(ns(self.cls()?), ns(self.nat()?)),
+            "Field" => Field(self.cls()?, self.nat()?),
+            "Method" => Method(self.cls()?, self.nat()?),
+            "InterfaceMethod" => InterfaceMethod(self.cls()?, self.nat()?),
 
             "NameAndType" => NameAndType(self.utf()?, self.utf()?),
             "MethodHandle" => {
@@ -259,8 +262,8 @@ impl<'a> ClassParser<'a> {
                 self.mhnotref(tag_span)?.v
             }
 
-            "Dynamic" => Dynamic(self.bsref()?, ns(self.nat()?)),
-            "InvokeDynamic" => InvokeDynamic(self.bsref()?, ns(self.nat()?)),
+            "Dynamic" => Dynamic(self.bsref()?, self.nat()?),
+            "InvokeDynamic" => InvokeDynamic(self.bsref()?, self.nat()?),
 
             _ => return self.err1("Unrecognized constant tag", span),
         })

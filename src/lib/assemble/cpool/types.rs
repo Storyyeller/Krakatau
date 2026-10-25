@@ -36,14 +36,6 @@ impl<A, B> Or<A, B> {
     }
 }
 
-pub type Class<'a, Ref> = Or<Ref, InlineClass<Ref>>;
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct InlineClass<Ref>(pub Ref);
-
-pub type Nat<'a, Ref> = Or<Ref, InlineNat<Ref>>;
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct InlineNat<Ref>(pub Ref, pub Ref);
-
 pub type Bs<'a, Ref> = Or<Ref, InlineBs<'a, Ref>>;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct InlineBs<'a, Ref>(pub Vec<SpanConst<'a, Ref>>);
@@ -61,15 +53,15 @@ pub enum InlineConst<'a, Ref> {
     Double(u64),
     Class(Ref),
     Str(Ref),
-    Field(Class<'a, Ref>, Nat<'a, Ref>),
-    Method(Class<'a, Ref>, Nat<'a, Ref>),
-    InterfaceMethod(Class<'a, Ref>, Nat<'a, Ref>),
+    Field(Ref, Ref),
+    Method(Ref, Ref),
+    InterfaceMethod(Ref, Ref),
     NameAndType(Ref, Ref),
 
     MethodHandle(u8, Box<Const<'a, Ref>>),
     MethodType(Ref),
-    Dynamic(Bs<'a, Ref>, Nat<'a, Ref>),
-    InvokeDynamic(Bs<'a, Ref>, Nat<'a, Ref>),
+    Dynamic(Bs<'a, Ref>, Ref),
+    InvokeDynamic(Bs<'a, Ref>, Ref),
     Module(Ref),
     Package(Ref),
 }
@@ -84,16 +76,6 @@ impl<'a, Ref> InlineConst<'a, Ref> {
 
 pub trait ToConst<'a, Ref> {
     fn to_const(self) -> InlineConst<'a, Ref>;
-}
-impl<'a, Ref> ToConst<'a, Ref> for InlineClass<Ref> {
-    fn to_const(self) -> InlineConst<'a, Ref> {
-        InlineConst::Class(self.0)
-    }
-}
-impl<'a, Ref> ToConst<'a, Ref> for InlineNat<Ref> {
-    fn to_const(self) -> InlineConst<'a, Ref> {
-        InlineConst::NameAndType(self.0, self.1)
-    }
 }
 impl<'a, Ref> ToConst<'a, Ref> for InlineConst<'a, Ref> {
     fn to_const(self) -> InlineConst<'a, Ref> {
@@ -122,14 +104,6 @@ pub enum RefType<'a> {
     Index(u32), // index into the unresolved consts or bs_consts table
     Sym(Spanned<'a, &'a str>),
 }
-
-pub type SymClassRef<'a> = Class<'a, RefType<'a>>;
-pub type SymSpanClass<'a> = Or<RefType<'a>, Spanned<'a, InlineClass<RefType<'a>>>>;
-// pub type SymClassInline<'a> = InlineClass<RefType<'a>>;
-
-pub type SymNatRef<'a> = Nat<'a, RefType<'a>>;
-pub type SymSpanNat<'a> = Or<RefType<'a>, Spanned<'a, InlineNat<RefType<'a>>>>;
-// pub type SymNatInline<'a> = InlineNat<RefType<'a>>;
 
 pub type SymConstRef<'a> = Const<'a, RefType<'a>>;
 pub type SymSpanConst<'a> = Or<RefType<'a>, Spanned<'a, InlineConst<'a, RefType<'a>>>>;

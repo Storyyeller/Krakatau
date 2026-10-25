@@ -1,0 +1,5 @@
+asm/bad/named_record_in_record.j:7:13 Invalid nested Record attribute
+        .attribute Record .record
+            a I .attributes
+            ^               
+            .end attributes

@@ -1,6 +1,6 @@
 use super::class_parser::ClassParser;
-use super::cpool::types;
 use super::cpool::InlineConst;
+use super::cpool::types;
 use super::span::Error;
 use super::span::Span;
 use super::string;
@@ -106,14 +106,14 @@ impl<'a> ClassParser<'a> {
             ".record" => ("Record", dotend_list! {"record", p, w, p.record_item(w)?}),
             ".runtime" => {
                 let tok = self.next()?;
-                let visible = match tok.1 .0 {
+                let visible = match tok.1.0 {
                     "visible" => true,
                     "invisible" => false,
                     _ => return self.err1("Expected visible or invisible", tok.1),
                 };
 
                 let tok = self.next()?;
-                match tok.1 .0 {
+                match tok.1.0 {
                     "annotations" => (
                         if visible {
                             "RuntimeVisibleAnnotations"
@@ -273,7 +273,7 @@ impl<'a> ClassParser<'a> {
 
     fn element_value(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
         let tok = self.next()?;
-        match tok.1 .0 {
+        match tok.1.0 {
             "annotation" => {
                 w.u8(64);
                 self.annotation(w, false)?;
@@ -438,6 +438,14 @@ impl<'a> ClassParser<'a> {
     }
 
     fn record_item(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
+        let debug_span = self.peek()?.1;
+        // Record attributes can only appear at classfile level.
+        // Krakatau is more lenient and merely prevents nesting.
+        if self.in_record_attr {
+            return self.err1("Invalid nested Record attribute", debug_span);
+        }
+        self.in_record_attr = true;
+
         w.cp(self.utf()?);
         w.cp(self.utf()?);
         if self.tryv(".attributes") {
@@ -455,6 +463,7 @@ impl<'a> ClassParser<'a> {
         } else {
             w.u16(0);
         }
+        self.in_record_attr = false;
         self.eol()
     }
 

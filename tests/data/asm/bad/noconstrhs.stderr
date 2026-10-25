@@ -1,0 +1,5 @@
+asm/bad/noconstrhs.j:5:14 Expected constant pool tag (Utf8, Int, String, NameAndType, etc.) or reference
+
+.const [r2] =
+             ^
+.end class

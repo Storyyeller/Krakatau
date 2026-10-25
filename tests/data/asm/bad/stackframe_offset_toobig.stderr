@@ -1,0 +1,5 @@
+asm/bad/stackframe_offset_toobig.j:73:16 Exceeded maximum bytecode offset (try using same_extended instead).
+        nop
+        .stack same
+               ^~~~ 
+

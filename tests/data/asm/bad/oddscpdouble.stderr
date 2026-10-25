@@ -1,0 +1,5 @@
+asm/bad/oddscpdouble.j:6:20 Exceeded maximum 65534 constants per class in constant pool
+    .code stack 10 locals 10
+    	ldc2_w 5.5
+                   ^~~ 
+    	return

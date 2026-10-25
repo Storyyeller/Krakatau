@@ -1,0 +1,5 @@
+asm/bad/badrawref.j:3:8 Invalid numeric reference
+.super java/lang/Object
+.const [65536] = Int 444
+       ^~~~~~~           
+.end class

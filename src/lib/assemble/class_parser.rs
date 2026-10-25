@@ -7,10 +7,10 @@ use typed_arena::Arena;
 
 use super::base_parser::BaseParser;
 use super::cpool;
-use super::cpool::types;
 use super::cpool::InlineConst;
 use super::cpool::Or;
 use super::cpool::Pool;
+use super::cpool::types;
 use super::flags::FlagList;
 use super::label::Pos;
 use super::parse_literal;
@@ -36,8 +36,11 @@ pub struct ClassParser<'a> {
     pub version: (u16, u16),
     pub pool: cpool::Pool<'a>,
     // Temporary values only set during parsing of Code attributes
+    pub in_code_attr: bool,
     pub labels: HashMap<&'a str, Pos>,
     pub stack_map_table: Option<(u16, Writer<'a>)>,
+    // Only set while parsing a Record attribute
+    pub in_record_attr: bool,
 }
 impl<'a> std::ops::Deref for ClassParser<'a> {
     type Target = BaseParser<'a>;
@@ -59,8 +62,10 @@ impl<'a> ClassParser<'a> {
             arena,
             version: (49, 0),
             pool,
+            in_code_attr: false,
             labels: HashMap::new(),
             stack_map_table: None,
+            in_record_attr: false,
         }
     }
 
@@ -98,11 +103,11 @@ impl<'a> ClassParser<'a> {
     pub fn utf_from(&self, tok: Token<'a>) -> Result<types::SymSpanUtf8<'a>, Error> {
         use TokenType::*;
         match tok.0 {
-            Word => self.make_utf_ref(tok.1 .0.as_bytes(), tok.1),
+            Word => self.make_utf_ref(tok.1.0.as_bytes(), tok.1),
             Ref => self.ref_from(tok.1),
             StringLit => {
                 // let bs = string::unescape(tok.1 .0).ok_or_else(|| self.error1("Invalid string literal", tok.1))?;
-                let bs = string::unescape(tok.1 .0).map_err(|(msg, s)| self.error1(msg, Span(s)))?;
+                let bs = string::unescape(tok.1.0).map_err(|(msg, s)| self.error1(msg, Span(s)))?;
                 let bs = self.arena.alloc(bs);
                 self.make_utf_ref(bs, tok.1)
             }
@@ -322,7 +327,7 @@ impl<'a> ClassParser<'a> {
     /////////////////////////////////////////////////////////////////////////////////////
     pub fn lbl(&mut self) -> Result<Span<'a>, Error> {
         let tok = self.next()?;
-        if tok.0 != TokenType::Word || !tok.1 .0.starts_with('L') {
+        if tok.0 != TokenType::Word || !tok.1.0.starts_with('L') {
             self.err1("Expected label", tok.1)
         } else {
             Ok(tok.1)

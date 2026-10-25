@@ -1,0 +1,5 @@
+asm/bad/exhaustcp_impsmt.j:36:13 Exceeded maximum 65534 constants per class in constant pool
+    .attribute [7] .code stack 10 locals 10
+    	.stack same
+            ^~~~~~      
+L0:     iconst_m1

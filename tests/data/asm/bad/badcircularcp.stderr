@@ -1,0 +1,5 @@
+asm/bad/badcircularcp.j:5:21 Circular definition of symbolic reference
+.const [1] = Class [r1]
+.const [r1] = Class [r1]
+                    ^~~~ 
+

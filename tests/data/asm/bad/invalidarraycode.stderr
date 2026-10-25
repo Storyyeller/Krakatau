@@ -1,0 +1,5 @@
+asm/bad/invalidarraycode.j:6:18 Error, expected 'boolean', 'byte', 'char', 'double', 'float', 'int', 'long', or 'short'.
+    .code stack 10 locals 10
+        newarray nop
+                 ^~~ 
+        return

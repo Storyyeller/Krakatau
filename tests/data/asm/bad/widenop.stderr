@@ -1,0 +1,5 @@
+asm/bad/widenop.j:6:14 Unrecognized wide bytecode opcode
+    .code stack 10 locals 10
+        wide nop
+             ^~~ 
+        return

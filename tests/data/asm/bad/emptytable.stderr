@@ -1,0 +1,5 @@
+asm/bad/emptytable.j:7:13 Expected label
+        tableswitch -2
+            default : LS2
+            ^~~~~~~       
+        LS2:

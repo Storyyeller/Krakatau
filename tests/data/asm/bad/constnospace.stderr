@@ -1,0 +1,8 @@
+asm/bad/constnospace.j:3:1 Error: Invalid token
+.super java/lang/Object
+.const[1] = Int 4
+^~~~~~            
+.end class
+asm/bad/constnospace.j:3:7 Hint: Try adding a space here.
+.const[1] = Int 4
+      ^           

@@ -1,12 +1,12 @@
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::bail;
 use clap::Parser;
 use std::path::PathBuf;
 
 use crate::file_input_util;
 use crate::file_output_util::Writer;
-use krakatau2::assemble;
 use krakatau2::AssemblerOptions;
+use krakatau2::assemble;
 
 #[derive(Parser)]
 pub struct AssemblerCli {
@@ -27,7 +27,7 @@ pub fn assembler_main(cli: AssemblerCli) -> Result<()> {
         let classes = match res {
             Ok(classes) => classes,
             Err(err) => {
-                err.display(fname, data);
+                eprint!("{}", err.format(fname, data));
                 error_count += 1;
                 return Ok(());
             }

@@ -1,0 +1,5 @@
+asm/bad/rawalias.j:4:14 Raw refs cannot be defined by another ref
+
+.const [1] = [2]
+             ^~~ 
+.end class

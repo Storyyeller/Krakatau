@@ -1,0 +1,5 @@
+asm/bad/undefinedref.j:6:13 Undefined symbolic reference
+    .code stack 10 locals 10
+        ldc [foo]
+            ^~~~~ 
+        return

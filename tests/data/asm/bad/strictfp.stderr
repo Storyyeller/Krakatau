@@ -1,0 +1,4 @@
+asm/bad/strictfp.j:1:23 Expected identifier or constant pool ref
+.class public strictfp
+                      ^
+.super java/lang/Object

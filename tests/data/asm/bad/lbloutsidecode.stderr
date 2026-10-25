@@ -1,0 +1,5 @@
+asm/bad/lbloutsidecode.j:5:13 Undefined label
+        .linenumbertable
+            L0 33
+            ^~    
+            L4 108

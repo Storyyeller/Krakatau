@@ -1,0 +1,5 @@
+asm/bad/badintlitval.j:3:18 Value must be in range -2147483648 <= 444444444444 <= 2147483647
+.super java/lang/Object
+.const [1] = Int 444444444444
+                 ^~~~~~~~~~~~ 
+.end class

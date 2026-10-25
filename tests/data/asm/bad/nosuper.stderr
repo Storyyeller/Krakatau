@@ -1,0 +1,4 @@
+asm/bad/nosuper.j:2:1 Expected .super
+.class public whocares
+.end class
+^~~~       

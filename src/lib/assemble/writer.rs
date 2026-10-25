@@ -1,12 +1,12 @@
 use std::fmt::Debug;
-use std::sync::atomic::AtomicBool;
 
-use super::cpool::types;
 use super::cpool::Or;
+use super::cpool::types;
 use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
 
 #[derive(Debug)]
+#[must_use]
 pub struct Placeholder<const N: usize>(usize);
 impl<const N: usize> Placeholder<N> {
     fn new(off: usize) -> Self {
@@ -20,21 +20,7 @@ impl<const N: usize> Placeholder<N> {
 
     fn into_range(self) -> std::ops::Range<usize> {
         let off = self.0;
-        std::mem::forget(self); // avoid drop check
         off..(off + N)
-    }
-
-    // Intentionally drop a placeholder whose bytes will never be written, without
-    // tripping the unused-placeholder debug check.
-    fn forget(self) {
-        std::mem::forget(self);
-    }
-}
-// temporary debug check to make sure placeholders are all used
-pub static UNUSED_PH: AtomicBool = AtomicBool::new(false);
-impl<const N: usize> Drop for Placeholder<N> {
-    fn drop(&mut self) {
-        UNUSED_PH.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 }
 fn assert_zero(buf: &mut [u8]) -> &mut [u8] {
@@ -151,17 +137,6 @@ impl<'a> Writer<'a> {
             self.w.fill(ph, f(r)?);
         }
         Ok(self.w)
-    }
-
-    // Discard a sub-writer whose bytes will not be emitted (e.g. stack map frames
-    // suppressed by legacy .noimplicitstackmap). 
-    pub fn discard(self) {
-        for (ph, _) in self.refs {
-            ph.forget();
-        }
-        for (ph, _, _) in self.ldc_refs {
-            ph.forget();
-        }
     }
 
     pub fn extend_from_writer(&mut self, w: Writer<'a>) {

@@ -1,0 +1,4 @@
+asm/bad/badescapes5.j:1:18 Illegal unicode code point value
+.class public '\U00110000'
+                 ^~~~~~~~  
+.super java/lang/Object

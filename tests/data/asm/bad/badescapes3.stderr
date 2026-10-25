@@ -1,0 +1,4 @@
+asm/bad/badescapes3.j:1:17 Illegal unicode escape
+.class public '\u3'
+                ^~~ 
+.super java/lang/Object

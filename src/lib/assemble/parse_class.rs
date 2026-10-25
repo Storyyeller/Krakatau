@@ -1,11 +1,11 @@
 use crate::util::mstr;
 
 use super::base_parser::BaseParser;
-use super::class_parser::ns;
 use super::class_parser::ClassParser;
-use super::cpool::types;
+use super::class_parser::ns;
 use super::cpool::BsAttrNameNeeded;
 use super::cpool::Or;
+use super::cpool::types;
 use super::parse_attr::AttrResult;
 use super::span::Error;
 use super::tokenize::TokenType;
@@ -101,7 +101,7 @@ impl<'a> ClassParser<'a> {
         let ph = w.ph();
         let mut attr_count = 0;
 
-        if self.peek()?.1 .0 == ".limit" {
+        if self.peek()?.1.0 == ".limit" {
             self.parse_legacy_method_body(w)?;
             attr_count = 1;
         } else {
@@ -171,7 +171,7 @@ impl<'a> ClassParser<'a> {
         let mut attr_count = 0;
 
         while let Ok(tok) = self.peek() {
-            match tok.1 .0 {
+            match tok.1.0 {
                 ".bootstrap" => self.parse_bootstrap_def()?,
                 ".const" => self.parse_const_def()?,
                 ".field" => {

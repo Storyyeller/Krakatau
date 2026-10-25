@@ -41,9 +41,6 @@ pub fn assemble(source: &str, _opts: AssemblerOptions) -> Result<Vec<(Option<Str
         results.push((class_name, data));
 
         base_parser = parser;
-        if writer::UNUSED_PH.load(std::sync::atomic::Ordering::Relaxed) {
-            panic!("Unused placeholder!");
-        }
     }
 
     Ok(results)

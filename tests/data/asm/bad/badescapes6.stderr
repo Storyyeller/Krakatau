@@ -1,0 +1,4 @@
+asm/bad/badescapes6.j:1:87 Illegal string escape
+.class public 'qqqqqqqqqqq\x32qqqqqqqqqqqq\u1111qqqqqq\U00100010qqqqqqqqqqqqqqqqqqq\n\b\t\rqqqqqqqqqqqqqqqqqqqqqqqq
+                                                                                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.super java/lang/Object

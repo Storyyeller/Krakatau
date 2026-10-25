@@ -32,11 +32,7 @@ impl<A, B> Or<A, B> {
     // }
 
     pub fn as_b(&self) -> Option<&B> {
-        if let Or::B(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Or::B(v) = self { Some(v) } else { None }
     }
 }
 

@@ -1,0 +1,7 @@
+asm/bad/badstring.j:1:15 Error: Invalid token
+.class public u'\u3'
+              ^      
+.super java/lang/Object
+asm/bad/badstring.j:1:16 Hint: Try adding a space here.
+.class public u'\u3'
+               ^     

@@ -1,0 +1,5 @@
+asm/bad/bscpmixup2.j:4:14 Unrecognized constant tag
+
+.const [1] = Bootstrap [1] :
+             ^~~~~~~~~       
+.end class

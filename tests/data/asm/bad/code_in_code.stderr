@@ -1,0 +1,5 @@
+asm/bad/code_in_code.j:9:13 Invalid nested Code attribute
+        .code stack 94 locals 2
+            return
+            ^~~~~~ 
+        .end code

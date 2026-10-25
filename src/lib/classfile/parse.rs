@@ -59,6 +59,7 @@ impl<'a> Class<'a> {
 
         let code_opts = CodeOptions {
             allow_short: version <= (45, 2) && !opts.no_short_code_attr,
+            ..CodeOptions::default()
         };
 
         let cp = ConstPool::new(r)?;

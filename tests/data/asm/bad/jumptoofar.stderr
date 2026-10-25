@@ -1,0 +1,5 @@
+asm/bad/jumptoofar.j:6:14 Bytecode offset must be -32768 <= x <= 32767, found 34003
+    .code stack 10 locals 10
+        goto LFOO
+             ^~~~ 
+

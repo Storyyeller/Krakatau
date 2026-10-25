@@ -1,0 +1,5 @@
+asm/bad/nonllabel.j:6:14 Expected label
+    .code stack 10 locals 10
+        goto FOO
+             ^~~ 
+        return

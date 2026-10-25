@@ -280,11 +280,7 @@ impl<'a> PoolBuilder<'a> {
 
         let num_consts = if let Some(range) = self.allocator.ranges.last() {
             // todo - test this
-            if range.last == 65534 {
-                range.first
-            } else {
-                65535
-            }
+            if range.last == 65534 { range.first } else { 65535 }
         } else {
             65535
         };

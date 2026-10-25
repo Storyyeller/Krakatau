@@ -171,10 +171,20 @@ pub struct RecordComponent<'a> {
     pub attrs: Vec<Attribute<'a>>,
 }
 impl<'a> RecordComponent<'a> {
-    fn new(r: &mut Reader<'a>, cp: &ConstPool<'a>, pset: Option<&PosSet>) -> Result<Self, ParseError> {
+    fn new(
+        r: &mut Reader<'a>,
+        cp: &ConstPool<'a>,
+        pset: Option<&PosSet>,
+        code_opts: code::CodeOptions,
+    ) -> Result<Self, ParseError> {
         let name = r.u16()?;
         let desc = r.u16()?;
-        let attrs = Attribute::new_list(r, cp, pset, code::CodeOptions::default())?;
+        let code_opts = code::CodeOptions {
+            allow_short: false,
+            in_record: true,
+            ..code_opts
+        };
+        let attrs = Attribute::new_list(r, cp, pset, code_opts)?;
         Ok(Self { name, desc, attrs })
     }
 }
@@ -340,7 +350,7 @@ impl<'a> AttrBody<'a> {
         let parsed = match name.as_bytes() {
             b"AnnotationDefault" => AnnotationDefault(Box::new(ElementValue::new(r)?)),
             b"BootstrapMethods" => BootstrapMethods(r.parse_list(BootstrapMethod::new)?),
-            b"Code" => {
+            b"Code" if !code_opts.in_code => {
                 let c = Code(code::Code::parse(r.clone(), cp, code_opts)?);
                 r.0 = &[];
                 c
@@ -360,7 +370,7 @@ impl<'a> AttrBody<'a> {
             b"NestHost" => NestHost(r.u16()?),
             b"NestMembers" => NestMembers(r.parse_list(|r| Ok(r.u16()?))?),
             b"PermittedSubclasses" => PermittedSubclasses(r.parse_list(|r| Ok(r.u16()?))?),
-            b"Record" => Record(r.parse_list(|r| RecordComponent::new(r, cp, pset))?),
+            b"Record" if !code_opts.in_record => Record(r.parse_list(|r| RecordComponent::new(r, cp, pset, code_opts))?),
 
             b"RuntimeInvisibleAnnotations" => RuntimeInvisibleAnnotations(r.parse_list(Annotation::new)?),
             b"RuntimeInvisibleParameterAnnotations" => {

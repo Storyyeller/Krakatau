@@ -117,7 +117,7 @@ impl<'a> Pool<'a> {
             .filter_map(|(ind, (_span, slot))| {
                 slot.map(|c| {
                     let span = self.sym_defs.const_span(c);
-                    Ok((ind, span, self.sym_defs.resolve_index(&mut self.interner, c)?))
+                    Ok((ind, span, self.sym_defs.resolve_index(&mut self.interner, c, span)?))
                 })
             })
             .collect::<Result<_, _>>()?;
@@ -126,7 +126,7 @@ impl<'a> Pool<'a> {
             .into_iter()
             .map(|(ind, (_span, bs))| {
                 let span = self.sym_defs.bs_span(bs);
-                Ok((ind, span, self.sym_defs.resolve_bs_index(&mut self.interner, bs)?))
+                Ok((ind, span, self.sym_defs.resolve_bs_index(&mut self.interner, bs, span)?))
             })
             .collect::<Result<_, _>>()?;
 

@@ -8,16 +8,8 @@ use crate::assemble::span::ErrorMaker;
 use crate::assemble::span::Span;
 use crate::assemble::span::Spanned;
 
-#[derive(Debug, Clone, Copy)]
-pub(super) enum Unresolved<'a> {
-    Index(u32), // index into consts or bs_consts table
-    Sym(Spanned<'a, &'a str>),
-}
-pub(super) type MaybeResolved<'a, T> = Or<Unresolved<'a>, T>;
-pub(super) type MaybeConstRef<'a> = MaybeResolved<'a, ConstRef>;
-pub(super) type MaybeBsRef<'a> = MaybeResolved<'a, BsRef>;
-type UnresolvedConst<'a> = FlatConst<'a, MaybeConstRef<'a>, MaybeBsRef<'a>>;
-type UnresolvedBs<'a> = FlatBsMeth<MaybeConstRef<'a>>;
+type UnresolvedConst<'a> = FlatConst<'a, RefType<'a>, RefType<'a>>;
+type UnresolvedBs<'a> = FlatBsMeth<RefType<'a>>;
 
 enum ResolveState<Lazy, Resolved> {
     Unresolved(Option<Lazy>),
@@ -32,8 +24,8 @@ pub(super) struct UnresolvedSymsDefsAndConsts<'a> {
     // a top level constant or bootstrap argument, for error reporting.
     consts: Vec<(Span<'a>, UnresolvedConst<'a>)>,
     bs_consts: Vec<UnresolvedBs<'a>>,
-    sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<MaybeConstRef<'a>, ConstRef>)>,
-    bs_sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<MaybeBsRef<'a>, BsRef>)>,
+    sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<RefType<'a>, ConstRef>)>,
+    bs_sym_defs: HashMap<&'a str, (Span<'a>, ResolveState<RefType<'a>, BsRef>)>,
 }
 impl<'a> UnresolvedSymsDefsAndConsts<'a> {
     pub(super) fn new(error_maker: ErrorMaker<'a>) -> Self {
@@ -49,25 +41,18 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
     ///////////////////////////////////////////////////////////////////////////
     // Temporary conversion from the parser's nested constants to table entries,
     // until the parser adds constants to the table directly.
-    fn add_ref<T>(r: RefType<'a>) -> MaybeResolved<'a, Or<u16, T>> {
+    pub(super) fn add_const(&mut self, r: SymSpanConst<'a>) -> RefType<'a> {
         match r {
-            RefType::Raw(ind) => Or::B(Or::A(ind)),
-            RefType::Sym(name) => Or::A(Unresolved::Sym(name)),
-        }
-    }
-
-    pub(super) fn add_const(&mut self, r: SymSpanConst<'a>) -> MaybeConstRef<'a> {
-        match r {
-            Or::A(r) => Self::add_ref(r),
-            Or::B(c) => Or::A(Unresolved::Index(self.add_inline(c.span, c.v))),
+            Or::A(r) => r,
+            Or::B(c) => RefType::Index(self.add_inline(c.span, c.v)),
         }
     }
 
     // Nested constants don't have their own spans, so use the parent's span
-    fn add_sub(&mut self, span: Span<'a>, r: Or<RefType<'a>, impl ToConst<'a, RefType<'a>>>) -> MaybeConstRef<'a> {
+    fn add_sub(&mut self, span: Span<'a>, r: Or<RefType<'a>, impl ToConst<'a, RefType<'a>>>) -> RefType<'a> {
         match r {
-            Or::A(r) => Self::add_ref(r),
-            Or::B(c) => Or::A(Unresolved::Index(self.add_inline(span, c.to_const()))),
+            Or::A(r) => r,
+            Or::B(c) => RefType::Index(self.add_inline(span, c.to_const())),
         }
     }
 
@@ -101,10 +86,10 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         ind
     }
 
-    fn add_bs(&mut self, r: SymBsRef<'a>) -> MaybeBsRef<'a> {
+    fn add_bs(&mut self, r: SymBsRef<'a>) -> RefType<'a> {
         match r {
-            Or::A(r) => Self::add_ref(r),
-            Or::B(bs) => Or::A(Unresolved::Index(self.add_bs_inline(bs))),
+            Or::A(r) => r,
+            Or::B(bs) => RefType::Index(self.add_bs_inline(bs)),
         }
     }
 
@@ -178,13 +163,11 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         }
     }
 
-    pub(super) fn resolve_ref(&mut self, interner: &mut Interner<'a>, r: MaybeConstRef<'a>) -> Result<ConstRef, Error> {
+    pub(super) fn resolve_ref(&mut self, interner: &mut Interner<'a>, r: RefType<'a>) -> Result<ConstRef, Error> {
         Ok(match r {
-            Or::B(r) => r,
-            Or::A(Unresolved::Index(ind)) => Or::B(self.resolve_index(interner, ind)?),
-            Or::A(Unresolved::Sym(name)) => {
-                self.resolve_sym_generic(interner, name, |this| &mut this.sym_defs, Self::resolve_ref)?
-            }
+            RefType::Raw(ind) => Or::A(ind),
+            RefType::Index(ind) => Or::B(self.resolve_index(interner, ind)?),
+            RefType::Sym(name) => self.resolve_sym_generic(interner, name, |this| &mut this.sym_defs, Self::resolve_ref)?,
         })
     }
 
@@ -192,13 +175,12 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
     pub(super) fn resolve_spanned(
         &mut self,
         interner: &mut Interner<'a>,
-        r: MaybeConstRef<'a>,
+        r: RefType<'a>,
     ) -> Result<Or<u16, Spanned<'a, ConstId>>, Error> {
         let span = match r {
-            Or::A(Unresolved::Index(ind)) => self.const_span(ind),
-            Or::A(Unresolved::Sym(name)) => name.span,
-            Or::B(Or::A(ind)) => return Ok(Or::A(ind)),
-            Or::B(Or::B(_)) => unreachable!("parser never produces interned constants"),
+            RefType::Raw(ind) => return Ok(Or::A(ind)),
+            RefType::Index(ind) => self.const_span(ind),
+            RefType::Sym(name) => name.span,
         };
         Ok(self.resolve_ref(interner, r)?.map_b(|id| span.of(id)))
     }
@@ -213,11 +195,11 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         Ok(interner.intern_const(c))
     }
 
-    fn resolve_bs_ref(&mut self, interner: &mut Interner<'a>, r: MaybeBsRef<'a>) -> Result<BsRef, Error> {
+    fn resolve_bs_ref(&mut self, interner: &mut Interner<'a>, r: RefType<'a>) -> Result<BsRef, Error> {
         Ok(match r {
-            Or::B(r) => r,
-            Or::A(Unresolved::Index(ind)) => Or::B(self.resolve_bs_index(interner, ind)?),
-            Or::A(Unresolved::Sym(name)) => {
+            RefType::Raw(ind) => Or::A(ind),
+            RefType::Index(ind) => Or::B(self.resolve_bs_index(interner, ind)?),
+            RefType::Sym(name) => {
                 self.resolve_sym_generic(interner, name, |this| &mut this.bs_sym_defs, Self::resolve_bs_ref)?
             }
         })

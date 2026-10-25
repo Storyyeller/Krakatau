@@ -30,6 +30,7 @@ impl<'a> ClassParser<'a> {
                 self.pool.add_raw_def(ind, lhs_span, rhs)?
             }
             types::RefType::Sym(name) => self.pool.add_sym_def(name, ns(rhs))?,
+            types::RefType::Index(_) => unreachable!(),
         };
 
         self.eol()
@@ -52,6 +53,7 @@ impl<'a> ClassParser<'a> {
                 self.pool.add_bs_raw_def(ind, lhs_span, rhs)?
             }
             types::RefType::Sym(name) => self.pool.add_bs_sym_def(name, ns(rhs))?,
+            types::RefType::Index(_) => unreachable!(),
         };
 
         self.eol()

@@ -110,9 +110,10 @@ impl<'a, Ref> ToConst<'a, Ref> for InlineConst<'a, Ref> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RefType<'a> {
     Raw(u16),
+    Index(u32), // index into the unresolved consts or bs_consts table
     Sym(Spanned<'a, &'a str>),
 }
 

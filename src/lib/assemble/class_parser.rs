@@ -7,10 +7,11 @@ use typed_arena::Arena;
 
 use super::base_parser::BaseParser;
 use super::cpool;
-use super::cpool::InlineConst;
+use super::cpool::FlatConst;
 use super::cpool::Or;
 use super::cpool::Pool;
-use super::cpool::types;
+use super::cpool::RefType;
+use super::cpool::UnresolvedConst;
 use super::flags::FlagList;
 use super::label::Pos;
 use super::parse_literal;
@@ -23,11 +24,6 @@ use super::writer::Writer;
 use crate::assemble::span::Spanned;
 use crate::mhtags;
 use crate::util::mstr;
-
-/// Shorthand function to convert spanned const ref to non-spanned version
-pub fn ns<'a, T, U>(r: Or<T, Spanned<'a, U>>) -> Or<T, U> {
-    r.map_b(|c| c.v)
-}
 
 pub struct ClassParser<'a> {
     pub parser: BaseParser<'a>,
@@ -69,7 +65,7 @@ impl<'a> ClassParser<'a> {
         }
     }
 
-    pub fn ref_type(&self, span: Span<'a>) -> Result<types::RefType<'a>, Error> {
+    pub fn ref_type(&self, span: Span<'a>) -> Result<RefType<'a>, Error> {
         lazy_static! {
             static ref DIGITS_RE: Regex = Regex::new(r"\A[0-9]+\z").unwrap();
         }
@@ -82,14 +78,10 @@ impl<'a> ClassParser<'a> {
 
         Ok(if DIGITS_RE.is_match(s) {
             let ind = s.parse().map_err(|_| self.error1("Invalid numeric reference", span))?;
-            types::RefType::Raw(ind)
+            RefType::Raw(ind)
         } else {
-            types::RefType::Sym(span.of(s))
+            RefType::Sym(span.of(s))
         })
-    }
-
-    pub fn ref_from<T>(&self, span: Span<'a>) -> Result<cpool::RefOr<'a, T>, Error> {
-        Ok(Or::A(self.ref_type(span)?))
     }
 
     fn make_utf(&self, b: &'a [u8], span: Span<'a>) -> Result<&'a mstr, Error> {
@@ -102,11 +94,11 @@ impl<'a> ClassParser<'a> {
 
     // Parse a utf8 ref or literal without adding the literal to the unresolved constant table or interner.
     // Parsed string literals are still allocated in the string arena.
-    fn utf_str_from(&self, tok: Token<'a>) -> Result<Or<types::RefType<'a>, &'a mstr>, Error> {
+    fn utf_str_from(&self, tok: Token<'a>) -> Result<Or<RefType<'a>, &'a mstr>, Error> {
         use TokenType::*;
         match tok.0 {
             Word => Ok(Or::B(self.make_utf(tok.1.0.as_bytes(), tok.1)?)),
-            Ref => self.ref_from(tok.1),
+            Ref => Ok(Or::A(self.ref_type(tok.1)?)),
             StringLit => {
                 // let bs = string::unescape(tok.1 .0).ok_or_else(|| self.error1("Invalid string literal", tok.1))?;
                 let bs = string::unescape(tok.1.0).map_err(|(msg, s)| self.error1(msg, Span(s)))?;
@@ -117,112 +109,112 @@ impl<'a> ClassParser<'a> {
         }
     }
 
-    pub fn utf_from(&mut self, tok: Token<'a>) -> Result<types::RefType<'a>, Error> {
+    pub fn utf_from(&mut self, tok: Token<'a>) -> Result<RefType<'a>, Error> {
         Ok(match self.utf_str_from(tok)? {
             Or::A(r) => r,
-            Or::B(s) => self.pool.add_utf8(tok.1, s),
+            Or::B(s) => self.pool.add_const(tok.1, FlatConst::Utf8(s)),
         })
     }
 
-    pub fn utf(&mut self) -> Result<types::RefType<'a>, Error> {
+    pub fn utf(&mut self) -> Result<RefType<'a>, Error> {
         let tok = self.next()?;
         self.utf_from(tok)
     }
 
-    pub fn cls_from(&mut self, tok: Token<'a>) -> Result<types::RefType<'a>, Error> {
+    pub fn cls_from(&mut self, tok: Token<'a>) -> Result<RefType<'a>, Error> {
         Ok(match tok.0 {
             TokenType::Ref => self.ref_type(tok.1)?,
             _ => {
                 let utf = self.utf_from(tok)?;
-                self.pool.add_class(tok.1, utf)
+                self.pool.add_const(tok.1, FlatConst::Class(utf))
             }
         })
     }
 
-    pub fn cls(&mut self) -> Result<types::RefType<'a>, Error> {
+    pub fn cls(&mut self) -> Result<RefType<'a>, Error> {
         let tok = self.next()?;
         self.cls_from(tok)
     }
 
-    pub fn single(
-        &mut self,
-        f: fn(types::RefType<'a>) -> types::SymConstInline<'a>,
-    ) -> Result<types::SymSpanConst<'a>, Error> {
+    pub fn single(&mut self, f: fn(RefType<'a>) -> UnresolvedConst<'a>) -> Result<RefType<'a>, Error> {
         let tok = self.next()?;
-        match tok.0 {
-            TokenType::Ref => self.ref_from(tok.1),
-            _ => Ok(Or::B(tok.1.of(f(self.utf_from(tok)?)))),
-        }
+        Ok(match tok.0 {
+            TokenType::Ref => self.ref_type(tok.1)?,
+            _ => {
+                let utf = self.utf_from(tok)?;
+                self.pool.add_const(tok.1, f(utf))
+            }
+        })
     }
 
-    pub fn nat(&mut self) -> Result<types::RefType<'a>, Error> {
+    pub fn nat(&mut self) -> Result<RefType<'a>, Error> {
         let tok = self.next()?;
         if tok.0 == TokenType::Ref {
             self.ref_type(tok.1)
         } else {
             let name = self.utf_from(tok)?;
             let desc = self.utf()?;
-            Ok(self.pool.add_nat(tok.1, name, desc))
+            Ok(self.pool.add_const(tok.1, FlatConst::NameAndType(name, desc)))
         }
     }
 
-    pub fn mhnotref(&mut self, tag_span: Span<'a>) -> Result<types::SymSpanConstInline<'a>, Error> {
+    fn mhnotref(&mut self, tag_span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
         let tag = mhtags::parse(tag_span.0).ok_or_else(|| self.error1("Invalid method handle tag", tag_span))?;
-        let body = Box::new(ns(self.ref_or_tagged_const()?));
-        Ok(tag_span.of(InlineConst::MethodHandle(tag, body)))
+        let body = self.ref_or_tagged_const()?;
+        Ok(FlatConst::MethodHandle(tag, body))
     }
 
-    pub fn bs_args(&mut self, mh: types::SymSpanConst<'a>) -> Result<types::SymBsInline<'a>, Error> {
-        let mut bsargs = vec![mh];
+    fn bs_args(&mut self, span: Span<'a>, mhref: RefType<'a>) -> Result<RefType<'a>, Error> {
+        let mut args = Vec::new();
         while !self.tryv(":") {
-            if bsargs.len() >= 65536 {
-                // Can have up to 65536 elements because initial mh doesn't count towards length
+            if args.len() >= 65535 {
                 // todo - add test
                 let next_span = self.peek()?.1;
                 return self.err1("Maximum number of arguments to bootstrap method (65535) exceeded", next_span);
             }
-            bsargs.push(self.ref_or_tagged_const()?);
+            args.push(self.ref_or_tagged_const()?);
         }
 
-        Ok(types::InlineBs(bsargs))
+        Ok(self.pool.add_bs(span, mhref, args))
     }
 
-    pub fn bsref(&mut self) -> Result<types::SymBsRef<'a>, Error> {
+    pub fn bsref(&mut self) -> Result<RefType<'a>, Error> {
         let tok = self.next()?;
         match tok.0 {
-            TokenType::BsRef => self.ref_from(tok.1),
+            TokenType::BsRef => self.ref_type(tok.1),
             TokenType::Word => {
-                let mh = Or::B(self.mhnotref(tok.1)?);
-                Ok(Or::B(self.bs_args(mh)?))
+                let mh = self.mhnotref(tok.1)?;
+                let mh = self.pool.add_const(tok.1, mh);
+                self.bs_args(tok.1, mh)
             }
             _ => self.err1("Expected methodhandle tag or bootstrap ref", tok.1),
         }
     }
 
-    pub fn float_from(&mut self, span: Span<'a>) -> Result<types::SymConstInline<'a>, Error> {
+    pub fn float_from(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
         let s = span.0.trim_end_matches('f');
-        Ok(InlineConst::Float(
+        Ok(FlatConst::Float(
             parse_literal::float(s).ok_or_else(|| self.error1("Invalid float literal", span))?,
         ))
     }
-    pub fn double_from(&mut self, span: Span<'a>) -> Result<types::SymConstInline<'a>, Error> {
-        Ok(InlineConst::Double(
+    pub fn double_from(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
+        Ok(FlatConst::Double(
             parse_literal::double(span.0).ok_or_else(|| self.error1("Invalid double literal", span))?,
         ))
     }
 
-    pub fn long_from(&mut self, span: Span<'a>) -> Result<types::SymConstInline<'a>, Error> {
+    pub fn long_from(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
         let s = span.0.trim_end_matches('L');
         let i = parse_literal::int::<i64>(s).ok_or_else(|| self.error1("Invalid long literal", span))?;
-        Ok(InlineConst::Long(i as u64))
+        Ok(FlatConst::Long(i as u64))
     }
-    pub fn int_from(&mut self, span: Span<'a>) -> Result<types::SymConstInline<'a>, Error> {
+    pub fn int_from(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
         let i = parse_literal::int::<i32>(span.0).ok_or_else(|| self.error1("Invalid integer literal", span))?;
-        Ok(InlineConst::Int(i as u32))
+        Ok(FlatConst::Int(i as u32))
     }
 
-    pub fn tagged_const_from(&mut self, span: Span<'a>) -> Result<types::SymConstInline<'a>, Error> {
-        use InlineConst::*;
+    pub fn tagged_const_from(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
+        use FlatConst::*;
 
         Ok(match span.0 {
             "Utf8" => {
@@ -259,7 +251,7 @@ impl<'a> ClassParser<'a> {
             "NameAndType" => NameAndType(self.utf()?, self.utf()?),
             "MethodHandle" => {
                 let tag_span = self.assert_type(TokenType::Word)?;
-                self.mhnotref(tag_span)?.v
+                self.mhnotref(tag_span)?
             }
 
             "Dynamic" => Dynamic(self.bsref()?, self.nat()?),
@@ -269,22 +261,25 @@ impl<'a> ClassParser<'a> {
         })
     }
 
-    pub fn ref_or_tagged_const(&mut self) -> Result<types::SymSpanConst<'a>, Error> {
+    pub fn ref_or_tagged_const(&mut self) -> Result<RefType<'a>, Error> {
         use TokenType::*;
         let tok = self.next()?;
         match tok.0 {
-            Ref => self.ref_from(tok.1),
-            Word => Ok(Or::B(tok.1.of(self.tagged_const_from(tok.1)?))),
+            Ref => self.ref_type(tok.1),
+            Word => {
+                let c = self.tagged_const_from(tok.1)?;
+                Ok(self.pool.add_const(tok.1, c))
+            }
             _ => self.err1("Expected constant pool tag (Utf8, Int, String, NameAndType, etc.) or reference", tok.1),
         }
     }
 
-    pub fn ref_or_tagged_bootstrap(&mut self) -> Result<types::SymSpanBs<'a>, Error> {
+    pub fn ref_or_tagged_bootstrap(&mut self) -> Result<RefType<'a>, Error> {
         use TokenType::*;
         let tok = self.next()?;
 
         match tok.0 {
-            BsRef => self.ref_from(tok.1),
+            BsRef => self.ref_type(tok.1),
             Word => {
                 let tag_span = tok.1;
                 if tag_span.0 != "Bootstrap" {
@@ -293,35 +288,41 @@ impl<'a> ClassParser<'a> {
 
                 let tok = self.next()?;
                 let mh = match tok.0 {
-                    Ref => self.ref_from(tok.1)?,
-                    Word => Or::B(self.mhnotref(tok.1)?),
+                    Ref => self.ref_type(tok.1)?,
+                    Word => {
+                        let mh = self.mhnotref(tok.1)?;
+                        self.pool.add_const(tok.1, mh)
+                    }
                     _ => return self.err1("Expected methodhandle tag or ref", tok.1),
                 };
-                Ok(Or::B(tag_span.of(self.bs_args(mh)?)))
+                self.bs_args(tag_span, mh)
             }
             _ => self.err1("Expected 'Bootstrap' or bootstrap reference", tok.1),
         }
     }
 
-    pub fn ldc_rhs(&mut self) -> Result<types::SymSpanConst<'a>, Error> {
+    pub fn ldc_rhs(&mut self) -> Result<RefType<'a>, Error> {
         use TokenType::*;
 
         let tok = self.next()?;
-        match tok.0 {
-            IntLit => Ok(Or::B(tok.1.of(self.int_from(tok.1)?))),
-            FloatLit => Ok(Or::B(tok.1.of(self.float_from(tok.1)?))),
-            LongLit => Ok(Or::B(tok.1.of(self.long_from(tok.1)?))),
-            DoubleLit => Ok(Or::B(tok.1.of(self.double_from(tok.1)?))),
-            StringLit => Ok(Or::B(tok.1.of(types::InlineConst::Str(self.utf_from(tok)?)))),
+        let c = match tok.0 {
+            IntLit => self.int_from(tok.1)?,
+            FloatLit => self.float_from(tok.1)?,
+            LongLit => self.long_from(tok.1)?,
+            DoubleLit => self.double_from(tok.1)?,
+            StringLit => FlatConst::Str(self.utf_from(tok)?),
 
-            Ref => self.ref_from(tok.1),
-            Word => Ok(Or::B(tok.1.of(self.tagged_const_from(tok.1)?))),
-            _ => self.err1("Expected constant pool tag (Utf8, Int, String, NameAndType, etc.) or reference", tok.1),
-        }
+            Ref => return self.ref_type(tok.1),
+            Word => self.tagged_const_from(tok.1)?,
+            _ => {
+                return self.err1("Expected constant pool tag (Utf8, Int, String, NameAndType, etc.) or reference", tok.1);
+            }
+        };
+        Ok(self.pool.add_const(tok.1, c))
     }
 
-    pub fn static_utf(&mut self, name: &'static str, span: Span<'a>) -> types::RefType<'a> {
-        self.pool.add_utf8(span, mstr::new(name.as_bytes()))
+    pub fn static_utf(&mut self, name: &'static str, span: Span<'a>) -> RefType<'a> {
+        self.pool.add_const(span, FlatConst::Utf8(mstr::new(name.as_bytes())))
     }
 
     pub fn flags(&mut self) -> Result<u16, Error> {

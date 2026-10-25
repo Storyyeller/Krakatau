@@ -2,9 +2,7 @@ use crate::util::mstr;
 
 use super::base_parser::BaseParser;
 use super::class_parser::ClassParser;
-use super::class_parser::ns;
 use super::cpool::BsAttrNameNeeded;
-use super::cpool::Or;
 use super::cpool::types;
 use super::parse_attr::AttrResult;
 use super::span::Error;
@@ -23,13 +21,12 @@ impl<'a> ClassParser<'a> {
 
         match lhs {
             types::RefType::Raw(ind) => {
-                let rhs = match rhs {
-                    Or::A(_) => return self.err1("Raw refs cannot be defined by another ref", rhs_span),
-                    Or::B(b) => b,
+                let types::RefType::Index(rhs) = rhs else {
+                    return self.err1("Raw refs cannot be defined by another ref", rhs_span);
                 };
                 self.pool.add_raw_def(ind, lhs_span, rhs)?
             }
-            types::RefType::Sym(name) => self.pool.add_sym_def(name, ns(rhs))?,
+            types::RefType::Sym(name) => self.pool.add_sym_def(name, rhs)?,
             types::RefType::Index(_) => unreachable!(),
         };
 
@@ -46,13 +43,12 @@ impl<'a> ClassParser<'a> {
 
         match lhs {
             types::RefType::Raw(ind) => {
-                let rhs = match rhs {
-                    Or::A(_) => return self.err1("Raw refs cannot be defined by another ref", rhs_span),
-                    Or::B(b) => b,
+                let types::RefType::Index(rhs) = rhs else {
+                    return self.err1("Raw refs cannot be defined by another ref", rhs_span);
                 };
                 self.pool.add_bs_raw_def(ind, lhs_span, rhs)?
             }
-            types::RefType::Sym(name) => self.pool.add_bs_sym_def(name, ns(rhs))?,
+            types::RefType::Sym(name) => self.pool.add_bs_sym_def(name, rhs)?,
             types::RefType::Index(_) => unreachable!(),
         };
 

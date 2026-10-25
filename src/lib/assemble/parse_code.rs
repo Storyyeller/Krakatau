@@ -1,6 +1,6 @@
 use super::class_parser::ClassParser;
-use super::cpool::InlineConst;
-use super::cpool::Or;
+use super::cpool::FlatConst;
+use super::cpool::UnresolvedConst;
 use super::cpool::types;
 use super::label::Pos;
 use super::span::Error;
@@ -48,8 +48,8 @@ struct StackMapTable<'a> {
 impl<'a> ClassParser<'a> {
     fn legacy_fmim(
         &mut self,
-        f: fn(types::RefType<'a>, types::RefType<'a>) -> types::SymConstInline<'a>,
-    ) -> Result<types::SymSpanConst<'a>, Error> {
+        f: fn(types::RefType<'a>, types::RefType<'a>) -> UnresolvedConst<'a>,
+    ) -> Result<types::RefType<'a>, Error> {
         // Hacks to support undocumented legacy syntax
         let first = self.peek()?.1;
 
@@ -58,9 +58,10 @@ impl<'a> ClassParser<'a> {
             // Legacy method syntax
             if self.has_type(TokenType::Word) || self.has_type(TokenType::StringLit) {
                 let nat = self.nat()?;
-                return Ok(Or::B(first.of(f(self.ref_type(first)?, nat))));
+                let cls = self.ref_type(first)?;
+                return Ok(self.pool.add_const(first, f(cls, nat)));
             }
-            return self.ref_from(first);
+            return self.ref_type(first);
         }
 
         // Official syntax requires Field, Method, or InterfaceMethod tag (or ref, handled above)
@@ -79,12 +80,12 @@ impl<'a> ClassParser<'a> {
                 let cls = self.cls_from(words[0])?;
                 let name = self.utf_from(words[1])?;
                 let desc = self.utf()?;
-                let nat = self.pool.add_nat(first, name, desc);
-                return Ok(Or::B(first.of(f(cls, nat))));
+                let nat = self.pool.add_const(first, FlatConst::NameAndType(name, desc));
+                return Ok(self.pool.add_const(first, f(cls, nat)));
             } else if words.len() == 1 {
                 let cls = self.cls_from(words[0])?;
                 let nat = self.nat()?;
-                return Ok(Or::B(first.of(f(cls, nat))));
+                return Ok(self.pool.add_const(first, f(cls, nat)));
             }
         }
 
@@ -117,24 +118,31 @@ impl<'a> ClassParser<'a> {
             _ => return self.err1("Expected Field, Method, InterfaceMethod, or ref", first),
         };
 
-        let nat = self.pool.add_nat(first, name, desc);
-        Ok(Or::B(first.of(f(cls, nat))))
+        let nat = self.pool.add_const(first, FlatConst::NameAndType(name, desc));
+        Ok(self.pool.add_const(first, f(cls, nat)))
+    }
+
+    // Returns the descriptor if r is an inline method constant with an inline NameAndType and descriptor
+    fn inline_method_desc(&self, r: types::RefType<'a>) -> Option<&'a [u8]> {
+        let FlatConst::InterfaceMethod(_, nat) = self.pool.get_inline(r)? else {
+            return None;
+        };
+        let FlatConst::NameAndType(_, desc) = self.pool.get_inline(nat)? else {
+            return None;
+        };
+        let FlatConst::Utf8(desc) = self.pool.get_inline(desc)? else {
+            return None;
+        };
+        Some(desc.as_bytes())
     }
 
     fn parse_invokeinterface(&mut self, w: &mut Writer<'a>) -> Result<(), Error> {
-        let r = self.legacy_fmim(InlineConst::InterfaceMethod)?;
+        let r = self.legacy_fmim(FlatConst::InterfaceMethod)?;
 
         let args = if self.has_type(TokenType::Newlines) {
             let debug_span = self.peek()?.1;
-            let desc = r
-                .as_b()
-                .and_then(|const_| match &const_.v {
-                    &InlineConst::InterfaceMethod(_, nat) => {
-                        let (_, desc) = self.pool.inline_nat(nat)?;
-                        self.pool.inline_utf8(desc).map(|utf| utf.as_bytes())
-                    }
-                    _ => None,
-                })
+            let desc = self
+                .inline_method_desc(r)
                 .ok_or_else(|| self.error1("Exceeded maximum bytecode length", debug_span))?;
 
             let mut count = 1;
@@ -757,8 +765,8 @@ impl<'a> ClassParser<'a> {
             "fstore_2" => (w.u8(69), ()).0,
             "fstore_3" => (w.u8(70), ()).0,
             "fsub" => (w.u8(102), ()).0,
-            "getfield" => (w.u8(180), w.cp(self.legacy_fmim(InlineConst::Field)?)).0,
-            "getstatic" => (w.u8(178), w.cp(self.legacy_fmim(InlineConst::Field)?)).0,
+            "getfield" => (w.u8(180), w.cp(self.legacy_fmim(FlatConst::Field)?)).0,
+            "getstatic" => (w.u8(178), w.cp(self.legacy_fmim(FlatConst::Field)?)).0,
             "goto" => (w.u8(167), self.short_jump_instr(pos, state, w)?).0,
             "goto_w" => (w.u8(200), self.long_jump_instr(pos, state, w)?).0,
             "i2b" => (w.u8(145), ()).0,
@@ -806,9 +814,9 @@ impl<'a> ClassParser<'a> {
             "instanceof" => (w.u8(193), w.cp(self.cls()?)).0,
             "invokedynamic" => (w.u8(186), w.cp(self.ref_or_tagged_const()?), w.u16(0)).0,
             "invokeinterface" => (w.u8(185), self.parse_invokeinterface(w)?).0,
-            "invokespecial" => (w.u8(183), w.cp(self.legacy_fmim(InlineConst::Method)?)).0,
-            "invokestatic" => (w.u8(184), w.cp(self.legacy_fmim(InlineConst::Method)?)).0,
-            "invokevirtual" => (w.u8(182), w.cp(self.legacy_fmim(InlineConst::Method)?)).0,
+            "invokespecial" => (w.u8(183), w.cp(self.legacy_fmim(FlatConst::Method)?)).0,
+            "invokestatic" => (w.u8(184), w.cp(self.legacy_fmim(FlatConst::Method)?)).0,
+            "invokevirtual" => (w.u8(182), w.cp(self.legacy_fmim(FlatConst::Method)?)).0,
             "ior" => (w.u8(128), ()).0,
             "irem" => (w.u8(112), ()).0,
             "ireturn" => (w.u8(172), ()).0,
@@ -867,8 +875,8 @@ impl<'a> ClassParser<'a> {
             "nop" => (w.u8(0), ()).0,
             "pop" => (w.u8(87), ()).0,
             "pop2" => (w.u8(88), ()).0,
-            "putfield" => (w.u8(181), w.cp(self.legacy_fmim(InlineConst::Field)?)).0,
-            "putstatic" => (w.u8(179), w.cp(self.legacy_fmim(InlineConst::Field)?)).0,
+            "putfield" => (w.u8(181), w.cp(self.legacy_fmim(FlatConst::Field)?)).0,
+            "putstatic" => (w.u8(179), w.cp(self.legacy_fmim(FlatConst::Field)?)).0,
             "ret" => (w.u8(169), w.u8(self.u8()?)).0,
             "return" => (w.u8(177), ()).0,
             "saload" => (w.u8(53), ()).0,

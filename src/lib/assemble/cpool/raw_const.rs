@@ -2,7 +2,7 @@ use crate::assemble::writer::BufWriter;
 use crate::util::mstr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) enum FlatConst<'a, Ref, BsRef> {
+pub enum FlatConst<'a, Ref, BsRef> {
     Utf8(&'a mstr),
 
     Int(u32),

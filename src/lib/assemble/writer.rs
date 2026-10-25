@@ -104,23 +104,23 @@ impl Debug for BufWriter {
 #[derive(Debug, Default)]
 pub struct Writer<'a> {
     w: BufWriter,
-    ldc_refs: Vec<(Placeholder<1>, types::SymSpanConst<'a>, Span<'a>)>,
-    refs: Vec<(Placeholder<2>, types::SymSpanConst<'a>)>,
+    ldc_refs: Vec<(Placeholder<1>, types::RefType<'a>, Span<'a>)>,
+    refs: Vec<(Placeholder<2>, types::RefType<'a>)>,
 }
 impl<'a> Writer<'a> {
-    pub fn cp(&mut self, r: impl types::ToSpanConst<'a>) {
+    pub fn cp(&mut self, r: types::RefType<'a>) {
         let ph = self.ph();
-        self.refs.push((ph, r.to_span_const()));
+        self.refs.push((ph, r));
     }
 
-    pub fn cp_ldc(&mut self, r: types::SymSpanConst<'a>, ldc_span: Span<'a>) {
+    pub fn cp_ldc(&mut self, r: types::RefType<'a>, ldc_span: Span<'a>) {
         let ph = self.ph8();
         self.ldc_refs.push((ph, r, ldc_span));
     }
 
     pub fn resolve_ldc_refs<E>(
         &mut self,
-        mut f: impl FnMut(types::SymSpanConst<'a>, Span<'a>) -> Result<u8, E>,
+        mut f: impl FnMut(types::RefType<'a>, Span<'a>) -> Result<u8, E>,
     ) -> Result<(), E> {
         for (ph, r, ldc_span) in self.ldc_refs.drain(..) {
             self.w.fill8(ph, f(r, ldc_span)?);
@@ -128,7 +128,7 @@ impl<'a> Writer<'a> {
         Ok(())
     }
 
-    pub fn resolve_refs<E>(mut self, mut f: impl FnMut(types::SymSpanConst<'a>) -> Result<u16, E>) -> Result<BufWriter, E> {
+    pub fn resolve_refs<E>(mut self, mut f: impl FnMut(types::RefType<'a>) -> Result<u16, E>) -> Result<BufWriter, E> {
         assert!(self.ldc_refs.is_empty());
         for (ph, r) in self.refs.drain(..) {
             self.w.fill(ph, f(r)?);

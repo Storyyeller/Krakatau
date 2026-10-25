@@ -1,5 +1,5 @@
 use super::class_parser::ClassParser;
-use super::cpool::InlineConst;
+use super::cpool::FlatConst;
 use super::cpool::types;
 use super::span::Error;
 use super::span::Span;
@@ -96,7 +96,7 @@ impl<'a> ClassParser<'a> {
                 w.cp(p.cls()?);
                 Ok(())
             }),
-            ".modulepackages" => ("ModulePackages", line_list! {p, w, w.cp(p.single(InlineConst::Package)?)}),
+            ".modulepackages" => ("ModulePackages", line_list! {p, w, w.cp(p.single(FlatConst::Package)?)}),
             ".nesthost" => ("NestHost", |p, w| {
                 w.cp(p.cls()?);
                 Ok(())
@@ -407,10 +407,10 @@ impl<'a> ClassParser<'a> {
         self.eol()?;
 
         let exports_item = |p: &mut Self, w: &mut Writer<'a>| {
-            w.cp(p.single(InlineConst::Package)?);
+            w.cp(p.single(FlatConst::Package)?);
             w.u16(p.flags()?);
             if p.tryv("to") {
-                p.list(w, ListKind::Line, |p, w| Ok(w.cp(p.single(InlineConst::Package)?)))?;
+                p.list(w, ListKind::Line, |p, w| Ok(w.cp(p.single(FlatConst::Package)?)))?;
             } else {
                 w.u16(0); // count of 0 targets
             }
@@ -418,7 +418,7 @@ impl<'a> ClassParser<'a> {
         };
 
         self.list(w, Greedy(".requires"), |p, w| {
-            w.cp(p.single(InlineConst::Module)?);
+            w.cp(p.single(FlatConst::Module)?);
             w.u16(p.flags()?);
             p.val("version")?;
             w.cp(p.utf()?);

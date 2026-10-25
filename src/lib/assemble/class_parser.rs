@@ -27,7 +27,7 @@ use crate::util::mstr;
 
 pub struct ClassParser<'a> {
     pub parser: BaseParser<'a>,
-    arena: &'a Arena<Vec<u8>>,
+    arena: &'a Arena<u8>,
 
     pub version: (u16, u16),
     pub pool: cpool::Pool<'a>,
@@ -51,7 +51,7 @@ impl<'a> std::ops::DerefMut for ClassParser<'a> {
     }
 }
 impl<'a> ClassParser<'a> {
-    pub fn new(parser: BaseParser<'a>, arena: &'a Arena<Vec<u8>>) -> Self {
+    pub fn new(parser: BaseParser<'a>, arena: &'a Arena<u8>) -> Self {
         let pool = Pool::new(*parser);
         Self {
             parser,
@@ -102,7 +102,7 @@ impl<'a> ClassParser<'a> {
             StringLit => {
                 // let bs = string::unescape(tok.1 .0).ok_or_else(|| self.error1("Invalid string literal", tok.1))?;
                 let bs = string::unescape(tok.1.0).map_err(|(msg, s)| self.error1(msg, Span(s)))?;
-                let bs = self.arena.alloc(bs);
+                let bs = self.arena.alloc_extend(bs);
                 Ok(Or::B(self.make_utf(bs, tok.1)?))
             }
             _ => self.err1("Expected identifier or constant pool ref", tok.1),

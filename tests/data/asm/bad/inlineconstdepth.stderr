@@ -1,0 +1,5 @@
+asm/bad/inlineconstdepth.j:5:222 Maximum nesting depth of inline constants (8) exceeded. Try using a symbolic reference instead.
+; Nested one level deeper than the maximum of 8
+.const [x] = MethodHandle invokeStatic MethodHandle invokeStatic MethodHandle invokeStatic MethodHandle invokeStati
+                                                                                                                   
+.end class

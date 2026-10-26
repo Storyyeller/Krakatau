@@ -25,6 +25,10 @@ use crate::assemble::span::Spanned;
 use crate::mhtags;
 use crate::util::mstr;
 
+// The disassembler never nests inline constants more than two deep. Deeper nesting can
+// always be written with symbolic references instead, which have no depth limit.
+const MAX_CONST_DEPTH: u32 = 8;
+
 pub struct ClassParser<'a> {
     pub parser: BaseParser<'a>,
     arena: &'a Arena<u8>,
@@ -37,6 +41,8 @@ pub struct ClassParser<'a> {
     pub stack_map_table: Option<(u16, Writer<'a>)>,
     // Only set while parsing a Record attribute
     pub in_record_attr: bool,
+    // Current nesting depth of inline constants, to avoid stack overflows
+    const_depth: u32,
 }
 impl<'a> std::ops::Deref for ClassParser<'a> {
     type Target = BaseParser<'a>;
@@ -62,6 +68,7 @@ impl<'a> ClassParser<'a> {
             labels: HashMap::new(),
             stack_map_table: None,
             in_record_attr: false,
+            const_depth: 0,
         }
     }
 
@@ -213,7 +220,23 @@ impl<'a> ClassParser<'a> {
         Ok(FlatConst::Int(i as u32))
     }
 
+    // Every cycle of recursion when parsing nested inline constants passes through here, so this is
+    // where the nesting depth is limited.
     pub fn tagged_const_from(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
+        if self.const_depth >= MAX_CONST_DEPTH {
+            let msg = format!(
+                "Maximum nesting depth of inline constants ({}) exceeded. Try using a symbolic reference instead.",
+                MAX_CONST_DEPTH
+            );
+            return self.err1str(msg, span);
+        }
+        self.const_depth += 1;
+        let res = self.tagged_const_sub(span);
+        self.const_depth -= 1;
+        res
+    }
+
+    fn tagged_const_sub(&mut self, span: Span<'a>) -> Result<UnresolvedConst<'a>, Error> {
         use FlatConst::*;
 
         Ok(match span.0 {

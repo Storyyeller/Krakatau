@@ -1,0 +1,5 @@
+asm/bad/undefinedref2.j:5:14 Undefined symbolic reference
+.const [a] = Class [b]
+.const [b] = [c]
+             ^~~ 
+.method public static f : ()V

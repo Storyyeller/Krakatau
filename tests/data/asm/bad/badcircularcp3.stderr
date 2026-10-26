@@ -1,0 +1,5 @@
+asm/bad/badcircularcp3.j:8:14 Circular definition of symbolic reference
+.const [z] = MethodType [w]
+.const [w] = [x]
+             ^~~ 
+.const [1] = String [x]

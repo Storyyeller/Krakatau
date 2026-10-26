@@ -1,0 +1,5 @@
+asm/bad/badcircularbsdyn.j:6:76 Circular definition of symbolic reference
+.const [d] = Dynamic [bs:b] a I
+.bootstrap [bs:b] = Bootstrap invokeStatic Method badcircularbsdyn bsm ()V [d] :
+                                                                           ^~~   
+.method public static f : ()V

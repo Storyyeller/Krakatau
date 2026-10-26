@@ -1,0 +1,5 @@
+asm/bad/badcircularbs.j:5:21 Circular definition of symbolic reference
+.bootstrap [bs:x] = [bs:y]
+.bootstrap [bs:y] = [bs:x]
+                    ^~~~~~ 
+.method public static f : ()V

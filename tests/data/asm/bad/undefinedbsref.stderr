@@ -1,0 +1,5 @@
+asm/bad/undefinedbsref.j:6:21 Undefined symbolic reference
+    .code stack 1 locals 0
+        ldc Dynamic [bs:nope] a I
+                    ^~~~~~~~~     
+        return

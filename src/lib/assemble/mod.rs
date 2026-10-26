@@ -3,6 +3,7 @@ mod class_parser;
 mod cpool;
 mod flags;
 mod label;
+mod parse_annot;
 mod parse_attr;
 mod parse_class;
 mod parse_code;

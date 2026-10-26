@@ -229,7 +229,11 @@ impl<'a> PoolBuilder<'a> {
         let bs_name_span = self.pending.last().map(|&(_, span, _)| span);
 
         let filler_const = RawConst::Utf8(mstr::new(b""));
-        let mut table = [Some(filler_const); 65535];
+        // This table is fixed size and hence could live on the stack,
+        // but put it on the heap instead so the assembler still works
+        // when run with a very small stack.
+        // let mut table = [Some(filler_const); 65535];
+        let mut table = vec![Some(filler_const); 65535];
         table[0] = None;
 
         while let Some((ind, _span, id)) = self.pending.pop() {

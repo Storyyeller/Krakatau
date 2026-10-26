@@ -6,7 +6,6 @@ mod file_input_util;
 mod file_output_util;
 
 use std::str;
-use std::thread;
 
 use clap::{Parser, Subcommand};
 
@@ -28,7 +27,7 @@ enum Command {
     Dis(DisassemblerCli),
 }
 
-fn real_main() -> i32 {
+fn main() {
     let cli = Cli::parse();
     let res = match cli.command {
         Command::Asm(cli) => assembler_main(cli),
@@ -37,14 +36,6 @@ fn real_main() -> i32 {
     if let Err(err) = res {
         println!("Error: {:?}", err);
         // set exit code 1 if there were errors
-        1
-    } else {
-        0
+        std::process::exit(1);
     }
-}
-fn main() {
-    // Workaround for limited stack size in Rust: Spawn a thread with 256mb stack and run everything there.
-    let child = thread::Builder::new().stack_size(256 * 1024 * 1024).spawn(real_main).unwrap();
-    std::process::exit(child.join().unwrap());
-    // std::process::exit(real_main());
 }

@@ -75,11 +75,11 @@ fn rel_name(path: &Path, base: &Path) -> String {
         .replace('\\', "/")
 }
 
-// Like Trial::test, but run on a small, fixed size stack, so that tests like annotationdepth catch
-// any unbounded recursion, even though the CLI uses a much larger stack (see main.rs).
+// Like Trial::test, but run on a 1MB stack, the smallest default main thread stack on common platforms (Windows),
+// since the CLI runs on the main thread. This catches both unbounded recursion and excessively large stack frames.
 fn trial(name: String, f: impl FnOnce() -> Result<(), Failed> + Send + 'static) -> Trial {
     Trial::test(name, move || {
-        let child = std::thread::Builder::new().stack_size(2 * 1024 * 1024).spawn(f).unwrap();
+        let child = std::thread::Builder::new().stack_size(1024 * 1024).spawn(f).unwrap();
         child.join().unwrap_or_else(|e| std::panic::resume_unwind(e))
     })
 }

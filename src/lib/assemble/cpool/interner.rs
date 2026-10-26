@@ -11,9 +11,7 @@ pub(super) struct ConstId(u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct BsId(u32);
 
-// Or::A is a raw reference (constant pool or bootstrap method index)
-pub(super) type ConstRef = Or<u16, ConstId>;
-pub(super) type BsRef = Or<u16, BsId>;
+// Or::A is a raw reference (constant pool or bootstrap method index).
 // Interned constants keep the span of the first occurrence of each child for error reporting.
 // Spanned ignores the span when comparing and hashing, so this doesn't affect deduplication.
 pub(super) type SpannedConstRef<'a> = Or<u16, Spanned<'a, ConstId>>;

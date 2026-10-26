@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::Infallible;
 
 use super::UnresolvedConst;
 use super::interner::*;
@@ -30,6 +31,33 @@ impl<'a, T, R> Entry<'a, T, R> {
             state: State::NotStarted,
         }
     }
+}
+
+impl<R> State<R> {
+    // Mark the entry as in progress if it hasn't been started yet. Returns whether resolution of the entry needs
+    // to start, or an error if it is already in progress, i.e. there is a circular definition.
+    fn start(&mut self) -> Result<bool, ()> {
+        match self {
+            State::NotStarted => {
+                *self = State::InProgress;
+                Ok(true)
+            }
+            State::InProgress => Err(()),
+            State::Done(_) => Ok(false),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Const,
+    Bs,
+}
+// Used to iteratively simulate the callstack context when resolving constants.
+// Resolution is done iteratively rather than with recursion to avoid stack overflows.
+enum Item<'a> {
+    Enter(Kind, RefType<'a>),
+    Exit(Kind, u32),
 }
 
 // Raw index (Or::A) or index into the unresolved constant or bootstrap table (Or::B)
@@ -82,6 +110,14 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         self.bs_consts[ind as usize].span
     }
 
+    /// Get a span from self.consts or self.bs_consts based on the kind.
+    fn entry_span(&self, kind: Kind, ind: u32) -> Span<'a> {
+        match kind {
+            Kind::Const => self.const_span(ind),
+            Kind::Bs => self.bs_span(ind),
+        }
+    }
+
     fn add_alias(
         error_maker: ErrorMaker<'a>,
         map: &mut AliasMap<'a>,
@@ -108,9 +144,9 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         Self::add_alias(self.error_maker, &mut self.bs_sym_defs, name, r)
     }
 
-    // Follow a chain of symbolic definitions to the raw ref or inline constant it ultimately refers to.
-    // The result is memoized for every name along the chain. Also returns the span of the last name
-    // in the chain, for reporting circular definitions.
+    /// Follow a chain of symbolic definitions to the raw ref or inline constant it ultimately refers to.
+    /// The result is memoized for every name along the chain. Also returns the span of the last name
+    /// in the chain, for reporting circular definitions.
     fn lookup_alias(
         error_maker: ErrorMaker<'a>,
         map: &mut AliasMap<'a>,
@@ -142,91 +178,136 @@ impl<'a> UnresolvedSymsDefsAndConsts<'a> {
         Ok((target, name.span))
     }
 
-    fn resolve_ref(&mut self, interner: &mut Interner<'a>, r: RefType<'a>) -> Result<ConstRef, Error> {
+    /// Find the raw index or table entry that a ref refers to, following symbolic definitions. For table entries,
+    /// also returns the span of the reference used to reach the entry, for reporting circular definitions.
+    fn lookup(&mut self, kind: Kind, r: RefType<'a>) -> Result<Or<u16, (u32, Span<'a>)>, Error> {
         let (target, span) = match r {
             RefType::Raw(ind) => return Ok(Or::A(ind)),
-            RefType::Index(ind) => (Or::B(ind), self.const_span(ind)),
-            RefType::Sym(name) => Self::lookup_alias(self.error_maker, &mut self.sym_defs, name)?,
+            RefType::Index(ind) => (Or::B(ind), self.entry_span(kind, ind)),
+            RefType::Sym(name) => {
+                let map = match kind {
+                    Kind::Const => &mut self.sym_defs,
+                    Kind::Bs => &mut self.bs_sym_defs,
+                };
+                Self::lookup_alias(self.error_maker, map, name)?
+            }
         };
-        Ok(match target {
-            Or::A(ind) => Or::A(ind),
-            Or::B(ind) => Or::B(self.resolve_index(interner, ind, span)?),
-        })
+        Ok(target.map_b(|ind| (ind, span)))
     }
 
-    // Resolve a top level constant or bootstrap argument, along with the span to use if it needs to be allocated
-    pub(super) fn resolve_spanned(
-        &mut self,
-        interner: &mut Interner<'a>,
-        r: RefType<'a>,
-    ) -> Result<SpannedConstRef<'a>, Error> {
+    /// Resolve and intern every table entry reachable from r. This uses an explicit stack rather than recursion,
+    /// since constants can be nested arbitrarily deeply. Children are visited left to right, so errors are
+    /// reported in the same order as a recursive traversal would.
+    fn resolve(&mut self, interner: &mut Interner<'a>, kind: Kind, r: RefType<'a>) -> Result<(), Error> {
+        let mut stack = vec![Item::Enter(kind, r)];
+        while let Some(item) = stack.pop() {
+            match item {
+                Item::Enter(kind, r) => {
+                    let Or::B((ind, span)) = self.lookup(kind, r)? else { continue };
+                    let started = match kind {
+                        Kind::Const => self.consts[ind as usize].state.start(),
+                        Kind::Bs => self.bs_consts[ind as usize].state.start(),
+                    };
+                    match started {
+                        Err(()) => return self.err1("Circular definition of symbolic reference", span),
+                        Ok(false) => {}
+                        Ok(true) => {
+                            stack.push(Item::Exit(kind, ind));
+                            self.push_children(&mut stack, kind, ind);
+                        }
+                    }
+                }
+                Item::Exit(Kind::Const, ind) => {
+                    let c = self.consts[ind as usize].val;
+                    let c = c.try_map(self, |s, r| s.get_resolved(r), |s, r| s.get_resolved_bs(r))?;
+                    self.consts[ind as usize].state = State::Done(interner.intern_const(c));
+                }
+                Item::Exit(Kind::Bs, ind) => {
+                    let bs = self.bs_consts[ind as usize].val.clone();
+                    let mhref = self.get_resolved(bs.mhref)?;
+                    let args = bs.args.into_iter().map(|r| self.get_resolved(r)).collect::<Result<_, _>>()?;
+                    self.bs_consts[ind as usize].state = State::Done(interner.intern_bs(FlatBsMeth { mhref, args }));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Push Enter items for the children of a table entry, in reverse order so they are visited left to right
+    fn push_children(&self, stack: &mut Vec<Item<'a>>, kind: Kind, ind: u32) {
+        let start = stack.len();
+        match kind {
+            Kind::Const => {
+                let _ = self.consts[ind as usize].val.try_map(
+                    stack,
+                    |st, r| Ok::<_, Infallible>(st.push(Item::Enter(Kind::Const, r))),
+                    |st, r| Ok(st.push(Item::Enter(Kind::Bs, r))),
+                );
+            }
+            Kind::Bs => {
+                let bs = &self.bs_consts[ind as usize].val;
+                stack.push(Item::Enter(Kind::Const, bs.mhref));
+                stack.extend(bs.args.iter().map(|&r| Item::Enter(Kind::Const, r)));
+            }
+        }
+        stack[start..].reverse(); // Move leftmost children to the top so they get visited first
+    }
+
+    /// Get the result for an already resolved constant ref, along with the span to use if it needs to be allocated
+    fn get_resolved(&mut self, r: RefType<'a>) -> Result<SpannedConstRef<'a>, Error> {
         let span = match r {
             RefType::Raw(ind) => return Ok(Or::A(ind)),
             RefType::Index(ind) => self.const_span(ind),
             RefType::Sym(name) => name.span,
         };
-        Ok(self.resolve_ref(interner, r)?.map_b(|id| span.of(id)))
-    }
-
-    // span is the span of the reference used to reach this entry, for reporting circular definitions
-    pub(super) fn resolve_index(&mut self, interner: &mut Interner<'a>, ind: u32, span: Span<'a>) -> Result<ConstId, Error> {
-        let e = &mut self.consts[ind as usize];
-        match e.state {
-            State::Done(id) => return Ok(id),
-            State::InProgress => return self.err1("Circular definition of symbolic reference", span),
-            State::NotStarted => e.state = State::InProgress,
-        }
-
-        let c = e.val.try_map(
-            &mut (&mut *self, &mut *interner),
-            |(s, i), r| s.resolve_spanned(i, r),
-            |(s, i), r| s.resolve_bs_spanned(i, r),
-        )?;
-        let id = interner.intern_const(c);
-        self.consts[ind as usize].state = State::Done(id);
-        Ok(id)
-    }
-
-    fn resolve_bs_ref(&mut self, interner: &mut Interner<'a>, r: RefType<'a>) -> Result<BsRef, Error> {
-        let (target, span) = match r {
-            RefType::Raw(ind) => return Ok(Or::A(ind)),
-            RefType::Index(ind) => (Or::B(ind), self.bs_span(ind)),
-            RefType::Sym(name) => Self::lookup_alias(self.error_maker, &mut self.bs_sym_defs, name)?,
-        };
-        Ok(match target {
+        Ok(match self.lookup(Kind::Const, r)? {
             Or::A(ind) => Or::A(ind),
-            Or::B(ind) => Or::B(self.resolve_bs_index(interner, ind, span)?),
+            Or::B((ind, _)) => match self.consts[ind as usize].state {
+                State::Done(id) => Or::B(span.of(id)),
+                _ => unreachable!(),
+            },
         })
     }
 
-    fn resolve_bs_spanned(&mut self, interner: &mut Interner<'a>, r: RefType<'a>) -> Result<SpannedBsRef<'a>, Error> {
+    fn get_resolved_bs(&mut self, r: RefType<'a>) -> Result<SpannedBsRef<'a>, Error> {
         let span = match r {
             RefType::Raw(ind) => return Ok(Or::A(ind)),
             RefType::Index(ind) => self.bs_span(ind),
             RefType::Sym(name) => name.span,
         };
-        Ok(self.resolve_bs_ref(interner, r)?.map_b(|id| span.of(id)))
+        Ok(match self.lookup(Kind::Bs, r)? {
+            Or::A(ind) => Or::A(ind),
+            Or::B((ind, _)) => match self.bs_consts[ind as usize].state {
+                State::Done(id) => Or::B(span.of(id)),
+                _ => unreachable!(),
+            },
+        })
     }
 
-    // span is the span of the reference used to reach this entry, for reporting circular definitions
-    pub(super) fn resolve_bs_index(&mut self, interner: &mut Interner<'a>, ind: u32, span: Span<'a>) -> Result<BsId, Error> {
-        let e = &mut self.bs_consts[ind as usize];
-        match e.state {
-            State::Done(id) => return Ok(id),
-            State::InProgress => return self.err1("Circular definition of symbolic reference", span),
-            State::NotStarted => e.state = State::InProgress,
-        }
+    /// Resolve a top level constant or bootstrap argument, along with the span to use if it needs to be allocated
+    pub(super) fn resolve_spanned(
+        &mut self,
+        interner: &mut Interner<'a>,
+        r: RefType<'a>,
+    ) -> Result<SpannedConstRef<'a>, Error> {
+        self.resolve(interner, Kind::Const, r)?;
+        self.get_resolved(r)
+    }
 
-        let bs = e.val.clone();
-        let mhref = self.resolve_spanned(interner, bs.mhref)?;
-        let args = bs
-            .args
-            .into_iter()
-            .map(|r| self.resolve_spanned(interner, r))
-            .collect::<Result<_, _>>()?;
-        let id = interner.intern_bs(FlatBsMeth { mhref, args });
-        self.bs_consts[ind as usize].state = State::Done(id);
-        Ok(id)
+    pub(super) fn resolve_index(&mut self, interner: &mut Interner<'a>, ind: u32) -> Result<ConstId, Error> {
+        self.resolve(interner, Kind::Const, RefType::Index(ind))?;
+        match self.consts[ind as usize].state {
+            State::Done(id) => Ok(id),
+            _ => unreachable!(),
+        }
+    }
+
+    pub(super) fn resolve_bs_index(&mut self, interner: &mut Interner<'a>, ind: u32) -> Result<BsId, Error> {
+        self.resolve(interner, Kind::Bs, RefType::Index(ind))?;
+        match self.bs_consts[ind as usize].state {
+            State::Done(id) => Ok(id),
+            _ => unreachable!(),
+        }
     }
 }
 impl<'a> std::ops::Deref for UnresolvedSymsDefsAndConsts<'a> {

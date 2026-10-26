@@ -1,0 +1,5 @@
+asm/bad/typeannotwrongend.j:10:10 Expected typeannotation
+        .end annotation
+    .end annotation
+         ^~~~~~~~~~ 
+.end runtime

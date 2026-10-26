@@ -1,0 +1,5 @@
+asm/bad/annotnoeol.j:9:24 Error: Expected end of line
+            ; A nested list must be followed by the end of the line, just like a scalar element value
+            .end array int 2
+                       ^~~   
+        .end array

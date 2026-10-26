@@ -1,0 +1,5 @@
+asm/bad/annotwrongend.j:9:14 Expected array
+            .end annotation
+        .end annotation
+             ^~~~~~~~~~ 
+    .end annotation

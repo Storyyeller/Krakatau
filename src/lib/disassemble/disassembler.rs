@@ -2,6 +2,8 @@ use super::flags::Flags;
 use super::refprinter::RefPrinter;
 use super::refprinter::SingleTag;
 use super::string::escape_byte_string;
+use crate::classfile::annotations::Annotation;
+use crate::classfile::annotations::ElementValue;
 use crate::classfile::attrs;
 use crate::classfile::attrs::AttrBody;
 use crate::classfile::attrs::Attribute;
@@ -648,7 +650,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
         Ok(())
     }
 
-    fn runtime_annotations(&mut self, kind: &'static str, lines: &[attrs::Annotation]) -> Result<()> {
+    fn runtime_annotations(&mut self, kind: &'static str, lines: &[Annotation]) -> Result<()> {
         writeln!(self.w, ".runtime {} annotations", kind)?;
         self.enter_block();
         for line in lines {
@@ -819,20 +821,20 @@ impl<'a, W: Write> Disassembler<'a, W> {
         Ok(())
     }
 
-    fn element_value(&mut self, ev: &attrs::ElementValue) -> Result<()> {
+    fn element_value(&mut self, ev: &ElementValue) -> Result<()> {
         match self.element_value_header(ev)? {
             Some(list) => self.print_lists(list),
             None => Ok(()),
         }
     }
 
-    // Print an annotation, not including the "annotation" keyword or the end line, which differ depending on context
-    fn annotation_contents(&mut self, anno: &attrs::Annotation) -> Result<()> {
+    /// Print an annotation, not including the "annotation" keyword or the end line, which differ depending on context
+    fn annotation_contents(&mut self, anno: &Annotation) -> Result<()> {
         let list = self.annotation_header(anno, None)?;
         self.print_lists(list)
     }
 
-    fn annotation_header<'b>(&mut self, anno: &'b attrs::Annotation, end: Option<&'static str>) -> Result<List<'b>> {
+    fn annotation_header<'b>(&mut self, anno: &'b Annotation, end: Option<&'static str>) -> Result<List<'b>> {
         writeln!(self.w, "{}", self.rp.utf(anno.0))?;
         self.enter_block();
         Ok(List {
@@ -841,12 +843,12 @@ impl<'a, W: Write> Disassembler<'a, W> {
         })
     }
 
-    // Print an element value. For annotations and arrays, only the header is printed, and the
-    // returned list must be printed by the caller.
-    fn element_value_header<'b>(&mut self, ev: &'b attrs::ElementValue) -> Result<Option<List<'b>>> {
+    /// Print an element value. For annotations and arrays, only the header is printed, and the
+    /// returned list must be printed by the caller.
+    fn element_value_header<'b>(&mut self, ev: &'b ElementValue) -> Result<Option<List<'b>>> {
         let rp = self.rp;
 
-        use attrs::ElementValue::*;
+        use ElementValue::*;
         match ev {
             Anno(anno) => {
                 write!(self.w, "annotation ")?;
@@ -877,9 +879,9 @@ impl<'a, W: Write> Disassembler<'a, W> {
         Ok(None)
     }
 
-    // Print the remaining contents of list and any lists nested inside it. Each iteration of the loop prints
-    // either one item or the end of the innermost list. Only the parents of the innermost list are kept on
-    // the stack.
+    /// Print the remaining contents of list and any lists nested inside it. Each iteration of the loop prints
+    /// either one item or the end of the innermost list. Only the parents of the innermost list are kept on
+    /// the stack.
     fn print_lists(&mut self, mut list: List<'_>) -> Result<()> {
         let rp = self.rp;
         let mut parents = Vec::new();
@@ -918,12 +920,12 @@ impl<'a, W: Write> Disassembler<'a, W> {
 }
 
 enum ListItems<'b> {
-    Anno(std::slice::Iter<'b, (u16, attrs::ElementValue)>),
-    Array(std::slice::Iter<'b, attrs::ElementValue>),
+    Anno(std::slice::Iter<'b, (u16, ElementValue)>),
+    Array(std::slice::Iter<'b, ElementValue>),
 }
 
-// An annotation or array element value whose contents are still being printed. Annotations and arrays can be
-// nested arbitrarily deeply, so they are printed using an explicit stack of these rather than recursion.
+/// An annotation or array element value whose contents are still being printed. Annotations and arrays can be
+/// nested arbitrarily deeply, so they are printed using an explicit stack of these rather than recursion.
 struct List<'b> {
     items: ListItems<'b>,
     // The line printed after the contents, if any

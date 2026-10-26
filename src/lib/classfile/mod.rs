@@ -1,3 +1,4 @@
+pub mod annotations;
 pub mod attrs;
 pub mod code;
 pub mod cpool;

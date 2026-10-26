@@ -115,7 +115,7 @@ impl SwitchTable {
         let high = r.i32()?;
         let count = (high - low + 1) as usize;
 
-        let mut table = Vec::with_capacity(count);
+        let mut table = Vec::new(); // Don't preallocate, in case count is invalid and would cause OOM
         for _ in 0..count {
             table.push(pos.off(r.i32()?)?);
         }
@@ -138,7 +138,7 @@ impl SwitchMap {
         let default = pos.off(r.i32()?)?;
         let count = r.i32()? as usize;
 
-        let mut table = Vec::with_capacity(count);
+        let mut table = Vec::new(); // Don't preallocate, in case count is invalid and would cause OOM
         for _ in 0..count {
             table.push((r.i32()?, pos.off(r.i32()?)?));
         }

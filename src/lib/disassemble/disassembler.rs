@@ -903,7 +903,7 @@ impl<'a, W: Write> Disassembler<'a, W> {
             } else {
                 self.exit_block();
                 if let Some(end) = list.end {
-                    writeln!(self.w, "{}{}", self.sol, end)?;
+                    write!(self.w, "{}{}", self.sol, end)?;
                 }
 
                 match parents.pop() {

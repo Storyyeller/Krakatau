@@ -140,10 +140,11 @@ impl<'a> ClassParser<'a> {
         let r = self.legacy_fmim(FlatConst::InterfaceMethod)?;
 
         let args = if self.has_type(TokenType::Newlines) {
+            // No explicit argument count, so it needs to be inferred from the method descriptor.
             let debug_span = self.peek()?.1;
-            let desc = self
-                .inline_method_desc(r)
-                .ok_or_else(|| self.error1("Exceeded maximum bytecode length", debug_span))?;
+            let desc = self.inline_method_desc(r).ok_or_else(|| {
+                self.error1("Method descriptor must be specified inline when argument count is omitted.", debug_span)
+            })?;
 
             let mut count = 1;
             let mut off = 1;

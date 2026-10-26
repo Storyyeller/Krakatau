@@ -1,0 +1,5 @@
+asm/bad/invokeinterfacenocount.j:8:96 Method descriptor must be specified inline when argument count is omitted.
+        ; The argument count can only be omitted if the method descriptor is given inline
+        invokeinterface InterfaceMethod java/util/function/LongUnaryOperator applyAsLong [desc]
+                                                                                               ^
+        return

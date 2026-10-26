@@ -820,25 +820,45 @@ impl<'a, W: Write> Disassembler<'a, W> {
     }
 
     fn element_value(&mut self, ev: &attrs::ElementValue) -> Result<()> {
+        match self.element_value_header(ev)? {
+            Some(list) => self.print_lists(list),
+            None => Ok(()),
+        }
+    }
+
+    // Print an annotation, not including the "annotation" keyword or the end line, which differ depending on context
+    fn annotation_contents(&mut self, anno: &attrs::Annotation) -> Result<()> {
+        let list = self.annotation_header(anno, None)?;
+        self.print_lists(list)
+    }
+
+    fn annotation_header<'b>(&mut self, anno: &'b attrs::Annotation, end: Option<&'static str>) -> Result<List<'b>> {
+        writeln!(self.w, "{}", self.rp.utf(anno.0))?;
+        self.enter_block();
+        Ok(List {
+            items: ListItems::Anno(anno.1.iter()),
+            end,
+        })
+    }
+
+    // Print an element value. For annotations and arrays, only the header is printed, and the
+    // returned list must be printed by the caller.
+    fn element_value_header<'b>(&mut self, ev: &'b attrs::ElementValue) -> Result<Option<List<'b>>> {
         let rp = self.rp;
 
         use attrs::ElementValue::*;
         match ev {
             Anno(anno) => {
                 write!(self.w, "annotation ")?;
-                self.annotation_contents(anno)?;
-                writeln!(self.w, "{}.end annotation", self.sol)?;
+                return Ok(Some(self.annotation_header(anno, Some(".end annotation"))?));
             }
             Array(vals) => {
                 writeln!(self.w, "array")?;
                 self.enter_block();
-                for val in vals {
-                    write!(self.w, "{}", self.sol)?;
-                    self.element_value(val)?;
-                    writeln!(self.w, "")?;
-                }
-                self.exit_block();
-                writeln!(self.w, "{}.end array", self.sol)?;
+                return Ok(Some(List {
+                    items: ListItems::Array(vals.iter()),
+                    end: Some(".end array"),
+                }));
             }
             Enum(r1, r2) => write!(self.w, "enum {} {}", rp.utf(*r1), rp.utf(*r2))?,
 
@@ -854,22 +874,60 @@ impl<'a, W: Write> Disassembler<'a, W> {
             Long(r) => write!(self.w, "long {}", rp.ldc(*r))?,
             Double(r) => write!(self.w, "double {}", rp.ldc(*r))?,
         }
-        Ok(())
+        Ok(None)
     }
 
-    fn annotation_contents(&mut self, anno: &attrs::Annotation) -> Result<()> {
+    // Print the remaining contents of list and any lists nested inside it. Each iteration of the loop prints
+    // either one item or the end of the innermost list. Only the parents of the innermost list are kept on
+    // the stack.
+    fn print_lists(&mut self, mut list: List<'_>) -> Result<()> {
         let rp = self.rp;
+        let mut parents = Vec::new();
+        loop {
+            let item = match &mut list.items {
+                ListItems::Anno(it) => it.next().map(|(name, v)| (Some(*name), v)),
+                ListItems::Array(it) => it.next().map(|v| (None, v)),
+            };
 
-        writeln!(self.w, "{}", rp.utf(anno.0))?;
-        self.enter_block();
-        for val in &anno.1 {
-            write!(self.w, "{}{} = ", self.sol, rp.utf(val.0))?;
-            self.element_value(&val.1)?;
-            writeln!(self.w, "")?;
+            if let Some((name, v)) = item {
+                match name {
+                    Some(name) => write!(self.w, "{}{} = ", self.sol, rp.utf(name))?,
+                    None => write!(self.w, "{}", self.sol)?,
+                }
+                match self.element_value_header(v)? {
+                    Some(child) => parents.push(std::mem::replace(&mut list, child)),
+                    None => writeln!(self.w, "")?,
+                }
+            } else {
+                self.exit_block();
+                if let Some(end) = list.end {
+                    writeln!(self.w, "{}{}", self.sol, end)?;
+                }
+
+                match parents.pop() {
+                    Some(parent) => {
+                        // A nested list is an item in its parent list, so it is followed by the end of the line.
+                        list = parent;
+                        writeln!(self.w, "")?;
+                    }
+                    None => return Ok(()),
+                }
+            }
         }
-        self.exit_block();
-        Ok(())
     }
+}
+
+enum ListItems<'b> {
+    Anno(std::slice::Iter<'b, (u16, attrs::ElementValue)>),
+    Array(std::slice::Iter<'b, attrs::ElementValue>),
+}
+
+// An annotation or array element value whose contents are still being printed. Annotations and arrays can be
+// nested arbitrarily deeply, so they are printed using an explicit stack of these rather than recursion.
+struct List<'b> {
+    items: ListItems<'b>,
+    // The line printed after the contents, if any
+    end: Option<&'static str>,
 }
 
 pub fn disassemble(mut w: impl Write, c: &Class, opts: DisassemblerOptions) -> Result<()> {

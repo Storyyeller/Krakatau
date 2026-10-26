@@ -75,11 +75,11 @@ fn rel_name(path: &Path, base: &Path) -> String {
         .replace('\\', "/")
 }
 
-// Like Trial::test, but run on a large stack like the CLI does (see main.rs), since the assembler
-// recurses deeply on some inputs.
+// Like Trial::test, but run on a small, fixed size stack, so that tests like annotationdepth catch
+// any unbounded recursion, even though the CLI uses a much larger stack (see main.rs).
 fn trial(name: String, f: impl FnOnce() -> Result<(), Failed> + Send + 'static) -> Trial {
     Trial::test(name, move || {
-        let child = std::thread::Builder::new().stack_size(256 * 1024 * 1024).spawn(f).unwrap();
+        let child = std::thread::Builder::new().stack_size(2 * 1024 * 1024).spawn(f).unwrap();
         child.join().unwrap_or_else(|e| std::panic::resume_unwind(e))
     })
 }

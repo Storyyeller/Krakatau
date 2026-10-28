@@ -362,7 +362,7 @@ impl<'a> RefPrinter<'a> {
     fn tagged_const_sub(&self, f: &mut fmt::Formatter, c: &ConstData) -> fmt::Result {
         use ConstData::*;
         match c {
-            Invalid => panic!("Internal error: Please report this!"),
+            Invalid => write!(f, "INVALID"),
             Utf8(ud) => write!(f, "Utf8 {}", ud.to_lit()),
             Prim(tag, s) => write!(f, "{:?} {}", tag, s),
             Single(tag, r) => write!(f, "{:?} {}", tag, self.utf(*r)),

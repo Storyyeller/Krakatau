@@ -1,4 +1,4 @@
-asm/bad/exhaustcp_impsmt.j:36:13 Exceeded maximum 65534 constants per class in constant pool
+asm/bad/exhaustcp_impsmt.j:36:13 Constant does not fit in constant pool (max 65534 constants per class)
     .attribute [7] .code stack 10 locals 10
     	.stack same
             ^~~~~~      

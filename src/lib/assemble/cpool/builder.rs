@@ -165,7 +165,7 @@ impl<'a> PoolBuilder<'a> {
         };
         let ind = slot.ok_or_else(|| {
             self.error_maker
-                .error1("Exceeded maximum 65534 constants per class in constant pool", span)
+                .error1("Constant does not fit in constant pool (max 65534 constants per class)", span)
         })?;
 
         if self.slots.len() <= id.index() {

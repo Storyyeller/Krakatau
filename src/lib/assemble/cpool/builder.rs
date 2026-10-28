@@ -232,8 +232,7 @@ impl<'a> PoolBuilder<'a> {
         // This table is fixed size and hence could live on the stack,
         // but put it on the heap instead so the assembler still works
         // when run with a very small stack.
-        // let mut table = [Some(filler_const); 65535];
-        let mut table = vec![Some(filler_const); 65535];
+        let mut table = vec![Some(filler_const); 65536];
         table[0] = None;
 
         while let Some((ind, _span, id)) = self.pending.pop() {

@@ -250,9 +250,9 @@ impl<'a> ClassParser<'a> {
         w.u16(self.version.0);
 
         let bs_attr_needed = match bs_attr_placeholder_info {
-            Some((Some(_), _, _span)) => BsAttrNameNeeded::Always,
+            Some((Some(_), _, span)) => BsAttrNameNeeded::Always(span),
             Some((None, _, _)) => BsAttrNameNeeded::Never,
-            None => BsAttrNameNeeded::IfPresent,
+            None => BsAttrNameNeeded::IfPresent(debug_span),
         };
         let class_name_ind = field_w.read_u16(2);
         let (assembled_bs_attr_info, class_name) = pool.end().build(&mut w, bs_attr_needed, class_name_ind)?;

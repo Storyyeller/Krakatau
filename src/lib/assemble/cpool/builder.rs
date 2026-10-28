@@ -85,9 +85,9 @@ impl ConstSlotAllocator {
     }
 }
 
-pub enum BsAttrNameNeeded {
-    Always,
-    IfPresent,
+pub enum BsAttrNameNeeded<'a> {
+    Always(Span<'a>),
+    IfPresent(Span<'a>),
     Never,
 }
 
@@ -214,7 +214,7 @@ impl<'a> PoolBuilder<'a> {
     pub fn build(
         mut self,
         cpwriter: &mut BufWriter,
-        bs_name_needed: BsAttrNameNeeded,
+        bs_name_needed: BsAttrNameNeeded<'a>,
         class_name_ind: u16,
     ) -> Result<(BsAttrInfo, Option<&'a mstr>), Error> {
         let raw_bs_defs = std::mem::take(&mut self.raw_bs_defs);
@@ -223,10 +223,6 @@ impl<'a> PoolBuilder<'a> {
             .map(|(ind, _span, id)| Ok((ind, self.resolve_bs_sub_refs(id)?)))
             .collect::<Result<_, _>>()?;
         let mut bs_table = BootstrapBuilder::new(resolved_bs_defs);
-
-        // Just choose a span arbitrarily to use for the case where we can't allocate
-        // a name for an implicit BootstrapMethods attribute later.
-        let bs_name_span = self.pending.last().map(|&(_, span, _)| span);
 
         let filler_const = RawConst::Utf8(mstr::new(b""));
         // This table is fixed size and hence could live on the stack,
@@ -247,15 +243,15 @@ impl<'a> PoolBuilder<'a> {
 
         let (buf, num_bs) = bs_table.finish();
         let name_needed = match bs_name_needed {
-            BsAttrNameNeeded::Always => true,
-            BsAttrNameNeeded::IfPresent => num_bs > 0,
-            BsAttrNameNeeded::Never => false,
+            BsAttrNameNeeded::Always(span) => Some(span),
+            BsAttrNameNeeded::IfPresent(span) => (num_bs > 0).then_some(span),
+            BsAttrNameNeeded::Never => None,
         };
 
-        let name = if name_needed {
+        let name = if let Some(span) = name_needed {
             let s = mstr::new(b"BootstrapMethods");
             let id = self.interner.intern_const(FlatConst::Utf8(s));
-            let slot = self.allocate(bs_name_span.unwrap(), id, false)?;
+            let slot = self.allocate(span, id, false)?;
             table[slot as usize] = Some(RawConst::Utf8(s));
             Some(slot)
         } else {

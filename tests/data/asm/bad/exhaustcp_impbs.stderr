@@ -1,5 +1,5 @@
-asm/bad/exhaustcp_impbs.j:65577:18 Exceeded maximum 65534 constants per class in constant pool
-.const [65533] = Utf8 ''
-.const [65534] = Utf8 ''
-                 ^~~~    
-
+asm/bad/exhaustcp_impbs.j:2:1 Exceeded maximum 65534 constants per class in constant pool
+.version 51 0
+.class public [1]
+^~~~~~            
+.super [4]

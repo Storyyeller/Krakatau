@@ -146,7 +146,7 @@ impl<'a> ClassParser<'a> {
                 self.error1("Method descriptor must be specified inline when argument count is omitted.", debug_span)
             })?;
 
-            let mut count = 1;
+            let mut count = 1u32; // use u32 to avoid overflow panics in debug builds for invalid descriptors
             let mut off = 1;
             while off < desc.len() {
                 match desc[off] {
@@ -158,7 +158,9 @@ impl<'a> ClassParser<'a> {
                     91 => {}
                     // J, D
                     68 | 74 => {
-                        count += 2;
+                        let last = desc[off-1];
+                        // [J and [D arrays take only 1 slot
+                        count += if last == 91 { 1 } else { 2 };
                     }
                     // L
                     76 => {
@@ -176,7 +178,7 @@ impl<'a> ClassParser<'a> {
                 off += 1;
             }
 
-            count
+            count as u8
         } else {
             self.u8()?
         };

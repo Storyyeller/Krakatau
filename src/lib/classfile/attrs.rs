@@ -339,7 +339,7 @@ impl<'a> AttrBody<'a> {
             }
 
             b"Signature" => Signature(r.u16()?),
-            b"SourceDebugExtension" => SourceDebugExtension(data),
+            b"SourceDebugExtension" => SourceDebugExtension(r.get(r.0.len())?),
             b"SourceFile" => SourceFile(r.u16()?),
             b"StackMapTable" => StackMapTable(code::StackMapTable::new(r, pset)?),
             b"Synthetic" => Synthetic,

@@ -113,7 +113,7 @@ impl SwitchTable {
         let default = pos.off(r.i32()?)?;
         let low = r.i32()?;
         let high = r.i32()?;
-        let count = (high - low + 1) as usize;
+        let count = high.saturating_sub(low).saturating_add(1) as usize; // avoid overflow panic in debug builds
 
         let mut table = Vec::new(); // Don't preallocate, in case count is invalid and would cause OOM
         for _ in 0..count {

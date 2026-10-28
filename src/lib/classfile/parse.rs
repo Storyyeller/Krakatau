@@ -77,7 +77,7 @@ impl<'a> Class<'a> {
             && methods.len() > 0
             && methods
                 .iter()
-                .all(|m| m.attrs.iter().all(Attribute::has_ambiguous_short_code));
+                .all(|m| m.attrs.iter().any(Attribute::has_ambiguous_short_code));
 
         if r.0.len() > 0 {
             return ParseError::s("Extra data at end of classfile");

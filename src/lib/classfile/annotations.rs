@@ -110,7 +110,7 @@ impl PendingList {
     fn anno(r: &mut Reader) -> Result<Self, ParseError> {
         let desc = r.u16()?;
         let remaining = r.u16()?;
-        let anno = Annotation(desc, Vec::with_capacity(remaining as usize));
+        let anno = Annotation(desc, Vec::new()); // Don't preallocate in case the count is invalid and would cause OOM
         Ok(Self {
             items: PendingItems::Anno(anno, 0),
             remaining,
@@ -120,7 +120,7 @@ impl PendingList {
     fn array(r: &mut Reader) -> Result<Self, ParseError> {
         let remaining = r.u16()?;
         Ok(Self {
-            items: PendingItems::Array(Vec::with_capacity(remaining as usize)),
+            items: PendingItems::Array(Vec::new()), // Don't preallocate in case the count is invalid and would cause OOM
             remaining,
         })
     }

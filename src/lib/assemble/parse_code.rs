@@ -382,8 +382,8 @@ impl<'a> ClassParser<'a> {
             }
             "chop" => {
                 let amt = self.u8()?;
-                if amt > 4 {
-                    return self.err1("Chop amount must be at most 4. Use a full frame to remove more items.", span);
+                if amt < 1 || amt > 3 {
+                    return self.err1("Chop amount must be 1-3. Use a full frame to remove more items.", span);
                 }
                 w.u8(251 - amt);
                 w.u16(offset);
@@ -396,7 +396,9 @@ impl<'a> ClassParser<'a> {
                 let ph = w.ph8();
                 w.u16(offset);
 
-                let mut tag = 251;
+                // Do first one outside of loop so we can require that at least one vtype is present.
+                self.parse_vtype(w, vtype_lbls)?;
+                let mut tag = 252;
                 while tag < 255 && self.has_type(TokenType::Word) {
                     self.parse_vtype(w, vtype_lbls)?;
                     tag += 1;

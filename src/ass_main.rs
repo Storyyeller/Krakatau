@@ -36,10 +36,14 @@ pub fn assembler_main(cli: AssemblerCli) -> Result<()> {
 
         for (name, out) in classes {
             let name = name.map(|name| format!("{}.class", name));
-            writer.write(name.as_deref(), &out)?;
+            if let Err(err) = writer.write(name.as_deref(), &out) {
+                eprintln!("Error writing output for {}: {:#}", fname, err);
+                error_count += 1;
+            }
         }
         Ok(())
     })?;
+    writer.finish()?;
 
     if error_count > 0 {
         bail!("Finished with {} errors", error_count);

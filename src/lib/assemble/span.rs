@@ -134,8 +134,12 @@ impl<'a> ErrorPrinter<'a> {
         // }
 
         // todo - better line limit
+        // Limit is in chars rather than bytes so that it can't split a char, and so lines stay aligned with the underline.
         fn trim(s: &str) -> &str {
-            &s[0..std::cmp::min(115, s.len())]
+            match s.char_indices().nth(115) {
+                Some((i, _)) => &s[..i],
+                None => s,
+            }
         }
 
         writeln!(out, "{}:{}:{} {}", self.fname, line_no + 1, start_ci + 1, msg).unwrap();

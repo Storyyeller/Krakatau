@@ -243,7 +243,7 @@ impl<'a> ClassParser<'a> {
             "Utf8" => {
                 let tok = self.next()?;
                 Utf8(match self.utf_str_from(tok)? {
-                    Or::A(_) => return self.err1("Expected identifier or string, not ref", span),
+                    Or::A(_) => return self.err1("Expected identifier or string, not ref", tok.1),
                     Or::B(s) => s,
                 })
             }

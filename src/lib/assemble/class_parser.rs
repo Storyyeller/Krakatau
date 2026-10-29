@@ -379,10 +379,7 @@ impl<'a> ClassParser<'a> {
 
     pub fn lblpos(&mut self) -> Result<Spanned<'a, Pos>, Error> {
         let span = self.lbl()?;
-        self.labels
-            .get(span.0)
-            .map(|p| span.of(*p))
-            .ok_or_else(|| self.error1("Undefined label", span))
+        self.lbl_to_pos(span)
     }
 
     fn convert_pos<T: TryFrom<i64> + Display>(&self, span: Span<'a>, v: i64, min: T, max: T) -> Result<T, Error> {

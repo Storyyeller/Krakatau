@@ -12,8 +12,9 @@ use crate::classfile::code::SwitchArena;
 use crate::classfile::parse::Class;
 use crate::classfile::parse::Field;
 
-use std::io::Result;
-use std::io::Write;
+use std::fmt::Write;
+
+type Result<T> = std::result::Result<T, std::fmt::Error>;
 
 static INDENT_BUF: &str = "                                        ";
 const ERROR: &str = "Internal error: Please report this!";

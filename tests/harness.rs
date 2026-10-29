@@ -196,7 +196,7 @@ fn assemble(source: &str) -> Result<Vec<(Option<String>, Vec<u8>)>, Failed> {
 fn disassemble(data: &[u8], parse_opts: ParserOptions, roundtrip: bool) -> Result<String, Failed> {
     let (_, out) = krakatau2::disassemble(data, parse_opts, DisassemblerOptions { roundtrip })
         .map_err(|err| format!("disassembly failed: {:?}", err))?;
-    Ok(String::from_utf8(out).unwrap())
+    Ok(out)
 }
 
 // Roundtrip disassembly must reassemble to identical bytes.

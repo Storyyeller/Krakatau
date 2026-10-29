@@ -48,7 +48,7 @@ pub fn disassembler_main(cli: DisassemblerCli) -> Result<()> {
             }
         };
         let name = name.map(|name| format!("{}.j", name));
-        if let Err(err) = writer.write(name.as_deref(), &out) {
+        if let Err(err) = writer.write(name.as_deref(), out.as_bytes()) {
             eprintln!("Error writing output for {}: {:#}", fname, err);
             error_count += 1;
         }

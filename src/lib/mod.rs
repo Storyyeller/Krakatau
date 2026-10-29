@@ -14,12 +14,12 @@ pub fn disassemble(
     data: &[u8],
     parse_opts: ParserOptions,
     opts: DisassemblerOptions,
-) -> Result<(Option<String>, Vec<u8>), classfile::ParseError> {
+) -> Result<(Option<String>, String), classfile::ParseError> {
     let parsed = classfile::parse(data, parse_opts)?;
 
     let name = parsed.cp.clsutf(parsed.this).and_then(parse_utf8);
 
-    let mut out = Vec::with_capacity(1000 + data.len() * 4);
+    let mut out = String::with_capacity(1000 + data.len() * 4);
     disassemble::disassemble(&mut out, &parsed, opts).expect("Internal error - please report this!");
     Ok((name, out))
 }

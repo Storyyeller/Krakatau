@@ -426,7 +426,7 @@ impl<'a> RefPrinter<'a> {
         LazyPrint(move |f: &mut fmt::Formatter| self.bsnotref(f, bsm, true))
     }
 
-    pub(super) fn print_const_defs(self, mut w: impl std::io::Write) -> std::io::Result<()> {
+    pub(super) fn print_const_defs(self, mut w: impl std::fmt::Write) -> std::fmt::Result {
         loop {
             let mut done = true;
             for (ind, line) in self.cpool.iter().enumerate() {

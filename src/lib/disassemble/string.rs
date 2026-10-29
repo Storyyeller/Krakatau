@@ -1,15 +1,14 @@
 use crate::util::mstr;
 
 use super::flags::ALL_FLAGS;
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Write;
 use std::str;
+use std::sync::LazyLock;
 
-lazy_static! {
-    static ref WORD_RE: Regex = Regex::new(r"\A(?:[a-zA-Z_$\(<]|\[[A-Z\[])[a-zA-Z0-9_$;/\[\(\)<>*+-]*\z").unwrap();
-}
+static WORD_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\A(?:[a-zA-Z_$\(<]|\[[A-Z\[])[a-zA-Z0-9_$;/\[\(\)<>*+-]*\z").unwrap());
 
 fn decode(mut iter: impl Iterator<Item = u8>, mut cb: impl FnMut(u16)) -> bool {
     while let Some(b) = iter.next() {

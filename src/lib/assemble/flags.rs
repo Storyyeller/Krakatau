@@ -29,13 +29,6 @@ const FLAG_PAIRS: [(&str, u16); 24] = [
     ("volatile", 0x0040),
 ];
 
-// fn parse_flag(s: &str) -> Option<u16> {
-//     lazy_static! {
-//         static ref FLAG_MAP: HashMap<&'static str, u16> = FLAG_PAIRS.iter().copied().collect();
-//     }
-//     FLAG_MAP.get(s).copied()
-// }
-
 /// Accumulate a bitset of flags while holding on to the last token in case it was meant to not be a flag
 pub struct FlagList {
     flags: u16,

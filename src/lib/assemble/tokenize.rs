@@ -1,6 +1,6 @@
-use lazy_static::lazy_static;
 use regex::Regex;
 use regex::RegexSet;
+use std::sync::LazyLock;
 
 use super::span::Error;
 use super::span::Span;
@@ -56,10 +56,9 @@ pub fn tokenize(source: &str) -> Result<Vec<Token<'_>>, Error> {
         r#"\A(?-u)[+-]?0x[0-9a-fA-F]+(?:\.[0-9a-fA-F]+)?(?:p[+-]?\d+)f?($|\s)"#, // hex float
     ];
 
-    lazy_static! {
-        static ref RE_SET: RegexSet = RegexSet::new(SET_PATTERNS).unwrap();
-        static ref RE_VEC: Vec<Regex> = SET_PATTERNS.iter().map(|pat| Regex::new(pat).unwrap()).collect();
-    }
+    static RE_SET: LazyLock<RegexSet> = LazyLock::new(|| RegexSet::new(SET_PATTERNS).unwrap());
+    static RE_VEC: LazyLock<Vec<Regex>> =
+        LazyLock::new(|| SET_PATTERNS.iter().map(|pat| Regex::new(pat).unwrap()).collect());
 
     let error1 = |msg, tok| Err(Error::new(source, vec![(msg, tok)]));
     let error2 = |msg, tok, msg2, tok2| Err(Error::new(source, vec![(msg, tok), (msg2, tok2)]));

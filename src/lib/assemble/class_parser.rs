@@ -1,8 +1,8 @@
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt::Display;
+use std::sync::LazyLock;
 use typed_arena::Arena;
 
 use super::base_parser::BaseParser;
@@ -73,9 +73,7 @@ impl<'a> ClassParser<'a> {
     }
 
     pub fn ref_type(&self, span: Span<'a>) -> Result<RefType<'a>, Error> {
-        lazy_static! {
-            static ref DIGITS_RE: Regex = Regex::new(r"\A[0-9]+\z").unwrap();
-        }
+        static DIGITS_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\A[0-9]+\z").unwrap());
 
         let s = span.0;
         let mut s = &s[1..s.len() - 1];

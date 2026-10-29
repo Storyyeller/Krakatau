@@ -162,10 +162,11 @@ impl<'a> ErrorPrinter<'a> {
     }
 }
 
+/// Error returned when assembly fails. Use `format` to display it with the relevant lines of the source code.
 #[derive(Debug)]
 pub struct Error(Vec<(String, SpanBounds)>);
 impl Error {
-    pub fn new(source: &str, pairs: Vec<(&str, Span<'_>)>) -> Self {
+    pub(crate) fn new(source: &str, pairs: Vec<(&str, Span<'_>)>) -> Self {
         Self(
             pairs
                 .into_iter()
@@ -185,6 +186,14 @@ impl Error {
         out
     }
 }
+// Without the source code, only the messages can be shown, not their locations.
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msgs: Vec<_> = self.0.iter().map(|(msg, _)| msg.as_str()).collect();
+        f.write_str(&msgs.join("\n"))
+    }
+}
+impl std::error::Error for Error {}
 
 #[derive(Clone, Copy)]
 pub struct ErrorMaker<'a> {

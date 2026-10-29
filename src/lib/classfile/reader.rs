@@ -1,10 +1,17 @@
+/// Error returned when a classfile can't be parsed for disassembly.
 #[derive(Debug)]
-pub struct ParseError(pub &'static str);
+pub struct ParseError(pub(crate) &'static str);
 impl ParseError {
-    pub fn s<T>(s: &'static str) -> Result<T, ParseError> {
+    pub(crate) fn s<T>(s: &'static str) -> Result<T, ParseError> {
         Err(ParseError(s))
     }
 }
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+impl std::error::Error for ParseError {}
 
 #[derive(Debug, Clone)]
 pub(super) struct Reader<'a>(pub(super) &'a [u8]);

@@ -42,7 +42,7 @@ pub fn disassembler_main(cli: DisassemblerCli) -> Result<()> {
         let (name, out) = match disassemble(&data, parse_opts, opts) {
             Ok(v) => v,
             Err(err) => {
-                eprintln!("Parse error in {}: {}", fname, err.0);
+                eprintln!("Parse error in {}: {}", fname, err);
                 error_count += 1;
                 return Ok(());
             }

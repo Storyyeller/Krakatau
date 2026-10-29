@@ -5,16 +5,18 @@ mod mhtags;
 mod util;
 
 pub use assemble::AssemblerOptions;
+pub use assemble::Error as AssemblerError;
 pub use assemble::assemble;
+pub use classfile::ParseError;
 pub use classfile::ParserOptions;
 pub use disassemble::DisassemblerOptions;
-pub use disassemble::string::parse_utf8;
+use disassemble::string::parse_utf8;
 
 pub fn disassemble(
     data: &[u8],
     parse_opts: ParserOptions,
     opts: DisassemblerOptions,
-) -> Result<(Option<String>, String), classfile::ParseError> {
+) -> Result<(Option<String>, String), ParseError> {
     let parsed = classfile::parse(data, parse_opts)?;
 
     let name = parsed.cp.clsutf(parsed.this).and_then(parse_utf8);

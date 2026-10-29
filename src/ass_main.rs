@@ -11,7 +11,7 @@ use krakatau2::assemble;
 #[derive(Parser)]
 pub struct AssemblerCli {
     input: PathBuf,
-    #[clap(short, long, parse(from_os_str))]
+    #[arg(short, long)]
     out: PathBuf,
 }
 

@@ -15,9 +15,9 @@ use dis_main::DisassemblerCli;
 use dis_main::disassembler_main;
 
 #[derive(Parser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     command: Command,
 }
 

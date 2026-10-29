@@ -12,13 +12,13 @@ use krakatau2::disassemble;
 #[derive(Parser)]
 pub struct DisassemblerCli {
     input: PathBuf,
-    #[clap(short, long, parse(from_os_str))]
+    #[arg(short, long)]
     out: Option<PathBuf>,
 
-    #[clap(short, long)]
+    #[arg(short, long)]
     roundtrip: bool,
 
-    #[clap(long)]
+    #[arg(long)]
     no_short_code_attr: bool,
 }
 

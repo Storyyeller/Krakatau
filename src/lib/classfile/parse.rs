@@ -4,7 +4,7 @@ use super::cpool::ConstPool;
 use super::reader::ParseError;
 use super::reader::Reader;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ParserOptions {
     pub no_short_code_attr: bool,
 }

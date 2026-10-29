@@ -28,7 +28,7 @@ static SHORT_CODE_WARNING: [&str; 6] = [
     "of the code instead.",
 ];
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct DisassemblerOptions {
     pub roundtrip: bool,
 }

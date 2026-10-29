@@ -21,7 +21,7 @@ use class_parser::ClassParser;
 pub use span::Error;
 use tokenize::tokenize;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AssemblerOptions {}
 
 pub fn assemble(source: &str, _opts: AssemblerOptions) -> Result<Vec<(Option<String>, Vec<u8>)>, Error> {

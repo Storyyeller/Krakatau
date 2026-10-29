@@ -29,7 +29,7 @@ pub fn tokenize(source: &str) -> Result<Vec<Token<'_>>, Error> {
     use TokenType::*;
 
     static SET_PATTERNS: &[&str] = &[
-        r"\A(?:;.*)?\s+",
+        r"\A(?:;.*)?($|\s+)",
         // COLON
         r"\A:($|\s)",
         // EQUALS

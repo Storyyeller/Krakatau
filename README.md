@@ -38,3 +38,8 @@ The `--out` option controls the output location. If the `--out` value is a direc
 ## Decompilation
 
 The v2 decompiler is still a work in progress. For decompilation, you currently need to use [Krakatau v1](https://github.com/Storyyeller/Krakatau/tree/master).
+
+
+## License
+
+The current version of Krakatau is licensed under your choice of the MIT or Apache 2 licenses. Krakatau v1 and v2 up through commit baa5534ab29dbfb7b62018bed897f52073974f2f were instead licensed under GPL3 or later.

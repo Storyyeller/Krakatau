@@ -1,0 +1,11 @@
+[package]
+name = "krak2"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+krakatau2 = { path = ".." }
+clap = { version = "4.6", features = ["derive"] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+anyhow = "1.0.70"

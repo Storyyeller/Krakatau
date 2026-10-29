@@ -1,32 +1,30 @@
 [package]
 name = "krakatau2"
-version = "2.0.0-alpha"
+version = "0.1.0"
 edition = "2024"
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = ["cli"]
+default-members = [".", "cli"]
+
 [dependencies]
-clap = { version = "4.6", features = ["derive"] }
 regex = "1.4.3"
-zip = { version = "8.6.0", default-features = false, features=["deflate"] }
 hexf-parse = "0.2.1"
 typed-arena = "2.0.1"
-anyhow = "1.0.70"
 
 
 [lib]
 name = "krakatau2"
 path = "src/lib/mod.rs"
 
-[[bin]]
-name = "krak2"
-path = "src/main.rs"
-
 [dev-dependencies]
 libtest-mimic = "0.8.2"
 sha2 = "0.11.1"
 similar = "3.2.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
 
 [[test]]
 name = "harness"

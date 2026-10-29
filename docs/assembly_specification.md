@@ -37,19 +37,19 @@ DOUBLE_LITERAL:
 
 A `WORD` consists of one or more ascii letters, digits, `_`, `$`, `;`, `/`, `[`, `(`, `)`, `<`, `>`, `*`, `+`, or `-`, except that it must start with a letter, `_`, `$`, `[`, `<`, or `(`, and if it starts with `[`, the second character must be `A-Z` (upper case) or `[`. (A token with `[` followed by a digit or lowercase letter is instead parsed as the `BSREF` or `REF` token type).
 
-`LONG_LITERAL` has the same format as `INT_LITERAL` followed by an uppcercase `L`. `FLOAT_LITERAL` has the same format as `DOUBLE_LITERAL` followed by a lowercase `f`.
+`LONG_LITERAL` has the same format as `INT_LITERAL` followed by an uppercase `L`. `FLOAT_LITERAL` has the same format as `DOUBLE_LITERAL` followed by a lowercase `f`.
 
 NaNs with a specific binary representation can be represented by suffixing with the hexadecimal value in angle brackets. For example, `-NaN<0x7ff0123456789abc>` or `+NaN<0xFFABCDEF>f`. This must have exactly 8 or 16 hex digits for float and double literals respectively.
 
-As an example of hexidecimal float literals, the minimum positive float is `0x0.000001p-125F` and the maximum negative double is `-0x0.0000000000001p-1022`. Likewise, the maximum denormal is `0x0.fffffffffffffp-1022`.
+As an example of hexadecimal float literals, the minimum positive float is `0x0.000001p-125f` and the maximum negative double is `-0x0.0000000000001p-1022`. Likewise, the maximum denormal is `0x0.fffffffffffffp-1022`.
 
-String literals may be double or single quoted, and may be proceeded by `b` to indicate a raw byte string. Additionally, the permitted escape sequences are as follows: `\\`, `\n`, `\r`, `\t`, `\"`, `\'`, `\uDDDD`, `\U00DDDDDD`, `\xDD`. `\u` and `\U` are 16 and 32 bit unicode escapes respectively, and must be followed by the appropriate hex digits. `\U` escapes must be a legal unicode code point. `\x` is a byte escape and can be used to represent non-ascii byte values in raw byte strings.
+String literals may be double or single quoted, and may be preceded by `b` to indicate a raw byte string. Additionally, the permitted escape sequences are as follows: `\\`, `\n`, `\r`, `\t`, `\"`, `\'`, `\uDDDD`, `\U00DDDDDD`, `\xDD`. `\u` and `\U` are 16 and 32 bit unicode escapes respectively, and must be followed by the appropriate hex digits. `\U` escapes must be a legal unicode code point. `\x` is a byte escape and can be used to represent non-ascii byte values in raw byte strings.
 
 
 
 ## Grammar
 
-The productions `u8`, `u16`, etc. rerepresent `INTEGER_LITERAL`s with value constrained to be an 8, 16, etc. bit unsigned integer. Likewise, `i8`, `i16`, etc. represent signed integer literals.
+The productions `u8`, `u16`, etc. represent `INT_LITERAL`s with value constrained to be an 8, 16, etc. bit unsigned integer. Likewise, `i8`, `i16`, etc. represent signed integer literals.
 
 The `flags` production represents zero or more of the tokens `"abstract"`, `"annotation"`, `"bridge"`, `"enum"`, `"final"`, `"interface"`, `"mandated"`, `"module"`, `"native"`, `"open"`, `"private"`, `"protected"`, `"public"`, `"static"`, `"static_phase"`, `"strict"`, `"strictfp"`, `"super"`, `"synchronized"`, `"synthetic"`, `"transient"`, `"transitive"`, `"varargs"`, `"volatile"`. Additionally, if the token following `flags` is a `WORD`, it must not be one of these values (in other words, `flags` is greedy).
 
@@ -552,7 +552,7 @@ ref_or_tagged_bootstrap:
     "Bootstrap" mhnotref bs_args
 
 ldc_rhs:
-    INTEGER_LITERAL
+    INT_LITERAL
     FLOAT_LITERAL
     LONG_LITERAL
     DOUBLE_LITERAL

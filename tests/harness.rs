@@ -189,31 +189,31 @@ fn check_snapshot(path: &Path, actual: &str) -> Result<(), Failed> {
     }
 }
 
-fn assemble(source: &str) -> Result<Vec<(Option<String>, Vec<u8>)>, Failed> {
+fn assemble(source: &str) -> Result<Vec<krakatau2::AssembledClass>, Failed> {
     krakatau2::assemble(source, AssemblerOptions {}).map_err(|err| err.format("<input>", source).into())
 }
 
 fn disassemble(data: &[u8], parse_opts: ParserOptions, roundtrip: bool) -> Result<String, Failed> {
-    let (_, out) = krakatau2::disassemble(data, parse_opts, DisassemblerOptions { roundtrip })
+    let cls = krakatau2::disassemble(data, parse_opts, DisassemblerOptions { roundtrip })
         .map_err(|err| format!("disassembly failed: {:?}", err))?;
-    Ok(out)
+    Ok(cls.data)
 }
 
 // Roundtrip disassembly must reassemble to identical bytes.
 fn check_roundtrip(data: &[u8], parse_opts: ParserOptions) -> Result<(), Failed> {
     let text = disassemble(data, parse_opts, true)?;
     let classes = assemble(&text).map_err(|e| format!("reassembly failed:\n{}", e.message().unwrap_or("")))?;
-    let [(_, new_data)] = &classes[..] else {
+    let [cls] = &classes[..] else {
         return Err(format!("reassembly produced {} classes", classes.len()).into());
     };
-    if new_data == data {
+    if cls.data == data {
         return Ok(());
     }
-    let new_text = disassemble(new_data, parse_opts, true)?;
+    let new_text = disassemble(&cls.data, parse_opts, true)?;
     Err(format!(
         "reassembled bytes differ ({} vs {} bytes), roundtrip disassembly diff:\n{}",
         data.len(),
-        new_data.len(),
+        cls.data.len(),
         diff(&text, &new_text)
     )
     .into())
@@ -326,7 +326,7 @@ fn asm_good_tests(trials: &mut Vec<Trial>, hashes: &Arc<Hashes>, dir: &Path, pre
         let (p, n) = (path.clone(), name.clone());
         trials.push(trial(format!("{}/hash", name), move || {
             let classes = assemble(&preprocess(&fs::read_to_string(&p).unwrap()))?;
-            let outputs: Vec<&[u8]> = classes.iter().map(|(_, data)| &data[..]).collect();
+            let outputs: Vec<&[u8]> = classes.iter().map(|cls| &cls.data[..]).collect();
             hashes.check(&n, &outputs, |dir| {
                 for (i, data) in outputs.iter().enumerate() {
                     let text = disassemble(data, DEFAULT_PARSE, true).unwrap_or_else(|e| format!("{:?}\n", e));
@@ -335,8 +335,8 @@ fn asm_good_tests(trials: &mut Vec<Trial>, hashes: &Arc<Hashes>, dir: &Path, pre
             })
         }));
         trials.push(trial(format!("{}/roundtrip", name), move || {
-            for (_, data) in assemble(&preprocess(&fs::read_to_string(&path).unwrap()))? {
-                check_roundtrip(&data, DEFAULT_PARSE)?;
+            for cls in assemble(&preprocess(&fs::read_to_string(&path).unwrap()))? {
+                check_roundtrip(&cls.data, DEFAULT_PARSE)?;
             }
             Ok(())
         }));

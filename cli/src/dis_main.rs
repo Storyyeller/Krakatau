@@ -39,7 +39,7 @@ pub fn disassembler_main(cli: DisassemblerCli) -> Result<()> {
         if cli.out.is_some() {
             println!("disassemble {}", fname);
         }
-        let (name, out) = match disassemble(&data, parse_opts, opts) {
+        let cls = match disassemble(&data, parse_opts, opts) {
             Ok(v) => v,
             Err(err) => {
                 eprintln!("Parse error in {}: {}", fname, err);
@@ -47,8 +47,8 @@ pub fn disassembler_main(cli: DisassemblerCli) -> Result<()> {
                 return Ok(());
             }
         };
-        let name = name.map(|name| format!("{}.j", name));
-        if let Err(err) = writer.write(name.as_deref(), out.as_bytes()) {
+        let name = cls.name.map(|name| format!("{}.j", name));
+        if let Err(err) = writer.write(name.as_deref(), cls.data.as_bytes()) {
             eprintln!("Error writing output for {}: {:#}", fname, err);
             error_count += 1;
         }

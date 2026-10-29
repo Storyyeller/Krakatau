@@ -41,9 +41,9 @@ pub fn assembler_main(cli: AssemblerCli) -> Result<()> {
         };
         println!("got {} classes", classes.len());
 
-        for (name, out) in classes {
-            let name = name.map(|name| format!("{}.class", name));
-            if let Err(err) = writer.write(name.as_deref(), &out) {
+        for cls in classes {
+            let name = cls.name.map(|name| format!("{}.class", name));
+            if let Err(err) = writer.write(name.as_deref(), &cls.data) {
                 eprintln!("Error writing output for {}: {:#}", fname, err);
                 error_count += 1;
             }

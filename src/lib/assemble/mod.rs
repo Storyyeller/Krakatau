@@ -24,7 +24,13 @@ use tokenize::tokenize;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AssemblerOptions {}
 
-pub fn assemble(source: &str, _opts: AssemblerOptions) -> Result<Vec<(Option<String>, Vec<u8>)>, Error> {
+#[derive(Debug, Clone)]
+pub struct AssembledClass {
+    pub name: Option<String>,
+    pub data: Vec<u8>,
+}
+
+pub fn assemble(source: &str, _opts: AssemblerOptions) -> Result<Vec<AssembledClass>, Error> {
     let tokens = tokenize(source)?;
     // for tok in &tokens {
     //     println!("{:?}", tok);
@@ -36,10 +42,9 @@ pub fn assemble(source: &str, _opts: AssemblerOptions) -> Result<Vec<(Option<Str
 
     while base_parser.has_tokens_left() {
         let parser = ClassParser::new(base_parser, &arena);
-        let (parser, (class_name, data)) = parser.parse()?;
-        // let class_name = class_name.and_then(|bs| std::str::from_utf8(bs).ok().map(str::to_owned));
-        let class_name = class_name.and_then(parse_utf8);
-        results.push((class_name, data));
+        let (parser, (name, data)) = parser.parse()?;
+        let name = name.and_then(parse_utf8);
+        results.push(AssembledClass { name, data });
 
         base_parser = parser;
     }

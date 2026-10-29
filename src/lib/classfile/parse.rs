@@ -21,7 +21,7 @@ impl<'a> Field<'a> {
         let access = r.u16()?;
         let name = r.u16()?;
         let desc = r.u16()?;
-        let attrs = Attribute::new_list(r, cp, None, code_opts)?;
+        let attrs = Attribute::new_list(r, cp, None, false, code_opts)?;
 
         Ok(Self {
             access,
@@ -71,7 +71,7 @@ impl<'a> Class<'a> {
         let interfaces = r.parse_list(|r| r.u16())?;
         let fields = r.parse_list(|r| Field::new(r, &cp, code_opts))?;
         let methods = r.parse_list(|r| Field::new(r, &cp, code_opts))?;
-        let attrs = Attribute::new_list(r, &cp, None, code_opts)?;
+        let attrs = Attribute::new_list(r, &cp, None, true, code_opts)?;
 
         let has_ambiguous_short_code = code_opts.allow_short
             && methods.len() > 0

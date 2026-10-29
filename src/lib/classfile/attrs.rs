@@ -135,7 +135,7 @@ impl<'a> RecordComponent<'a> {
             in_record: true,
             ..code_opts
         };
-        let attrs = Attribute::new_list(r, cp, pset, code_opts)?;
+        let attrs = Attribute::new_list(r, cp, pset, false, code_opts)?;
         Ok(Self { name, desc, attrs })
     }
 }
@@ -371,6 +371,7 @@ impl<'a> Attribute<'a> {
         cp: &ConstPool<'a>,
         pset: Option<&PosSet>,
         allow_stackmap: bool,
+        class_level: bool,
         code_opts: code::CodeOptions,
     ) -> Result<Self, ParseError> {
         let name_ind = r.u16()?;
@@ -378,7 +379,13 @@ impl<'a> Attribute<'a> {
 
         let name_utf = cp.utf8(name_ind).ok_or(ParseError("Attribute has invalid name index"))?;
 
-        let actual_length = if name_utf.as_bytes() == b"InnerClasses" {
+        // HotSpot parses recognized attributes based on their contents and then checks that the size matches
+        // the declared length, except for InnerClasses attributes in version 48 classfiles, where the check
+        // is skipped. Therefore, we determine the length of class level InnerClasses from the contents instead.
+        // In later versions, an invalid length makes the classfile invalid anyway, so there's no need to check.
+        // InnerClasses attributes at other levels are ignored by the JVM, so they are skipped using the declared
+        // length, like any other unrecognized attribute.
+        let actual_length = if class_level && name_utf.as_bytes() == b"InnerClasses" {
             r.clone().u16()? as u32 * 8 + 2
         } else {
             length
@@ -406,11 +413,12 @@ impl<'a> Attribute<'a> {
         r: &mut Reader<'a>,
         cp: &ConstPool<'a>,
         pset: Option<&PosSet>,
+        class_level: bool,
         code_opts: code::CodeOptions,
     ) -> Result<Vec<Self>, ParseError> {
         let mut allow_stackmap = true;
         r.parse_list(|r| {
-            let attr = Attribute::new(r, cp, pset, allow_stackmap, code_opts)?;
+            let attr = Attribute::new(r, cp, pset, allow_stackmap, class_level, code_opts)?;
             if let AttrBody::StackMapTable(..) = attr.body {
                 allow_stackmap = false;
             }

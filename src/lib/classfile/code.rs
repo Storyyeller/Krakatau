@@ -785,7 +785,7 @@ impl<'a> Code<'a> {
         let (bytecode, pset) = Bytecode::new(&mut Reader(r.get(bclen)?))?;
 
         let exceptions = r.parse_list(|r| Except::new(r, &pset))?;
-        let attrs = Attribute::new_list(r, cp, Some(&pset), CodeOptions { in_code: true, ..opts })?;
+        let attrs = Attribute::new_list(r, cp, Some(&pset), false, CodeOptions { in_code: true, ..opts })?;
 
         if r.0.len() > 0 {
             return ParseError::s("Extra data at end of Code attribute");

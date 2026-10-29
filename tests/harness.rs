@@ -229,10 +229,11 @@ fn read_classes(path: &Path) -> Vec<(String, Vec<u8>)> {
     let mut out = Vec::new();
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).unwrap();
-        if file.is_file() && file.name().ends_with(".class") {
+        let name = file.name().unwrap().into_owned();
+        if file.is_file() && name.ends_with(".class") {
             let mut buf = Vec::new();
             file.read_to_end(&mut buf).unwrap();
-            out.push((file.name().to_owned(), buf));
+            out.push((name, buf));
         }
     }
     out

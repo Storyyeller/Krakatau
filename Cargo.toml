@@ -26,7 +26,7 @@ path = "src/lib/mod.rs"
 libtest-mimic = "0.8.2"
 sha2 = "0.11.1"
 similar = "3.2.0"
-zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 
 [[test]]
 name = "harness"

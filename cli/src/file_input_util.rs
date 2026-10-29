@@ -26,7 +26,7 @@ pub fn read_files(p: &Path, ext: &str, mut cb: impl FnMut(&str, &[u8]) -> Result
             let mut file = zip.by_index_with_options(i, zip::read::ZipReadOptions::default().ignore_crc32(true))?;
             // println!("found {} {:?} {} {}", i, file.name(), file.size(), file.compressed_size());
 
-            let name = file.name().to_owned();
+            let name = file.name()?.into_owned();
             if !name.trim_end_matches('/').ends_with(&ext) {
                 continue;
             }

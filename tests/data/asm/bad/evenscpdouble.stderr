@@ -1,4 +1,4 @@
-asm/bad/evenscpdouble.j:6:20 Constant does not fit in constant pool (max 65534 constants per class)
+asm/bad/evenscpdouble.j:6:20 Constant does not fit in constant pool (max 65534 constants per class).
     .code stack 10 locals 10
     	ldc2_w 5.5
                    ^~~ 

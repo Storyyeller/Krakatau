@@ -164,8 +164,12 @@ impl<'a> PoolBuilder<'a> {
             self.allocator.alloc(is_ldc)
         };
         let ind = slot.ok_or_else(|| {
-            self.error_maker
-                .error1("Constant does not fit in constant pool (max 65534 constants per class)", span)
+            let msg = if is_ldc {
+                "Constant does not fit in constant pool. Consider using ldc_w instead of ldc."
+            } else {
+                "Constant does not fit in constant pool (max 65534 constants per class)."
+            };
+            self.error_maker.error1(msg, span)
         })?;
 
         if self.slots.len() <= id.index() {

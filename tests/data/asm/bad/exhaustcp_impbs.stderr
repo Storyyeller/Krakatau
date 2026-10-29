@@ -1,4 +1,4 @@
-asm/bad/exhaustcp_impbs.j:2:1 Constant does not fit in constant pool (max 65534 constants per class)
+asm/bad/exhaustcp_impbs.j:2:1 Constant does not fit in constant pool (max 65534 constants per class).
 .version 51 0
 .class public [1]
 ^~~~~~            

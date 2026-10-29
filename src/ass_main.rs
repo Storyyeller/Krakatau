@@ -21,7 +21,14 @@ pub fn assembler_main(cli: AssemblerCli) -> Result<()> {
     let mut writer = Writer::new(&cli.out)?;
     let mut error_count = 0;
     file_input_util::read_files(&cli.input, "j", |fname, data| {
-        let data = std::str::from_utf8(data).expect(".j files must be utf8-encoded");
+        let data = match std::str::from_utf8(data) {
+            Ok(data) => data,
+            Err(_) => {
+                eprintln!("{}: Error: .j files must be UTF-8 encoded", fname);
+                error_count += 1;
+                return Ok(());
+            }
+        };
         // let classes = assemble(&data, opts)?;
         let res = assemble(&data, opts);
         let classes = match res {

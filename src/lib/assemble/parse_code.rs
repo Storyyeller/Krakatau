@@ -158,7 +158,7 @@ impl<'a> ClassParser<'a> {
                     91 => {}
                     // J, D
                     68 | 74 => {
-                        let last = desc[off-1];
+                        let last = desc[off - 1];
                         // [J and [D arrays take only 1 slot
                         count += if last == 91 { 1 } else { 2 };
                     }

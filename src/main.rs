@@ -34,7 +34,7 @@ fn main() {
         Command::Dis(cli) => disassembler_main(cli),
     };
     if let Err(err) = res {
-        println!("Error: {:?}", err);
+        eprintln!("Error: {:?}", err);
         // set exit code 1 if there were errors
         std::process::exit(1);
     }
